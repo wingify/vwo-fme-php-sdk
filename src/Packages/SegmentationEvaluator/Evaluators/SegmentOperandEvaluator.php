@@ -1,0 +1,195 @@
+<?php
+
+/**
+ * Copyright 2024 Wingify Software Pvt. Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace vwo\Packages\SegmentationEvaluator\Evaluators;
+
+use vwo\Utils\VWOGatewayServiceUtil;
+use vwo\Enums\UrlEnum;
+use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandRegexEnum;
+use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandValueEnum;
+
+class SegmentOperandEvaluator {
+    public function evaluateCustomVariableDSL($dslOperandValue, $properties): bool {
+        $keyValue = SegmentEvaluator::getKeyValue($dslOperandValue);
+        $operandKey = $keyValue['key'];
+        $operand = $keyValue['value'];
+
+        if (!array_key_exists($operandKey, $properties)) {
+            return false;
+        }
+
+        if (preg_match(SegmentOperandRegexEnum::IN_LIST, $operand)) {
+            preg_match(SegmentOperandRegexEnum::IN_LIST, $operand, $matches);
+            if (!$matches || count($matches) < 2) {
+                echo "Invalid 'inList' operand format";
+                return false;
+            }
+
+            $tagValue = $properties[$operandKey];
+            $attributeValue = $this->preProcessTagValue($tagValue);
+
+            $listId = $matches[1];
+            $queryParamsObj = [
+                'attribute' => $attributeValue,
+                'listId' => $listId
+            ];
+
+            try {
+                $res = VWOGatewayServiceUtil::getFromVWOGatewayService($queryParamsObj, UrlEnum::ATTRIBUTE_CHECK);
+                if (!$res || $res === null || $res === 'false') {
+                    return false;
+                }
+                return $res;
+            } catch (\Exception $error) {
+                echo "Error while fetching data:", $error->getMessage();
+                return false;
+            }
+        } else {
+            $tagValue = $properties[$operandKey];
+            $tagValue = $this->preProcessTagValue($tagValue);
+            $operandTypeAndValue = $this->preProcessOperandValue($operand);
+            $processedValues = $this->processValues($operandTypeAndValue['operandValue'], $tagValue);
+            $tagValue = $processedValues['tagValue'];
+            return $this->extractResult($operandTypeAndValue['operandType'], $processedValues['operandValue'], $tagValue);
+        }
+    }
+
+    public function evaluateUserDSL($dslOperandValue, $properties): bool {
+        $users = explode(',', $dslOperandValue);
+        foreach ($users as $user) {
+            if (trim($user) === $properties['_vwoUserId']) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function evaluateUserAgentDSL($dslOperandValue, $context): bool {
+        $operand = $dslOperandValue;
+        if (!$context['userAgent'] || $context['userAgent'] === null) {
+            echo 'To Evaluate UserAgent segmentation, please provide userAgent in context';
+            return false;
+        }
+        $tagValue = urldecode($context['userAgent']);
+        $operandTypeAndValue = $this->preProcessOperandValue($operand);
+        $processedValues = $this->processValues($operandTypeAndValue['operandValue'], $tagValue);
+        $tagValue = $processedValues['tagValue']; // Type assertion to ensure tagValue is of type string
+        return $this->extractResult($operandTypeAndValue['operandType'], $processedValues['operandValue'], $tagValue);
+    }
+
+    public function preProcessTagValue($tagValue) {
+        if ($tagValue === null) {
+            $tagValue = '';
+        }
+        if (is_bool($tagValue)) {
+            $tagValue = $tagValue ? 'true' : 'false';
+        }
+        if ($tagValue !== null) {
+            $tagValue = strval($tagValue);
+        }
+        return $tagValue;
+    }
+
+    public function preProcessOperandValue($operand) {
+        if (preg_match(SegmentOperandRegexEnum::LOWER_MATCH, $operand)) {
+            $operandType = SegmentOperandValueEnum::LOWER_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::LOWER_MATCH);
+        } elseif (preg_match(SegmentOperandRegexEnum::WILDCARD_MATCH, $operand)) {
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::WILDCARD_MATCH);
+            $startingStar = preg_match(SegmentOperandRegexEnum::STARTING_STAR, $operandValue);
+            $endingStar = preg_match(SegmentOperandRegexEnum::ENDING_STAR, $operandValue);
+            if ($startingStar && $endingStar) {
+                $operandType = SegmentOperandValueEnum::STARTING_ENDING_STAR_VALUE;
+            } elseif ($startingStar) {
+                $operandType = SegmentOperandValueEnum::STARTING_STAR_VALUE;
+            } elseif ($endingStar) {
+                $operandType = SegmentOperandValueEnum::ENDING_STAR_VALUE;
+            }
+            $operandValue = trim($operandValue, '*');
+        } elseif (preg_match(SegmentOperandRegexEnum::REGEX_MATCH, $operand)) {
+            $operandType = SegmentOperandValueEnum::REGEX_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::REGEX_MATCH);
+        } else {
+            $operandType = SegmentOperandValueEnum::EQUAL_VALUE;
+            $operandValue = $operand;
+        }
+        return [
+            'operandType' => $operandType,
+            'operandValue' => $operandValue
+        ];
+    }
+
+    public function extractOperandValue($operand, $regex) {
+        preg_match($regex, $operand, $matches);
+        return $matches[1];
+    }
+
+    public function processValues($operandValue, $tagValue) {
+        $processedOperandValue = floatval($operandValue);
+        $processedTagValue = floatval($tagValue);
+        if (!$processedOperandValue || !$processedTagValue) {
+            return [
+                'operandValue' => $operandValue,
+                'tagValue' => $tagValue
+            ];
+        }
+        return [
+            'operandValue' => strval($processedOperandValue),
+            'tagValue' => strval($processedTagValue)
+        ];
+    }
+
+    public function extractResult($operandType, $operandValue, $tagValue) {
+        $result = false;
+
+        switch ($operandType) {
+            case SegmentOperandValueEnum::LOWER_VALUE:
+                if ($tagValue !== null) {
+                    $result = strtolower($operandValue) === strtolower($tagValue);
+                }
+                break;
+            case SegmentOperandValueEnum::STARTING_ENDING_STAR_VALUE:
+                if ($tagValue !== null) {
+                    $result = strpos($tagValue, $operandValue) !== false;
+                }
+                break;
+            case SegmentOperandValueEnum::STARTING_STAR_VALUE:
+                if ($tagValue !== null) {
+                    $result = substr($tagValue, -strlen($operandValue)) === $operandValue;
+                }
+                break;
+            case SegmentOperandValueEnum::ENDING_STAR_VALUE:
+                if ($tagValue !== null) {
+                    $result = substr($tagValue, 0, strlen($operandValue)) === $operandValue;
+                }
+                break;
+            case SegmentOperandValueEnum::REGEX_VALUE:
+                $result = preg_match('/' . $operandValue . '/', $tagValue);
+                break;
+            case SegmentOperandValueEnum::EQUAL_VALUE:
+                $result = $tagValue === $operandValue;
+                break;
+            default:
+                $result = false;
+                break;
+        }
+
+        return $result;
+    }
+}
+?>

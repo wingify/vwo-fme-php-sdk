@@ -1,0 +1,125 @@
+<?php
+
+/**
+ * Copyright 2024 Wingify Software Pvt. Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace vwo\Packages\Logger\Core;
+
+use vwo\Packages\Logger\Enums\LogLevelEnum;
+use Ramsey\Uuid\Uuid;
+use vwo\Packages\Logger\Core\LogTransportManager;
+use vwo\Packages\Logger\Core\Logger;
+
+interface ILogManager {
+    public function handleTransports(): void;
+    public function addTransport($transport): void;
+    public function addTransports($transports): void;
+    public function trace($message): void;
+    public function debug($message): void;
+    public function info($message): void;
+    public function warn($message): void;
+    public function error($message): void;
+}
+
+class LogManager extends Logger implements ILogManager {
+    private static $instance = null;
+    private $transportManager;
+    private $config;
+    private $name = 'VWO Logger';
+    private $requestId;
+    private $level = LogLevelEnum::ERROR;
+    private $prefix = 'VWO-SDK';
+    private $dateTimeFormat; // Updated
+
+    public function __construct($config = []) {
+        $this->config = $config;
+
+        // Updated to use a closure for dateTimeFormat
+        $this->dateTimeFormat = function() {
+            return (new \DateTime())->format(\DateTime::ISO8601);
+        };
+
+        if (!isset(self::$instance)) {
+            self::$instance = $this;
+
+            $this->config['name'] = $config['name'] ?? $this->name;
+            $this->config['requestId'] = $config['requestId'] ?? Uuid::uuid4()->toString();
+            $this->config['level'] = $config['level'] ?? $this->level;
+            $this->config['prefix'] = $config['prefix'] ?? $this->prefix;
+            $this->config['dateTimeFormat'] = $config['dateTimeFormat'] ?? $this->dateTimeFormat;
+
+            $this->transportManager = new LogTransportManager($this->config);
+
+            $this->handleTransports();
+        }
+    }
+
+    public static function instance(): LogManager {
+        if (!self::$instance) {
+            throw new \Exception("LogManager instance is not set. Make sure to initialize LogManager before calling instance().");
+        }
+        return self::$instance;
+    }
+
+    public function handleTransports(): void {
+        $transports = $this->config['transports'] ?? null;
+
+        if ($transports && count($transports)) {
+            $this->addTransports($transports);
+        } elseif (isset($this->config['transport']) && is_array($this->config['transport'])) {
+            $this->addTransport($this->config['transport']);
+        } elseif (isset($this->config['defaultTransport'])) {
+            // default
+            $this->addTransport([
+                'level' => $this->config['level'],
+                'logHandler' => function ($message, $level) {
+                    echo $message.PHP_EOL;
+                }
+            ]);
+        }
+    }
+
+    public function addTransport($transport): void {
+        $this->transportManager->addTransport($transport);
+    }
+
+    public function addTransports($transports): void {
+        foreach ($transports as $transport) {
+            $this->addTransport($transport);
+        }
+    }
+
+    public function trace($message): void {
+        $this->transportManager->log(LogLevelEnum::TRACE, $message);
+    }
+
+    public function debug($message): void {
+        $this->transportManager->log(LogLevelEnum::DEBUG, $message);
+    }
+
+    public function info($message): void {
+        $this->transportManager->log(LogLevelEnum::INFO, $message);
+    }
+
+    public function warn($message): void {
+        $this->transportManager->log(LogLevelEnum::WARN, $message);
+    }
+
+    public function error($message): void {
+        $this->transportManager->log(LogLevelEnum::ERROR, $message);
+    }
+}
+?>
