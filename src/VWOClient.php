@@ -18,6 +18,7 @@
 
 namespace vwo;
 
+use vwo\Utils\GetFlagResultUtil;
 use vwo\Models\SettingsModel;
 use vwo\Services\UrlService;
 use vwo\Utils\CampaignUtil;
@@ -64,15 +65,11 @@ class VWOClient implements IVWOClient {
     public function getFlag(string $featureKey, $context) {
         $apiName = 'getFlag';
 
-        $defaultReturnValue = [
-            'isEnabled' => false,
-            'getVariables' => function() {
-                return null;
-            },
-            'getVariable' => function($key, $defaultValue) {
-                return $defaultValue;
-            }
-        ];
+        $defaultReturnValue = new GetFlagResultUtil(
+            false,
+            [] // No variables
+        );
+    
 
         try {
             $hookManager = new HooksManager($this->options);

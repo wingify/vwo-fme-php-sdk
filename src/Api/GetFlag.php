@@ -19,8 +19,6 @@
 namespace vwo\Api;
 
 use vwo\Decorators\StorageDecorator as StorageDecorator;
-use vwo\Models\FeatureModel as FeatureModel;
-use vwo\Models\SettingsModel as SettingsModel;
 use vwo\Models\CampaignModel as CampaignModel;
 use vwo\Utils\FunctionUtil as FunctionUtil;
 use vwo\Utils\DecisionUtil as DecisionUtil;
@@ -30,11 +28,10 @@ use vwo\Enums\EventEnum;
 use vwo\Enums\ApiEnum;
 use vwo\Utils\NetworkUtil as NetworkUtil;
 use vwo\Packages\Logger\Core\LogManager as LogManager;
-use vwo\Services\HooksManager as HookManager;
 use vwo\Services\StorageService;
 use vwo\Utils\CampaignUtil as CampaignUtil;
-use vwo\Models\VariationModel as VariationModel;
 use vwo\Utils\MegUtil as MegUtil;
+use vwo\Utils\GetFlagResultUtil;
 
 
 interface IGetFlag
@@ -75,20 +72,10 @@ class GetFlag implements IGetFlag
                     LogManager::instance()->info(
                         "Variation {$variation->getKey()} found in storage for the user {$context['user']['id']} for the experiment campaign {$storedData['experimentKey']}"
                     );
-                    return [
-                        'isEnabled' => true,
-                        'getVariables' => function () use ($variation) {
-                            return $variation->getVariables();
-                        },
-                        'getVariable' => function ($key, $defaultValue) use ($variation) {
-                            foreach ($variation->getVariables() as $variable) {
-                                if ($variable->getKey() === $key) {
-                                    return $variable->getValue();
-                                }
-                            }
-                            return $defaultValue;
-                        }
-                    ];
+                    return new GetFlagResultUtil(
+                        true,
+                        $variation->getVariables()
+                    );
                 }
             }
         } elseif (isset($storedData['rolloutKey']) && isset($storedData['rolloutId'])) {
@@ -119,15 +106,7 @@ class GetFlag implements IGetFlag
         $feature = FunctionUtil::getFeatureFromKey($settings, $featureKey);
         if (!is_object($feature) || $feature === null) {
             LogManager::instance()->info("Feature not found for the key {$featureKey}");
-            return [
-                'isEnabled' => false,
-                'getVariables' => function () {
-                    return [];
-                },
-                'getVariable' => function ($key, $defaultValue) {
-                    return $defaultValue;
-                }
-            ];
+            return new GetFlagResultUtil(false, []);
         }
 
         $rollOutRules = FunctionUtil::getSpecificRulesBasedOnType($settings, $featureKey, CampaignTypeEnum::ROLLOUT);
@@ -309,35 +288,14 @@ class GetFlag implements IGetFlag
         $experimentVariationToReturn = FunctionUtil::convertObjectToArray($experimentVariationToReturn);
         $rolloutVariationToReturn = FunctionUtil::convertObjectToArray($rolloutVariationToReturn);
 
+        $variables = [];
+        if ($experimentVariationToReturn !== null) {
+            $variables = $experimentVariationToReturn['variables'] ?? null;
+        } elseif ($rolloutVariationToReturn !== null) {
+            $variables = $rolloutVariationToReturn['variables'] ?? null;
+        }
 
-        return [
-            'isEnabled' => $isEnabled,
-            'getVariables' => function () use ($experimentVariationToReturn, $rolloutVariationToReturn) {
-                $variables = null;
-                if ($experimentVariationToReturn !== null) {
-                    $variables = $experimentVariationToReturn['variables'] ?? null;
-                } elseif ($rolloutVariationToReturn !== null) {
-                    $variables = $rolloutVariationToReturn['variables'] ?? null;
-                }
-                return $variables;
-            },
-            'getVariable' => function ($key, $defaultValue) use ($experimentVariationToReturn, $rolloutVariationToReturn) {
-                $variables = null;
-                if ($experimentVariationToReturn !== null) {
-                    $variables = $experimentVariationToReturn['variables'] ?? null;
-                } elseif ($rolloutVariationToReturn !== null) {
-                    $variables = $rolloutVariationToReturn['variables'] ?? null;
-                }
-                if ($variables !== null) {
-                    foreach ($variables as $variable) {
-                        if ($variable['key'] === $key) {
-                            return $variable['value'];
-                        }
-                    }
-                }
-                return $defaultValue;
-            }
-        ];
+        return new GetFlagResultUtil($isEnabled, $variables);
         
     }
 
