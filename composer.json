@@ -1,0 +1,32 @@
+{
+    "name": "vwo/vwo-fme-php-sdk",
+    "version": "1.0.0",
+    "keywords": ["vwo", "fme", "sdk"],
+    "license": "Apache-2.0",
+    "authors": [{
+        "name": "VWO developers",
+        "email": "dev@wingify.com"
+    }, {
+        "name": "Saksham Gupta",
+        "email": "saksham.gupta@vwo.com"
+    }],
+    "description": "VWO server side sdk",
+    "require": {
+        "ramsey/uuid": "^4.2",
+        "guzzlehttp/guzzle": "^7.8",
+        "lastguest/murmurhash": "^2.1.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "vwo\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "vwo\\": "tests/"
+        }
+    },
+    "scripts": {
+        "start": ["cp -r ./git-hooks/* ./.git/hooks/ && chmod -R +x ./.git/hooks;"]
+    }
+}
