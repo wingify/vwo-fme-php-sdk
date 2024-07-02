@@ -24,15 +24,6 @@ class SettingsUtil {
     public static function processSettings($settings) {
         $parsedSettings = new SettingsModel($settings);
 
-        // Uncomment the following lines if you want to iterate through features and campaigns
-        // foreach ($features as $feature) {
-        //   $campaigns = $feature->getCampaigns();
-        //   foreach ($campaigns as $campaign) {
-        //     $campaign->setFeatureDetails($feature->getId(), $feature->getKey());
-        //     setVariationAllocation($campaign->getVariations(), $feature->getVariables());
-        //   }
-        // }
-
         return $parsedSettings;
     }
 }

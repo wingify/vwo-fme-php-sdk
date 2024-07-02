@@ -29,8 +29,16 @@ class SegmentOperandEvaluator {
         $operandKey = $keyValue['key'];
         $operand = $keyValue['value'];
 
-        if (!array_key_exists($operandKey, $properties)) {
+        if (is_null($properties)) {
             return false;
+        } else {
+            if (is_array($properties)) {
+                $properties = (object) $properties;
+            }
+        
+            if (!property_exists($properties, $operandKey)) {
+                return false;
+            }
         }
 
         if (preg_match(SegmentOperandRegexEnum::IN_LIST, $operand)) {
@@ -40,11 +48,11 @@ class SegmentOperandEvaluator {
                 return false;
             }
 
-            $tagValue = $properties[$operandKey];
+            $tagValue = $properties->$operandKey;
             $attributeValue = $this->preProcessTagValue($tagValue);
 
             $listId = $matches[1];
-            $queryParamsObj = [
+            $queryParamsObj = (object)[
                 'attribute' => $attributeValue,
                 'listId' => $listId
             ];
@@ -60,16 +68,17 @@ class SegmentOperandEvaluator {
                 return false;
             }
         } else {
-            $tagValue = $properties[$operandKey];
+            $tagValue = $properties->$operandKey;
             $tagValue = $this->preProcessTagValue($tagValue);
             $operandTypeAndValue = $this->preProcessOperandValue($operand);
-            $processedValues = $this->processValues($operandTypeAndValue['operandValue'], $tagValue);
-            $tagValue = $processedValues['tagValue'];
-            return $this->extractResult($operandTypeAndValue['operandType'], $processedValues['operandValue'], $tagValue);
+            $processedValues = $this->processValues($operandTypeAndValue->operandValue, $tagValue);
+            $tagValue = $processedValues->tagValue;
+            return $this->extractResult($operandTypeAndValue->operandType, $processedValues->operandValue, $tagValue);
         }
     }
 
     public function evaluateUserDSL($dslOperandValue, $properties): bool {
+        $properties = (array)($properties);
         $users = explode(',', $dslOperandValue);
         foreach ($users as $user) {
             if (trim($user) === $properties['_vwoUserId']) {
@@ -81,15 +90,15 @@ class SegmentOperandEvaluator {
 
     public function evaluateUserAgentDSL($dslOperandValue, $context): bool {
         $operand = $dslOperandValue;
-        if (!$context['userAgent'] || $context['userAgent'] === null) {
+        if (!isset($context->userAgent) || $context->userAgent === null) {
             echo 'To Evaluate UserAgent segmentation, please provide userAgent in context';
             return false;
         }
-        $tagValue = urldecode($context['userAgent']);
+        $tagValue = urldecode($context->userAgent);
         $operandTypeAndValue = $this->preProcessOperandValue($operand);
-        $processedValues = $this->processValues($operandTypeAndValue['operandValue'], $tagValue);
-        $tagValue = $processedValues['tagValue']; // Type assertion to ensure tagValue is of type string
-        return $this->extractResult($operandTypeAndValue['operandType'], $processedValues['operandValue'], $tagValue);
+        $processedValues = $this->processValues($operandTypeAndValue->operandValue, $tagValue);
+        $tagValue = $processedValues->tagValue;
+        return $this->extractResult($operandTypeAndValue->operandType, $processedValues->operandValue, $tagValue);
     }
 
     public function preProcessTagValue($tagValue) {
@@ -128,7 +137,7 @@ class SegmentOperandEvaluator {
             $operandType = SegmentOperandValueEnum::EQUAL_VALUE;
             $operandValue = $operand;
         }
-        return [
+        return (object)[
             'operandType' => $operandType,
             'operandValue' => $operandValue
         ];
@@ -143,12 +152,12 @@ class SegmentOperandEvaluator {
         $processedOperandValue = floatval($operandValue);
         $processedTagValue = floatval($tagValue);
         if (!$processedOperandValue || !$processedTagValue) {
-            return [
+            return (object)[
                 'operandValue' => $operandValue,
                 'tagValue' => $tagValue
             ];
         }
-        return [
+        return (object)[
             'operandValue' => strval($processedOperandValue),
             'tagValue' => strval($processedTagValue)
         ];
@@ -192,4 +201,3 @@ class SegmentOperandEvaluator {
         return $result;
     }
 }
-?>

@@ -25,13 +25,13 @@ use vwo\Enums\StorageEnum;
 
 interface IStorageDecorator
 {
-    public function getFeatureFromStorage(string $featureKey, array $user, StorageService $storageService);
-    public function setDataInStorage(array $data, StorageService $storageService);
+    public function getFeatureFromStorage($featureKey, $user, $storageService);
+    public function setDataInStorage($data, $storageService);
 }
 
 class StorageDecorator implements IStorageDecorator
 {
-    public function getFeatureFromStorage(string $featureKey, array $user, StorageService $storageService)
+    public function getFeatureFromStorage($featureKey, $user, $storageService)
     {
         $campaignMap = $storageService->getDataInStorage($featureKey, $user);
 
@@ -52,7 +52,7 @@ class StorageDecorator implements IStorageDecorator
         }
     }
 
-    public function setDataInStorage(array $data, StorageService $storageService)
+    public function setDataInStorage($data, $storageService)
     {
         $requiredFields = ['featureKey', 'user'];
 

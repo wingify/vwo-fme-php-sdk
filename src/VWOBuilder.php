@@ -112,7 +112,8 @@ class VWOBuilder implements IVWOBuilder
             return $this->settings;
         } else {
             try {
-                return $this->fetchSettings($force);
+                $var = $this->fetchSettings($force);
+                return $var;
             } catch (\Exception $error) {
                 $errorMessage = $error instanceof \Exception ? $error->getMessage() : 'Unknown error';
                 LogManager::instance()->error("Error getting settings: $errorMessage");
@@ -142,8 +143,8 @@ class VWOBuilder implements IVWOBuilder
         try {
             $this->logManager = new LogManager(
                 $this->options['logger'] ?? [
-                    'defaultTransport' => true,
-                    'level' => LogLevelEnum::DEBUG
+                    'level' => LogLevelEnum::DEBUG,
+                    'defaultTransport' => true
                 ]
             );
             return $this;

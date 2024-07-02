@@ -102,7 +102,7 @@ class GetFlag implements IGetFlag
 
         $ruleToTrack = [];
 
-        
+
         $feature = FunctionUtil::getFeatureFromKey($settings, $featureKey);
         if (!is_object($feature) || $feature === null) {
             LogManager::instance()->info("Feature not found for the key {$featureKey}");
@@ -113,30 +113,29 @@ class GetFlag implements IGetFlag
 
         if (count($rollOutRules) > 0 && !$isEnabled) {
             foreach ($rollOutRules as $rule) {
-                $rule = FunctionUtil::convertObjectToArray($rule);
                 $evaluateRuleResult = $this->evaluateRule($settings, $feature, $rule, $context, false, $decision);
                 if ($evaluateRuleResult[0]) {
                     $ruleToTrack[] = $rule;
                     $evaluatedFeatureMap[$featureKey] = [
-                        'rolloutId' => $rule['id'],
-                        'rolloutKey' => $rule['key'],
-                        'rolloutVariationId' => $rule['variations'][0]['id']
+                        'rolloutId' => $rule->getId(),
+                        'rolloutKey' => $rule->getKey(),
+                        'rolloutVariationId' => $rule->getVariations()[0]->getId()
                     ];
                     break;
                 }
-                
                 continue;
             }
         } elseif (count($rollOutRules) === 0) {
             LogManager::instance()->info('No Rollout rules present for the feature, checking rules for AB/Personalize');
             $shouldCheckForAbPersonalise = true;
         }
+
         if (count($ruleToTrack) > 0) {
             $ruleElement = array_pop($ruleToTrack);
-            $campaign = new CampaignModel();
-            $campaign->modelFromDictionary($ruleElement);
+            $campaign = $ruleElement;
             $variation = $this->trafficCheckAndReturnVariation($settings, $feature, $campaign, $context, $rulesInformation, $decision);
-            if ($variation !== null && count((array)$variation) > 0) {
+
+            if (DataTypeUtil::isObject($variation)) {
                 $isEnabled = true;
                 $shouldCheckForAbPersonalise = true;
                 $rolloutVariationToReturn = $variation;
@@ -145,20 +144,24 @@ class GetFlag implements IGetFlag
         }
 
         if ($shouldCheckForAbPersonalise) {
+
             $allRules = FunctionUtil::getAllAbAndPersonaliseRules($settings, $featureKey);
-            $allRules = FunctionUtil::convertObjectToArray($allRules);
             $listOfMegCampaignsGroups = [];
             $campaignToSkip = [];
             $ruleIndex = 0;
+
             foreach ($allRules as $rule) {
                 $ruleIndex++;
-                $group = CampaignUtil::isPartOfGroup($settings, $rule['id']);
+                $group = CampaignUtil::isPartOfGroup($settings, $rule->getId());
+
                 if (is_array($group) && count($group) > 0) {
                     if (!in_array($group['groupId'], $listOfMegCampaignsGroups)) {
                         $listOfMegCampaignsGroups[] = $group['groupId'];
                     }
+
                     if ($ruleIndex === count($allRules)) {
                         LogManager::instance()->debug("Evaluating MEG campaigns for the user {$context['user']['id']}");
+
                         [$megResult, $whitelistedVariationInfoWithCampaign, $winnerCampaign] = MegUtil::evaluateGroups(
                             $settings,
                             $featureKey,
@@ -170,19 +173,32 @@ class GetFlag implements IGetFlag
                             $campaignToSkip,
                             $decision
                         );
+
+
                         if ($megResult) {
                             if ($winnerCampaign !== null) {
-                                $winnerCampaignToPush = array_filter($allRules, function ($r) use ($winnerCampaign) {
-                                    return $r['id'] === $winnerCampaign['id'];
-                                });
-                                $ruleToTrack[] = $winnerCampaignToPush;
+
+                                $winnerCampaignToPush = null;
+
+                                // Iterate over allRules to find the matching campaign
+                                foreach ($allRules as $rule) {
+                                    if ($rule->getId() === $winnerCampaign->getId()) {
+                                        $winnerCampaignToPush = $rule;
+                                        break; // Exit the loop once the matching campaign is found
+                                    }
+                                }
+
+                                // If a matching campaign was found, add it to ruleToTrack
+                                if ($winnerCampaignToPush !== null) {
+                                    $ruleToTrack[] = $winnerCampaignToPush;
+                                }
                             } else {
                                 $isEnabled = true;
-                                $experimentVariationToReturn = $whitelistedVariationInfoWithCampaign['variation'];
+                                $experimentVariationToReturn = $whitelistedVariationInfoWithCampaign->variation;
                                 $rulesInformation = array_merge($rulesInformation, [
-                                    'experimentId' => $whitelistedVariationInfoWithCampaign['experimentId'],
-                                    'experimentKey' => $whitelistedVariationInfoWithCampaign['experimentKey'],
-                                    'experimentVariationId' => $whitelistedVariationInfoWithCampaign['variationId']
+                                    'experimentId' => $whitelistedVariationInfoWithCampaign->experimentId,
+                                    'experimentKey' => $whitelistedVariationInfoWithCampaign->experimentKey,
+                                    'experimentVariationId' => $whitelistedVariationInfoWithCampaign->variationId
                                 ]);
                             }
                         }
@@ -191,6 +207,7 @@ class GetFlag implements IGetFlag
                     continue;
                 } elseif (count($listOfMegCampaignsGroups) > 0) {
                     LogManager::instance()->debug("Evaluating MEG campaigns for the user {$context['user']['id']}");
+
                     [$megResult, $whitelistedVariationInfoWithCampaign, $winnerCampaign] = MegUtil::evaluateGroups(
                         $settings,
                         $featureKey,
@@ -202,25 +219,36 @@ class GetFlag implements IGetFlag
                         $campaignToSkip,
                         $decision
                     );
+
                     if ($megResult) {
-                        $winnerCampaign = FunctionUtil::convertObjectToArray($winnerCampaign);
                         if ($winnerCampaign !== null) {
-                            $winnerCampaignToPush = array_filter($allRules, function ($r) use ($winnerCampaign) {
-                                return $r['id'] === $winnerCampaign['id'];
-                            });
-                            $ruleToTrack[] = $winnerCampaignToPush;
+
+                            $winnerCampaignToPush = null;
+
+                            // Iterate over allRules to find the matching campaign
+                            foreach ($allRules as $rule) {
+                                if ($rule->getId() === $winnerCampaign->getId()) {
+                                    $winnerCampaignToPush = $rule;
+                                    break; // Exit the loop once the matching campaign is found
+                                }
+                            }
+
+                            // If a matching campaign was found, add it to ruleToTrack
+                            if ($winnerCampaignToPush !== null) {
+                                $ruleToTrack[] = $winnerCampaignToPush;
+                            }
                         } else {
                             $isEnabled = true;
-                            $experimentVariationToReturn = $whitelistedVariationInfoWithCampaign['variation'];
+                            $experimentVariationToReturn = $whitelistedVariationInfoWithCampaign->variation;
                             $rulesInformation = array_merge($rulesInformation, [
-                                'experimentId' => $whitelistedVariationInfoWithCampaign['experimentId'],
-                                'experimentKey' => $whitelistedVariationInfoWithCampaign['experimentKey'],
-                                'experimentVariationId' => $whitelistedVariationInfoWithCampaign['variationId']
+                                'experimentId' => $whitelistedVariationInfoWithCampaign->experimentId,
+                                'experimentKey' => $whitelistedVariationInfoWithCampaign->experimentKey,
+                                'experimentVariationId' => $whitelistedVariationInfoWithCampaign->variationId
                             ]);
                         }
                         break;
                     }
-                    $campaignToSkip[] = $rule['id'];
+                    $campaignToSkip[] = $rule->getId();
                 }
 
                 [$abPersonalizeResult, $whitelistedVariation] = $this->evaluateRule(
@@ -231,7 +259,7 @@ class GetFlag implements IGetFlag
                     false,
                     $decision
                 );
-    
+
                 if ($abPersonalizeResult) {
                     if ($whitelistedVariation === null) {
                         $ruleToTrack[] = $rule;
@@ -239,27 +267,24 @@ class GetFlag implements IGetFlag
                         $isEnabled = true;
                         $experimentVariationToReturn = $whitelistedVariation['variation'];
                         $rulesInformation = array_merge($rulesInformation, [
-                            'experimentId' => $rule['id'],
-                            'experimentKey' => $rule['key'],
+                            'experimentId' => $rule->getId(),
+                            'experimentKey' => $rule->getKey(),
                             'experimentVariationId' => $whitelistedVariation['variationId']
                         ]);
                     }
                     break;
                 }
-                $campaignToSkip[] = $rule['id'];
+                $campaignToSkip[] = $rule->getId();
                 continue;
             }
         }
 
         if (count($ruleToTrack) > 0) {
             $ruleElement = array_pop($ruleToTrack);
-            if (is_array($ruleElement) && is_array(reset($ruleElement))) {
-                $ruleElement = array_pop($ruleElement);
-            }
-            $campaign = new CampaignModel();
-            $campaign->modelFromDictionary($ruleElement);
+            $campaign = $ruleElement;
             $variation = $this->trafficCheckAndReturnVariation($settings, $feature, $campaign, $context, $rulesInformation, $decision);
-            if ($variation !== null && count((array)$variation) > 0) {
+
+            if ($variation !== null) {
                 $isEnabled = true;
                 $experimentVariationToReturn = $variation;
             }
@@ -285,18 +310,14 @@ class GetFlag implements IGetFlag
             );
         }
 
-        $experimentVariationToReturn = FunctionUtil::convertObjectToArray($experimentVariationToReturn);
-        $rolloutVariationToReturn = FunctionUtil::convertObjectToArray($rolloutVariationToReturn);
-
         $variables = [];
         if ($experimentVariationToReturn !== null) {
-            $variables = $experimentVariationToReturn['variables'] ?? null;
+            $variables = $experimentVariationToReturn->getVariables() ?? null;
         } elseif ($rolloutVariationToReturn !== null) {
-            $variables = $rolloutVariationToReturn['variables'] ?? null;
+            $variables = $rolloutVariationToReturn->getVariables() ?? null;
         }
 
         return new GetFlagResultUtil($isEnabled, $variables);
-        
     }
 
     private function createDecision($settings, $featureKey, $context)
@@ -313,25 +334,32 @@ class GetFlag implements IGetFlag
     private function trafficCheckAndReturnVariation($settings, $feature, $campaign, $context, &$rulesInformation, &$decision)
     {
         $variation = DecisionUtil::evaluateTrafficAndGetVariation($settings, $campaign, $context['user']['id']);
-        $campaign = FunctionUtil::convertObjectToArray($campaign);
-        if (DataTypeUtil::isObject($variation) && count((array)$variation) > 0) {
-            if ($campaign['type'] === CampaignTypeEnum::ROLLOUT) {
+
+        if (DataTypeUtil::isObject($variation) && method_exists($variation, 'getId')) {
+            $campaignType = $campaign->getType();
+            if ($campaignType === CampaignTypeEnum::ROLLOUT) {
                 $rulesInformation = array_merge($rulesInformation, [
-                    'rolloutId' => $campaign['id'],
-                    'rolloutKey' => $campaign['key'],
-                    'rolloutVariationId' => $variation['id']
+                    'rolloutId' => $campaign->getId(),
+                    'rolloutKey' => $campaign->getKey(),
+                    'rolloutVariationId' => $variation->getId()
                 ]);
             } else {
                 $rulesInformation = array_merge($rulesInformation, [
-                    'experimentId' => $campaign['id'],
-                    'experimentKey' => $campaign['key'],
-                    'experimentVariationId' => $variation['id']
+                    'experimentId' => $campaign->getId(),
+                    'experimentKey' => $campaign->getKey(),
+                    'experimentVariationId' => $variation->getId()
                 ]);
             }
+
+            // Merge rulesInformation into decision
             $decision = array_merge($decision, $rulesInformation);
+
+            // Assuming createImpressionForVariationShown() accepts objects for $campaign and $variation
             $this->createImpressionForVariationShown($settings, $feature, $campaign, $context['user'], $variation);
+
             return $variation;
         }
+
         return null;
     }
 
@@ -341,11 +369,8 @@ class GetFlag implements IGetFlag
      * @param user    user object
      * @returns
      */
-    public function evaluateRule($settings, $feature, $rule, $context, $isMegWinnerRule, &$decision)
+    public function evaluateRule($settings, $feature, $campaign, $context, $isMegWinnerRule, &$decision)
     {
-        // evaluate the dsl
-        $campaign = new CampaignModel();
-        $campaign->modelFromDictionary($rule);
         // check for whitelisting and pre segmentation
         $result = DecisionUtil::checkWhitelistingAndPreSeg(
             $settings,
@@ -354,15 +379,15 @@ class GetFlag implements IGetFlag
             $isMegWinnerRule,
             $decision
         );
+
         $preSegmentationResult = $result[0];
         $whitelistedObject = $result[1];
-        $campaign = FunctionUtil::convertObjectToArray($campaign);
-        // if pre segmentation result is true and whitelisted object is present, then send post call
-        if ($preSegmentationResult && count((array)$whitelistedObject) > 0) {
+        
+        if ($preSegmentationResult && is_object($whitelistedObject) && count(get_object_vars($whitelistedObject)) > 0) {
             $decision = array_merge($decision, [
-                'experimentId' => $campaign['id'],
-                'experimentKey' => $campaign['key'],
-                'experimentVariationId' => $whitelistedObject['variationId'],
+                'experimentId' => $campaign->getId(),
+                'experimentKey' => $campaign->getKey(),
+                'experimentVariationId' => $whitelistedObject->variationId,
             ]);
             $this->createImpressionForVariationShown($settings, $feature, $campaign, $context['user'], $whitelistedObject['variation']);
         }
@@ -371,13 +396,13 @@ class GetFlag implements IGetFlag
 
     function createImpressionForVariationShown($settings, $feature, $campaign, $user, $variation, $isImpactCampaign = false)
     {
-        if(isset($user['userAgent'])){
+        if (isset($user['userAgent'])) {
             $userAgent = $user['userAgent'];
         } else {
             $userAgent = '';
         }
 
-        if(isset($user['ipAddress'])){
+        if (isset($user['ipAddress'])) {
             $userIpAddress = $user['ipAddress'];
         } else {
             $userIpAddress = '';
@@ -389,14 +414,12 @@ class GetFlag implements IGetFlag
             urlencode($userAgent),
             $userIpAddress
         );
-        $campaign = FunctionUtil::convertObjectToArray($campaign);
-        $variation = FunctionUtil::convertObjectToArray($variation);
         $payload = $networkUtil->getTrackUserPayloadData(
             $settings,
             $user['id'],
             EventEnum::VWO_VARIATION_SHOWN,
-            $campaign['id'],
-            $variation['id'],
+            $campaign->getId(),
+            $variation->getId(),
             $userAgent,
             $userIpAddress
         );

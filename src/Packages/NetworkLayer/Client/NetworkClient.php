@@ -53,7 +53,7 @@ class NetworkClient implements NetworkClientInterface
                 $responseModel->setError($error);
                 return $responseModel;
             } else {
-                $parsedData = json_decode($rawData, true);
+                $parsedData = json_decode($rawData, false);
                 $responseModel->setStatusCode($response->getStatusCode());
 
                 if ($response->getStatusCode() !== 200) {

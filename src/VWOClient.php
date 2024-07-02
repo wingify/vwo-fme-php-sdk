@@ -62,7 +62,7 @@ class VWOClient implements IVWOClient {
         LogManager::instance()->info('VWO Client initialized');
     }
 
-    public function getFlag(string $featureKey, $context) {
+    public function getFlag($featureKey, $context) {
         $apiName = 'getFlag';
 
         $defaultReturnValue = new GetFlagResultUtil(
@@ -88,7 +88,7 @@ class VWOClient implements IVWOClient {
                 throw new \Error('Invalid Settings');
             }
 
-            if (!isset($context['id'])) {
+            if (!isset($context['id']) || $context['id'] === null || $context['id'] === '') {
                 LogManager::instance()->error('Context should be an object and must contain a mandatory key - id, which is User ID');
                 throw new \Error('TypeError: Invalid context');
             }
@@ -103,7 +103,7 @@ class VWOClient implements IVWOClient {
         }
     }
 
-    public function trackEvent(string $eventName, $context, array $eventProperties = [])
+    public function trackEvent($eventName, $context, $eventProperties = [])
     {
         $apiName = 'trackEvent';
         try {
@@ -115,13 +115,17 @@ class VWOClient implements IVWOClient {
                 LogManager::instance()->debug(sprintf('eventName passed to track API is not of valid type. Got %s', gettype($eventName)));
                 throw new \TypeError('TypeError: eventName should be a string');
             }
+            if (!DataTypeUtil::isArray($eventProperties)) {
+                LogManager::instance()->debug(sprintf('EventProperties passed to track API is not of valid type. Got %s', gettype($eventProperties)));
+                throw new \TypeError('TypeError: eventProperties should be an array');
+            }
 
             if (!$this->settings) {
                 LogManager::instance()->debug(sprintf('settings are not valid. Got %s', gettype($this->settings)));
                 throw new \Error('Invalid Settings');
             }
 
-            if (!isset($context['id'])) {
+            if (!isset($context['id']) || $context['id'] === null || $context['id'] === '') {
                 LogManager::instance()->error('Context should be an object and must contain a mandatory key - id, which is User ID');
                 throw new \Error('TypeError: Invalid context');
             }
@@ -147,7 +151,7 @@ class VWOClient implements IVWOClient {
                 return;
             }
 
-            if (!isset($context['id'])) {
+            if (!isset($context['id']) || $context['id'] === null || $context['id'] === '') {
                 LogManager::instance()->error('Context should be an object and must contain a mandatory key - id, which is User ID');
                 throw new \Error('TypeError: Invalid context');
             }

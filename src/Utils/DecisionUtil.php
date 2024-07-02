@@ -33,7 +33,7 @@ use vwo\Packages\DecisionMaker\DecisionMaker;
 
 class DecisionUtil
 {
-    public static function checkWhitelistingAndPreSeg($settings, CampaignModel $campaign, $context, $isMegWinnerRule, &$decision)
+    public static function checkWhitelistingAndPreSeg($settings, $campaign, $context, $isMegWinnerRule, &$decision)
     {
         $vwoUserId = UuidUtil::getUUID($context['user']['id'], $settings->getAccountId());
 
@@ -81,7 +81,7 @@ class DecisionUtil
      * @param array         $context       Context
      * @return array|null
      */
-    private static function checkForWhitelisting(CampaignModel $campaign, $campaignKey, SettingsModel $settings, $context)
+    private static function checkForWhitelisting($campaign, $campaignKey, $settings, $context)
     {
         $status = null;
         // check if the campaign satisfies the whitelisting
@@ -89,7 +89,7 @@ class DecisionUtil
         $variationString = '';
         if ($whitelistingResult) {
             $status = StatusEnum::PASSED;
-            $variationString = $whitelistingResult['variation']['key'];
+            $variationString = $whitelistingResult['variation']->getKey();
         } else {
             $status = StatusEnum::FAILED;
         }
@@ -99,7 +99,7 @@ class DecisionUtil
         return $whitelistingResult;
     }
 
-    private static function _evaluateWhitelisting(CampaignModel $campaign, $campaignKey, SettingsModel $settings, $context)
+    private static function _evaluateWhitelisting($campaign, $campaignKey, $settings, $context)
     {
         $whitelistedVariation = null;
         $status = null;
@@ -108,13 +108,14 @@ class DecisionUtil
         foreach ($campaign->getVariations() as $variation) {
             if (DataTypeUtil::isObject($variation->getSegments()) && empty($variation->getSegments())) {
                 LogManager::instance()->debug(
-                    "SEGMENTATION_SKIPPED: Segmentation is not used for Campaign:{$campaignKey}, hence skipping evaluating segmentation for Variation:{$variation->getKey()} for User ID:{$context['user']['id']}"
+                    "WHITELISTING_SKIP : Whitelisting is not used for experiment:{$campaignKey}, hence skipping evaluating whitelisting {$variation->getKey()} for User ID:{$context['user']['id']}",
                 );
                 continue;
             }
 
             // check for segmentation and evaluate
-            if (DataTypeUtil::isObject($variation->getSegments())) {
+            if (DataTypeUtil::isObject($variation->getSegments()) && !empty((array) $variation->getSegments())) {
+
                 $segmentEvaluatorResult = SegmentationManager::instance()->validateSegmentation(
                     $variation->getSegments(),
                     $context['user']['variationTargetingVariables'],
@@ -123,7 +124,7 @@ class DecisionUtil
 
                 if ($segmentEvaluatorResult) {
                     $status = StatusEnum::PASSED;
-                    $targetedVariations[] = FunctionUtil::cloneObject($variation);
+                    $targetedVariations[] = $variation;
                 } else {
                     $status = StatusEnum::FAILED;
                 }
@@ -131,7 +132,6 @@ class DecisionUtil
                 $status = StatusEnum::FAILED;
             }
         }
-
         if (count($targetedVariations) > 1) {
             CampaignUtil::scaleVariationWeights($targetedVariations);
             $currentAllocation = 0;
@@ -150,8 +150,8 @@ class DecisionUtil
         if ($whitelistedVariation) {
             return [
                 'variation' => $whitelistedVariation,
-                'variationName' => $whitelistedVariation['name'],
-                'variationId' => $whitelistedVariation['id'],
+                'variationName' => $whitelistedVariation->getName(),
+                'variationId' => $whitelistedVariation->getId(),
             ];
         }
 
@@ -161,15 +161,15 @@ class DecisionUtil
     public static function evaluateTrafficAndGetVariation($settingsFile, $campaign, $userId)
     {
         $variation = (new CampaignDecisionService())->getVariationAlloted($userId, $settingsFile->getAccountId(), $campaign);
-        $campaign = FunctionUtil::convertObjectToArray($campaign);
+
         if (!$variation) {
             LogManager::instance()->info(
-                "USER_NOT_BUCKETED: User ID:{$userId} for Campaign:{$campaign['key']} did not get any variation"
+                "USER_NOT_BUCKETED: User ID:{$userId} for Campaign:{$campaign->getKey()} did not get any variation"
             );
             return null;
         }
         LogManager::instance()->info(
-            "USER_BUCKETED: User ID:{$userId} for Campaign:{$campaign['key']} " . ($variation['key'] ? "got variation:{$campaign['key']}" : "did not get any variation")
+            "USER_BUCKETED: User ID:{$userId} for Campaign:{$campaign->getKey()} " . ($variation->getKey() ? "got variation:{$variation->getKey()}" : "did not get any variation")
         );
         return $variation;
     }

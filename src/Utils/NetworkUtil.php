@@ -93,12 +93,11 @@ class NetworkUtil {
     }
 
   public function getEventsBaseProperties($setting, $eventName, $visitorUserAgent = '', $ipAddress = '') {
-        $setting = FunctionUtil::convertObjectToArray($setting);
-        $sdkKey = $setting['sdkKey'];
+        $sdkKey = $setting->getSdkkey();;
 
         $properties = [
             'en' => $eventName,
-            'a' => $setting['accountId'],
+            'a' => $setting->getAccountId(),
             'env' => $sdkKey,
             'eTime' => FunctionUtil::getCurrentUnixTimestampInMillis(),
             'random' => FunctionUtil::getRandomNumber(),
@@ -112,8 +111,8 @@ class NetworkUtil {
     }
 
   public function getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent = '', $ipAddress = '') {
-        $uuid = UuidUtil::getUUID($userId, $settings['accountId']);
-        $sdkKey = $settings['sdkKey'];
+        $uuid = UuidUtil::getUUID($userId, $settings->getAccountId());
+        $sdkKey = $settings->getSdkKey();
 
         try {
             $sdkVersion = ComposerUtil::getSdkVersion();
@@ -152,7 +151,6 @@ class NetworkUtil {
     }
 
   public function getTrackUserPayloadData($settings, $userId, $eventName, $campaignId, $variationId, $visitorUserAgent = '', $ipAddress = '' ) {
-        $settings = FunctionUtil::convertObjectToArray($settings);
         $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
 
         $properties['d']['event']['props']['id'] = $campaignId;
@@ -160,14 +158,13 @@ class NetworkUtil {
         $properties['d']['event']['props']['isFirst'] = 1;
 
         LogManager::instance()->debug(
-            "IMPRESSION_FOR_EVENT_ARCH_TRACK_USER: Impression built for vwo_variationShown event for Account ID:{$settings['accountId']}, User ID:{$userId}, and Campaign ID:{$campaignId}"
+            "IMPRESSION_FOR_EVENT_ARCH_TRACK_USER: Impression built for vwo_variationShown event for Account ID:{$settings->getAccountId()}, User ID:{$userId}, and Campaign ID:{$campaignId}"
         );
 
         return $properties;
     }
 
   public function getTrackGoalPayloadData($settings, $userId, $eventName, $eventProperties, $visitorUserAgent = '', $ipAddress = '' ) {
-        $settings = FunctionUtil::convertObjectToArray($settings);
         $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
         $properties['d']['event']['props']['isCustomEvent'] = true;
         $properties['d']['event']['props']['variation'] = 1;  // temporary value
@@ -180,21 +177,20 @@ class NetworkUtil {
         }
 
         LogManager::instance()->debug(
-            "IMPRESSION_FOR_EVENT_ARCH_TRACK_GOAL: Impression built for {$eventName} event for Account ID:{$settings['accountId']}, User ID:{$userId}"
+            "IMPRESSION_FOR_EVENT_ARCH_TRACK_GOAL: Impression built for {$eventName} event for Account ID:{$settings->getAccountId()}, User ID:{$userId}"
         );
 
         return $properties;
     }
 
   public function getAttributePayloadData($settings, $userId, $eventName, $attributeKey, $attributeValue, $visitorUserAgent = '', $ipAddress = '' ) {
-        $settings = FunctionUtil::convertObjectToArray($settings);
         $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
         $properties['d']['event']['props']['isCustomEvent'] = true;
-        $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settings['sdkKey'];
+        $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settings->getSdkKey();
         $properties['d']['visitor']['props'][$attributeKey] = $attributeValue;
 
         LogManager::instance()->debug(
-            "IMPRESSION_FOR_EVENT_ARCH_SYNC_VISITOR_PROP: Impression built for {$eventName} event for Account ID:{$settings['accountId']}, User ID:{$userId}"
+            "IMPRESSION_FOR_EVENT_ARCH_SYNC_VISITOR_PROP: Impression built for {$eventName} event for Account ID:{$settings->getAccountId()}, User ID:{$userId}"
         );
 
         return $properties;

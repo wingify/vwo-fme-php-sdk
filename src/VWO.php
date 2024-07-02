@@ -35,23 +35,23 @@ class VWO
 
     private static function setInstance($options)
     {
-        self::$vwoBuilder = new VWOBuilder($options);
+        self::$vwoBuilder = isset($options['vwoBuilder']) ? $options['vwoBuilder'] : new VWOBuilder($options);
 
         self::$instance = self::$vwoBuilder
+            ->setLogger()
             ->setSettingsManager()
             ->setStorage()
-            ->setLogger()
             ->setNetworkManager()
             ->setSegmentation()
             ->initBatching()
             ->initPolling();
 
+        
         // Fetch settings and build VWO instance
         $settings = self::$vwoBuilder->getSettings();
         if ($settings) {
             self::$instance = self::$vwoBuilder->build($settings);
         }
-
         return self::$instance;
     }
 

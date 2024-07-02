@@ -22,6 +22,6 @@ namespace vwo\Packages\SegmentationEvaluator;
 use vwo\Models\SettingsModel;
 
 interface Segmentation {
-    public function isSegmentationValid(array $dsl, array $properties, SettingsModel $settings): bool ; // Adjust the return type according to your implementation
+    public function isSegmentationValid($dsl, $properties, $settings); // Adjust the return type according to your implementation
 }
 ?>

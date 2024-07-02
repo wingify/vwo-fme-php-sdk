@@ -19,15 +19,15 @@
 namespace vwo\Models;
 
 class MetricModel {
-  public $key;
-  public $identifier;
-  public $id;
-  public $type;
+  private $key;
+  private $identifier;
+  private $id;
+  private $type;
 
   public function modelFromDictionary($metric) {
-    $this->identifier = isset($metric['identifier']) ? $metric['identifier'] : $metric['key'];
-    $this->id = isset($metric['i']) ? $metric['i'] : $metric['id'];
-    $this->type = isset($metric['t']) ? $metric['t'] : $metric['type'];
+    $this->identifier = isset($metric->identifier) ? $metric->identifier : $metric->key;
+    $this->id = isset($metric->i) ? $metric->i : $metric->id;
+    $this->type = isset($metric->t) ? $metric->t : $metric->type;
     return $this;
   }
 

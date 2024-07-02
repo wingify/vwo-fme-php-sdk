@@ -38,23 +38,26 @@ interface ICampaignDecisionService {
 
 class CampaignDecisionService implements ICampaignDecisionService {
     public function isUserPartOfCampaign($userId, $campaign) {
-        $campaign = FunctionUtil::convertObjectToArray($campaign);
         if (!$campaign || !$userId) {
             return false;
         }
         
-        $trafficAllocation = $campaign['type'] === CampaignTypeEnum::ROLLOUT || $campaign['type'] === CampaignTypeEnum::PERSONALIZE
-            ? $campaign['variations'][0]['weight']
-            : $campaign['percentTraffic'];
-        $valueAssignedToUser = (new DecisionMaker())->getBucketValueForUser("{$campaign['id']}_{$userId}");
+        $trafficAllocation = $campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE
+            ? $campaign->getVariations()[0]->getWeight()
+            : $campaign->getTraffic();
+        
+        $valueAssignedToUser = (new DecisionMaker())->getBucketValueForUser("{$campaign->getId()}_{$userId}");
         $isUserPart = $valueAssignedToUser !== 0 && $valueAssignedToUser <= $trafficAllocation;
-        LogManager::instance()->debug("User:{$userId} part of campaign {$campaign['key']} ? " . ($isUserPart ? 'true' : 'false'));
+        
+        LogManager::instance()->debug("User:{$userId} part of campaign {$campaign->getKey()} ? " . ($isUserPart ? 'true' : 'false'));
+
         return $isUserPart;
     }
+    
 
     public function getVariation($variations, $bucketValue) {
         foreach ($variations as &$variation) {
-            if ($bucketValue >= $variation['startRangeVariation'] && $bucketValue <= $variation['endRangeVariation']) {
+            if ($bucketValue >= $variation->getStartRangeVariation() && $bucketValue <= $variation->getEndRangeVariation()) {
                 return $variation;
             }
         }
@@ -71,12 +74,13 @@ class CampaignDecisionService implements ICampaignDecisionService {
         if (!$campaign || !$userId) {
             return null;
         }
-        $multiplier = $campaign['percentTraffic'] ? 1 : null;
-        $percentTraffic = $campaign['percentTraffic'];
-        $hashValue = (new DecisionMaker())->generateHashValue("{$campaign['id']}_{$accountId}_{$userId}");
+        $multiplier = $campaign->getTraffic() ? 1 : null;
+        $percentTraffic = $campaign->getTraffic();
+        $hashValue = (new DecisionMaker())->generateHashValue("{$campaign->getId()}_{$accountId}_{$userId}");
         $bucketValue = (new DecisionMaker())->generateBucketValue($hashValue, Constants::MAX_TRAFFIC_VALUE, $multiplier);
-         LogManager::instance()->debug("user:{$userId} for campaign:{$campaign['key']} having percenttraffic:{$percentTraffic} got bucketValue as {$bucketValue} and hashvalue:{$hashValue}");
-        return $this->getVariation($campaign['variations'], $bucketValue);
+        LogManager::instance()->debug("user:{$userId} for campaign:{$campaign->getKey()} having percenttraffic:{$percentTraffic} got bucketValue as {$bucketValue} and hashvalue:{$hashValue}");
+        $variaitons = $campaign->getVariations();
+        return $this->getVariation( $variaitons, $bucketValue);
     }
 
     public function getDecision($campaign, $settings, $context) {
@@ -110,14 +114,14 @@ class CampaignDecisionService implements ICampaignDecisionService {
     }
 
     public function getVariationAlloted($userId, $accountId, $campaign) {
-        $campaign = FunctionUtil::convertObjectToArray($campaign);
         $isUserPart = $this->isUserPartOfCampaign($userId, $campaign);
-        if ($campaign['type'] === CampaignTypeEnum::ROLLOUT || $campaign['type'] === CampaignTypeEnum::PERSONALIZE) {
-            return $isUserPart ? $campaign['variations'][0] : null;
+        
+        if ($campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE) {
+            return $isUserPart ? $campaign->getVariations()[0] : null;
         } else {
             return $isUserPart ? $this->bucketUserToVariation($userId, $accountId, $campaign) : null;
         }
-    }
+    }    
 }
 
 ?>

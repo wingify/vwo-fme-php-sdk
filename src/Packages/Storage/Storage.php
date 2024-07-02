@@ -18,7 +18,6 @@
 
 namespace vwo\Packages\Storage; // Replace YourNamespace with your actual namespace
 
-//require_once 'connector.php';
 
 class Storage {
     public static $instance;

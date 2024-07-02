@@ -44,8 +44,8 @@ class GetFlagResultUtil
     {
         if (is_array($this->variables)) {
             foreach ($this->variables as $variable) {
-                if ($variable['key'] === $key) {
-                    return $variable['value'];
+                if ($variable->getKey() === $key) {
+                    return $variable->getValue();
                 }
             }
         }

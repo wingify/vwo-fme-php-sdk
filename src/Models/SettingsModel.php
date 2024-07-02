@@ -23,47 +23,37 @@ use vwo\Models\CampaignModel;
 use vwo\Utils\FunctionUtil;
 
 class SettingsModel {
-  public $sdkKey;
-  public $features = [];
-  public $campaigns = [];
-  public $campaignGroups = [];
-  public $groups = [];
-  public $accountId;
-  public $version;
-  public $collectionPrefix;
+  private $sdkKey;
+  private $features = [];
+  private $campaigns = [];
+  private $campaignGroups = [];
+  private $groups = [];
+  private $accountId;
+  private $version;
+  private $collectionPrefix;
 
-  public function __construct($settings) {
-    $this->sdkKey = isset($settings['sK']) ? $settings['sK'] : (isset($settings['sdkKey']) ? $settings['sdkKey'] : null);
-    $this->accountId = isset($settings['a']) ? $settings['a'] : (isset($settings['accountId']) ? $settings['accountId'] : null);
-    $this->version = isset($settings['v']) ? $settings['v'] : (isset($settings['version']) ? $settings['version'] : null);
-    $this->collectionPrefix = isset($settings['collectionPrefix']) ? $settings['collectionPrefix'] : null;
+  public function __construct($settings) {    
+    $this->sdkKey = isset($settings->sK) ? $settings->sK : (isset($settings->sdkKey) ? $settings->sdkKey : null);
+    $this->accountId = isset($settings->a) ? $settings->a : (isset($settings->accountId) ? $settings->accountId : null);
+    $this->version = isset($settings->v) ? $settings->v : (isset($settings->version) ? $settings->version : null);
+    $this->collectionPrefix = isset($settings->collectionPrefix) ? $settings->collectionPrefix : null;
 
-    if (isset($settings['f']) && is_array($settings['f'])) {
-      $featureList = $settings['f'];
-      foreach ($featureList as $feature) {
-        $this->features[] = (new FeatureModel())->modelFromDictionary($feature);
-      }
-    } elseif (isset($settings['features']) && is_array($settings['features'])) {
-      $featureList = $settings['features'];
+    if (isset($settings->f) || isset($settings->features)) {
+      $featureList = isset($settings->f) ? $settings->f : $settings->features;
       foreach ($featureList as $feature) {
         $this->features[] = (new FeatureModel())->modelFromDictionary($feature);
       }
     }
-
-    if (isset($settings['c']) && is_array($settings['c'])) {
-      $campaignList = $settings['c'];
-      foreach ($campaignList as $campaign) {
-        $this->campaigns[] = (new CampaignModel())->modelFromDictionary($campaign);
-      }
-    } elseif (isset($settings['campaigns']) && is_array($settings['campaigns'])) {
-      $campaignList = $settings['campaigns'];
+    
+    if (isset($settings->c) || isset($settings->campaigns)) {
+      $campaignList = isset($settings->c) ? $settings->c : $settings->campaigns;
       foreach ($campaignList as $campaign) {
         $this->campaigns[] = (new CampaignModel())->modelFromDictionary($campaign);
       }
     }
-
-    $this->campaignGroups = isset($settings['cG']) ? $settings['cG'] : (isset($settings['campaignGroups']) ? $settings['campaignGroups'] : []);
-    $this->groups = isset($settings['g']) ? $settings['g'] : (isset($settings['groups']) ? $settings['groups'] : []);
+    
+    $this->campaignGroups = isset($settings->cG) ? $settings->cG : (isset($settings->campaignGroups) ? $settings->campaignGroups : []);
+    $this->groups = isset($settings->g) ? $settings->g : (isset($settings->groups) ? $settings->groups : []);
   }
 
   public function getFeatures() {

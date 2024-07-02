@@ -67,13 +67,17 @@ class MegUtil
 
                 if ($result) {
                     foreach ($settings->getCampaigns() as $campaign) {
-                        $campaign = FunctionUtil::convertObjectToArray($campaign);
-                        if (in_array($campaign['id'], $groupCampaignIds) && in_array($campaign['id'], $featureCampaignIds)) {
+                        if (in_array($campaign->getId(), $groupCampaignIds) && in_array($campaign->getId(), $featureCampaignIds)) {
                             if (!isset($campaignMap[$tempFeatureKey])) {
                                 $campaignMap[$tempFeatureKey] = [];
                             }
 
-                            if (!in_array($campaign['key'], array_column($campaignMap[$tempFeatureKey], 'key'))) {
+                            // Use array_column to extract the 'key' values from the existing campaigns in the map
+                            $existingKeys = array_map(function ($existingCampaign) {
+                                return $existingCampaign->getKey();
+                            }, $campaignMap[$tempFeatureKey]);
+
+                            if (!in_array($campaign->getKey(), $existingKeys)) {
                                 $campaignMap[$tempFeatureKey][] = $campaign;
                             }
                         }
@@ -84,7 +88,7 @@ class MegUtil
             $campaignList = self::getEligbleCampaigns($settings, $campaignMap, $context, $storageService);
             $eligibleCampaignsForGroup[$groupId] = $campaignList;
         }
-        
+
         return self::evaluateEligibleCampaigns($settings, $featureKey, $feature, $eligibleCampaignsForGroup, $context, $campaignToSkip, $decision);
     }
 
@@ -103,11 +107,11 @@ class MegUtil
         $featureToSkip,
         $context
     ) {
-        if (isset($evaluatedFeatureMap[$feature->key]) && isset($evaluatedFeatureMap[$feature->key]['rolloutId'])) {
+        if (isset($evaluatedFeatureMap[$feature->getKey()]) && isset($evaluatedFeatureMap[$feature->getKey()]['rolloutId'])) {
             return true;
         }
 
-        $rollOutRules = FunctionUtil::getSpecificRulesBasedOnType($settings, $feature->key, CampaignTypeEnum::ROLLOUT);
+        $rollOutRules = FunctionUtil::getSpecificRulesBasedOnType($settings, $feature->getKey(), CampaignTypeEnum::ROLLOUT);
 
         if (count($rollOutRules) > 0) {
             $ruleToTestForTraffic = null;
@@ -125,10 +129,9 @@ class MegUtil
 
             if ($ruleToTestForTraffic !== null) {
                 $campaign = (new CampaignModel())->modelFromDictionary($ruleToTestForTraffic);
-                $ruleToTestForTraffic = FunctionUtil::convertObjectToArray($ruleToTestForTraffic);
                 $variation = DecisionUtil::evaluateTrafficAndGetVariation($settings, $campaign, $context['user']['id']);
                 if (DataTypeUtil::isObject($variation) && count((array)$variation) > 0) {
-                    $evaluatedFeatureMap[$feature->key] = [
+                    $evaluatedFeatureMap[$feature->getKey()] = [
                         'rolloutId' => $ruleToTestForTraffic['id'],
                         'rolloutKey' => $ruleToTestForTraffic['key'],
                         'rolloutVariationId' => $ruleToTestForTraffic['variations'][0]['id']
@@ -137,11 +140,11 @@ class MegUtil
                 }
             }
 
-            $featureToSkip[] = $feature->key;
+            $featureToSkip[] = $feature->getKey();
             return false;
         }
 
-        LogManager::instance()->debug("MEG: No rollout rule found for feature {$feature->key}, evaluating experiments...");
+        LogManager::instance()->debug("MEG: No rollout rule found for feature {$feature->getKey()}, evaluating experiments...");
         return true;
     }
 
@@ -151,14 +154,14 @@ class MegUtil
         $context,
         StorageService $storageService
     ) {
-        
+
         $eligibleCampaigns = [];
         $eligibleCampaignsWithStorage = [];
         $inEligibleCampaigns = [];
 
         foreach ($campaignMap as $featureKey => $campaigns) {
             foreach ($campaigns as $campaign) {
-                
+
                 $storedData = (new StorageDecorator())->getFeatureFromStorage($featureKey, $context['user'], $storageService);
 
                 if (isset($storedData['experimentVariationId'])) {
@@ -181,7 +184,7 @@ class MegUtil
                     $decisionService->getDecision((new CampaignModel())->modelFromDictionary($campaign), $settings, $context) &&
                     $decisionService->isUserPartOfCampaign($context['user']['id'], $campaign)
                 ) {
-                    LogManager::instance()->debug("MEG: Campaign {$campaign['key']} is eligible for user {$context['user']['id']}");
+                    LogManager::instance()->debug("MEG: Campaign {$campaign->getKey()} is eligible for user {$context['user']['id']}");
                     $eligibleCampaigns[] = $campaign;
                     continue;
                 }
@@ -210,7 +213,7 @@ class MegUtil
         $campaignIds = CampaignUtil::getCampaignIdsFromFeatureKey($settings, $featureKey);
 
         foreach ($eligibleCampaignsForGroup as $groupId => $campaignList) {
-            $megAlgoNumber = isset($settings->groups[$groupId]['et']) ?$settings->groups[$groupId]['et'] : Constants::RANDOM_ALGO;
+            $megAlgoNumber = isset($settings->getGroups()->$groupId->et) ? $settings->getGroups()->$groupId->et : Constants::RANDOM_ALGO;
 
             if (count($campaignList['eligibleCampaignsWithStorage']) === 1) {
                 $winnerFromEachGroup[] = $campaignList['eligibleCampaignsWithStorage'][0];
@@ -224,7 +227,7 @@ class MegUtil
             if (count($campaignList['eligibleCampaignsWithStorage']) === 0) {
                 if (count($campaignList['eligibleCampaigns']) === 1) {
                     $winnerFromEachGroup[] = $campaignList['eligibleCampaigns'][0];
-                    LogManager::instance()->debug("MEG: Campaign {$campaignList['eligibleCampaigns'][0]['key']} is the winner for group $groupId for user {$context['user']['id']}");
+                    LogManager::instance()->debug("MEG: Campaign {$campaignList['eligibleCampaigns'][0]->getKey()} is the winner for group $groupId for user {$context['user']['id']}");
                 } elseif (count($campaignList['eligibleCampaigns']) > 1 && $megAlgoNumber === Constants::RANDOM_ALGO) {
                     $winnerFromEachGroup[] = self::normalizeAndFindWinningCampaign($campaignList['eligibleCampaigns'], $context, $campaignIds, $groupId);
                 } elseif (count($campaignList['eligibleCampaigns']) > 1) {
@@ -238,25 +241,43 @@ class MegUtil
 
     public static function normalizeAndFindWinningCampaign(&$shortlistedCampaigns, $context, &$calledCampaignIds, $groupId)
     {
+        // Loop through shortlisted campaigns as objects
         foreach ($shortlistedCampaigns as &$campaign) {
-            $campaign['weight'] = floor(100 / count($shortlistedCampaigns));
+            $campaign->setWeight(floor(100 / count($shortlistedCampaigns)));
         }
+
+        // Convert campaigns to VariationModel objects (assuming a constructor exists)
         $shortlistedCampaigns = array_map(function (&$campaign) {
-            return (new VariationModel())->modelFromDictionary($campaign);
+            $data = new \stdClass();
+            $data->id = $campaign->getId();
+            $data->key = $campaign->getKey();
+            $data->name = $campaign->getName();
+            $data->weight = $campaign->getWeight();
+            $data->variables = $campaign->getVariables();
+            $data->variations = $campaign->getVariations();
+            $data->segments = $campaign->getSegments();
+            $data->type = $campaign->getType();
+            $data->percentTraffic = $campaign->getTraffic();
+            $data->isUserListEnabled = $campaign->getIsUserListEnabled();
+            $data->isForcedVariationEnabled = $campaign->getIsForcedVariationEnabled();
+            $data->metrics = $campaign->getMetrics();
+            $data->status = $campaign->getStatus();
+            $data->variationId = $campaign->getVariationId();
+            $data->campaignId = $campaign->getCampaignId();
+
+            return (new VariationModel())->modelFromDictionary($data); // Assuming constructor takes campaign object
         }, $shortlistedCampaigns);
-        
-        $shortlistedCampaigns = FunctionUtil::convertObjectToArray($shortlistedCampaigns);
-        
 
         CampaignUtil::setCampaignAllocation($shortlistedCampaigns);
 
+        // Assuming getVariation accepts objects and uses appropriate properties
         $winnerCampaign = (new CampaignDecisionService())->getVariation(
             $shortlistedCampaigns,
             (new DecisionMaker())->calculateBucketValue(CampaignUtil::getBucketingSeed($context['user']['id'], null, $groupId))
         );
-        LogManager::instance()->debug("MEG Random: Campaign {$winnerCampaign['key']} is the winner for group $groupId for user {$context['user']['id']}");
+        LogManager::instance()->debug("MEG Random: Campaign {$winnerCampaign->getKey()} is the winner for group $groupId for user {$context['user']['id']}");
 
-        if ($winnerCampaign && in_array($winnerCampaign['id'], $calledCampaignIds)) {
+        if ($winnerCampaign && in_array($winnerCampaign->getId(), $calledCampaignIds)) {
             return $winnerCampaign;
         }
         return null;
@@ -266,36 +287,53 @@ class MegUtil
     {
         $winnerCampaign = null;
         $found = false;
-        $priorityOrder = isset($settings->groups[$groupId]['p']) ? $settings->groups[$groupId]['p'] : [];
-        $wt = isset($settings->groups[$groupId]['wt']) ? $settings->groups[$groupId]['wt'] : [];
+        $priorityOrder = isset($settings->getGroups()->$groupId->p) ? $settings->getGroups()->$groupId->p : [];
+        $wt = isset($settings->getGroups()->$groupId->wt) ? (array) $settings->getGroups()->$groupId->wt : [];
 
         foreach ($priorityOrder as $priority) {
             foreach ($shortlistedCampaigns as $campaign) {
-                if ($campaign['id'] === $priority) {
+                if ($campaign->getId() === $priority) {
                     $winnerCampaign = $campaign;
                     $found = true;
                     break;
                 }
             }
-            if ($found === true) break;
+            if ($found === true) {
+                break;
+            }
         }
 
         if ($winnerCampaign === null) {
             $participatingCampaignList = [];
 
             foreach ($shortlistedCampaigns as $campaign) {
-                $campaignId = $campaign['id'];
-
+                $campaignId = $campaign->getId();
                 if (isset($wt[$campaignId])) {
-                    $clonedCampaign = $campaign;
-                    $clonedCampaign['weight'] = $wt[$campaignId];
-                    $participatingCampaignList[] = $clonedCampaign;
+                    $campaign->setWeight($wt[$campaignId]);  // Directly setting weight property in the campaign object
+                    $participatingCampaignList[] = $campaign;
                 }
             }
 
             $participatingCampaignList = array_map(function ($campaign) {
-                $variationModel = (new VariationModel())->modelFromDictionary($campaign);
-                $variationModel = FunctionUtil::convertObjectToArray($variationModel);
+
+                $data = new \stdClass();
+                $data->id = $campaign->getId();
+                $data->key = $campaign->getKey();
+                $data->name = $campaign->getName();
+                $data->weight = $campaign->getWeight();
+                $data->variables = $campaign->getVariables();
+                $data->variations = $campaign->getVariations();
+                $data->segments = $campaign->getSegments();
+                $data->type = $campaign->getType();
+                $data->percentTraffic = $campaign->getTraffic();
+                $data->isUserListEnabled = $campaign->getIsUserListEnabled();
+                $data->isForcedVariationEnabled = $campaign->getIsForcedVariationEnabled();
+                $data->metrics = $campaign->getMetrics();
+                $data->status = $campaign->getStatus();
+                $data->variationId = $campaign->getVariationId();
+                $data->campaignId = $campaign->getCampaignId();
+
+                $variationModel = (new VariationModel())->modelFromDictionary($data);
                 return $variationModel;
             }, $participatingCampaignList);
 
@@ -306,46 +344,47 @@ class MegUtil
             );
         }
 
-        LogManager::instance()->debug("MEG Advance: Campaign {$winnerCampaign['key']} is the winner for group $groupId for user {$context['user']['id']}");
+        LogManager::instance()->debug("MEG Advance: Campaign {$winnerCampaign->getKey()} is the winner for group $groupId for user {$context['user']['id']}");
 
-        if (in_array($winnerCampaign['id'], $calledCampaignIds)) {
+        if ($winnerCampaign!=null && in_array($winnerCampaign->getId(), $calledCampaignIds)) {
             return $winnerCampaign;
         }
         return null;
     }
 
-    public static function campaignToReturn($settings, $feature, $eligibleCampaignsForGroup, $winnerCampaigns, $context, $priorityCampaignIds, &$campaignToSkip, $decision) {
+    public static function campaignToReturn($settings, $feature, $eligibleCampaignsForGroup, $winnerCampaigns, $context, $priorityCampaignIds, &$campaignToSkip, $decision)
+    {
         $eligibleCampaignsForGroupArray = $eligibleCampaignsForGroup;
-        
+
         foreach ($eligibleCampaignsForGroupArray as $groupId => $campaignList) {
             $winnerFound = false;
             $campaignToReturn = null;
-            
+
             foreach ($priorityCampaignIds as $campaignId) {
                 $winnerCampaign = null;
-                
+
                 foreach ($winnerCampaigns as $campaign) {
-                    if (is_array($campaign) && isset($campaign['id']) && $campaign['id'] === $campaignId) {
+                    if ($campaign && $campaign->getId() === $campaignId) {
                         $winnerCampaign = $campaign;
                         break;
                     }
                 }
-                
+
                 if ($winnerCampaign) {
                     $campaignToReturn = $winnerCampaign;
                     $winnerFound = true;
                     break;
                 }
-                
+
                 if (in_array($campaignId, $campaignToSkip) || CampaignUtil::getRuleTypeUsingCampaignIdFromFeature($feature, $campaignId) === CampaignTypeEnum::ROLLOUT) {
                     continue;
                 }
-                
+
                 $campaign = null;
-                
+
                 if (isset($campaignList['eligibleCampaignsWithStorage'])) {
                     foreach ($campaignList['eligibleCampaignsWithStorage'] as $item) {
-                        if (is_array($item) && isset($item['id']) && $item['id'] === $campaignId) {
+                        if (is_object($item) && $item->getId() === $campaignId) {
                             $campaign = $item;
                             break;
                         }
@@ -354,7 +393,7 @@ class MegUtil
     
                 if (!$campaign && isset($campaignList['eligibleCampaigns'])) {
                     foreach ($campaignList['eligibleCampaigns'] as $item) {
-                        if (is_array($item) && isset($item['id']) && $item['id'] === $campaignId) {
+                        if (is_object($item) && $item->getId() === $campaignId) {
                             $campaign = $item;
                             break;
                         }
@@ -363,7 +402,7 @@ class MegUtil
     
                 if (!$campaign && isset($campaignList['inEligibleCampaigns'])) {
                     foreach ($campaignList['inEligibleCampaigns'] as $item) {
-                        if (is_array($item) && isset($item['id']) && $item['id'] === $campaignId) {
+                        if (is_object($item) && $item->getId() === $campaignId) {
                             $campaign = $item;
                             break;
                         }
@@ -377,22 +416,22 @@ class MegUtil
                     return [false, null, null];
                 }
             }
-    
+
             if ($winnerFound) {
-                LogManager::Instance()->info("MEG: Campaign {$campaignToReturn['key']} is the winner for user {$context['user']['id']}");
-    
+                LogManager::instance()->info("MEG: Campaign {$campaignToReturn->getKey()} is the winner for user {$context['user']['id']}");
+
                 list($megResult, $whitelistedVariationInfoWithCampaign) = (new GetFlag())->evaluateRule($settings, $feature, $campaignToReturn, $context, true, $decision);
-    
-                if (is_object($whitelistedVariationInfoWithCampaign) && count((array)$whitelistedVariationInfoWithCampaign) > 0) {
-                    $whitelistedVariationInfoWithCampaign['experiementId'] = $campaignToReturn['id'];
-                    $whitelistedVariationInfoWithCampaign['experiementKey'] = $campaignToReturn['key'];
+
+                if (is_object($whitelistedVariationInfoWithCampaign) && count(get_object_vars($whitelistedVariationInfoWithCampaign)) > 0) {
+                    $whitelistedVariationInfoWithCampaign->experiementId = $campaignToReturn->getId();
+                    $whitelistedVariationInfoWithCampaign->experiementKey = $campaignToReturn->getKey();
                     return [true, $whitelistedVariationInfoWithCampaign, null];
                 }
-    
+
                 return [true, $whitelistedVariationInfoWithCampaign, $campaignToReturn];
             }
         }
-    
+
         return [false, null, null];
-    }    
+    }
 }

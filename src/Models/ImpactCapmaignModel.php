@@ -19,12 +19,12 @@
 namespace vwo\Models;
 
 class ImpactCapmaignModel {
-  public $campaignId;
-  public $type;
+  private $campaignId;
+  private $type;
 
   public function modelFromDictionary($impactCampaign) {
-    $this->type = isset($impactCampaign['type']) ? $impactCampaign['type'] : null;
-    $this->campaignId = isset($impactCampaign['campaignId']) ? $impactCampaign['campaignId'] : null;
+    $this->type = isset($impactCampaign->type) ? $impactCampaign->type : null;
+    $this->campaignId = isset($impactCampaign->campaignId) ? $impactCampaign->campaignId : null;
     return $this;
   }
 

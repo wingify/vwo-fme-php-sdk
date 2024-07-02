@@ -47,20 +47,25 @@ class FunctionUtil
         return mt_rand() / mt_getrandmax();
     }
 
+
     public static function getSpecificRulesBasedOnType($settings, $featureKey, $type = null)
     {
         $feature = self::getFeatureFromKey($settings, $featureKey);
 
-        if ($feature && !$feature->getRulesLinkedCampaign()) {
+        // Check if the feature exists and has linked rules
+        if (!$feature || !$feature->getRulesLinkedCampaign()) {
             return [];
         }
 
-        if ($feature && $feature->getRulesLinkedCampaign() && $type && is_string($type)) {
-            $arraylist = array_filter($feature->getRulesLinkedCampaign(), function ($rule) use ($type) {
-                return is_array($rule) && array_key_exists('type', $rule) && $rule["type"] === $type;
+        // If type is specified and it's a string, filter the rules based on the type
+        if ($type && is_string($type)) {
+            $filteredRules = array_filter($feature->getRulesLinkedCampaign(), function ($rule) use ($type) {
+                return $rule && $rule->getType() === $type;
             });
-            return $arraylist;
+            return $filteredRules;
         }
+
+        // Return all linked rules if no type is specified
         return $feature->getRulesLinkedCampaign();
     }
 
@@ -72,11 +77,9 @@ class FunctionUtil
 
         // Filter and return the rules that are of type 'AB' or 'Personalize'
         return array_filter($rulesLinkedCampaign, function ($rule) {
-            $ruleModel = new RuleModel();
-            $ruleModel->modelFromDictionary($rule);
             // Check if the rule is an instance of RuleModel and check the 'type' property
             return $rule &&
-                ($rule['type'] === CampaignTypeEnum::AB || $rule['type'] === CampaignTypeEnum::PERSONALIZE);
+                ($rule->getType() === CampaignTypeEnum::AB || $rule->getType() === CampaignTypeEnum::PERSONALIZE);
         });
     }
 
@@ -107,21 +110,28 @@ class FunctionUtil
             foreach ($feature->getRules() as $rule) {
                 $campaignId = $rule->getCampaignId();
                 if ($campaignId) {
-                    $campaigns = array_values(array_filter($settingsFile->getCampaigns(), function($c) use ($campaignId) {
+
+                    $campaigns = array_values(array_filter($settingsFile->getCampaigns(), function ($c) use ($campaignId) {
                         return $c->getId() === $campaignId;
                     }));
                     if (!empty($campaigns)) {
                         $campaign = $campaigns[0];
-                        $linkedCampaign = (array) $campaign;
-                        $linkedCampaign = array_merge((array) $rule, $linkedCampaign);
+                        $linkedCampaign = clone $campaign;
+
+                        // Merge $rule properties into $linkedCampaign using getter methods
+                        $linkedCampaign->setStatus($rule->getStatus());
+                        $linkedCampaign->setVariationId($rule->getVariationId());
+                        $linkedCampaign->setType($rule->getType());
+                        $linkedCampaign->setCampaignId($rule->getCampaignId());
+
                         $variationId = $rule->getVariationId();
                         if ($variationId) {
-                            $variations = array_values(array_filter($campaign->getVariations(), function($v) use ($variationId) {
+                            $variations = array_values(array_filter($campaign->getVariations(), function ($v) use ($variationId) {
                                 return $v->getId() === $variationId;
                             }));
                             if (!empty($variations)) {
                                 $variation = $variations[0];
-                                $linkedCampaign['variations'] = [$variation];
+                                $linkedCampaign->setVariations([$variation]);
                             }
                         }
                         $rulesLinkedCampaign[] = $linkedCampaign;
@@ -134,7 +144,7 @@ class FunctionUtil
 
     public static function getFeatureNameFromKey(SettingsModel $settings, $featureKey)
     {
-        $features = array_values(array_filter($settings->getFeatures(), function($f) use ($featureKey) {
+        $features = array_values(array_filter($settings->getFeatures(), function ($f) use ($featureKey) {
             return $f->getKey() === $featureKey;
         }));
         return !empty($features) ? $features[0]->getName() : '';
@@ -142,36 +152,9 @@ class FunctionUtil
 
     public static function getFeatureIdFromKey(SettingsModel $settings, $featureKey)
     {
-        $features = array_values(array_filter($settings->getFeatures(), function($f) use ($featureKey) {
+        $features = array_values(array_filter($settings->getFeatures(), function ($f) use ($featureKey) {
             return $f->getKey() === $featureKey;
         }));
         return !empty($features) ? $features[0]->getId() : null;
     }
-
-    public static function convertObjectToArray($object) {
-        $v1 = json_encode($object);
-        $v2 = json_decode($v1, true);
-        return $v2;
-        //return json_decode(json_encode($object), true);
-    }
-
-    public static function convertObjectToArray1($object) {
-        if (is_object($object)) {
-            $reflectionClass = new \ReflectionClass(get_class($object));
-            $array = [];
-            foreach ($reflectionClass->getProperties() as $property) {
-                $property->setAccessible(true);
-                $array[$property->getName()] = self::convertObjectToArray1($property->getValue($object));
-            }
-            return $array;
-        }
-
-        if (is_array($object)) {
-            foreach ($object as $key => $value) {
-                $object[$key] = self::convertObjectToArray1($value);
-            }
-        }
-        return $object;
-    }
-
 }

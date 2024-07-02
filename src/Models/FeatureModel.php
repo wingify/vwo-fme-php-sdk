@@ -18,55 +18,50 @@
 
 namespace vwo\Models;
 
-use vwo\Models\MetricModel as MetricModel;
-use vwo\Models\CampaignModel as CampaignModel;
-use vwo\Models\RuleModel as RuleModel;
-use vwo\Models\ImpactCapmaignModel as ImpactCapmaignModel;
+use vwo\Models\MetricModel;
+use vwo\Models\CampaignModel;
+use vwo\Models\RuleModel;
+use vwo\Models\ImpactCapmaignModel;
 use vwo\Utils\FunctionUtil;
 
 class FeatureModel
 {
-    public $metrics = [];
-    public $id;
-    public $key;
-    public $name;
-    public $type;
-    public $rules = [];
-    public $impactCampaign = null;
-    public $rulesLinkedCampaign = [];
+    private $metrics = [];
+    private $id;
+    private $key;
+    private $name;
+    private $type;
+    private $rules = [];
+    private $impactCampaign = null;
+    private $rulesLinkedCampaign = [];
 
     public function modelFromDictionary($feature)
     {
-        $this->id = isset($feature['id']) ? $feature['id'] : null;
-        $this->key = isset($feature['key']) ? $feature['key'] : null;
-        $this->name = isset($feature['name']) ? $feature['name'] : null;
-        $this->type = isset($feature['type']) ? $feature['type'] : null;
+        $this->id = isset($feature->id) ? $feature->id : null;
+        $this->key = isset($feature->key) ? $feature->key : null;
+        $this->name = isset($feature->name) ? $feature->name : null;
+        $this->type = isset($feature->type) ? $feature->type : null;
 
-        if (isset($feature['impactCampaign'])) {
-            $this->impactCampaign = (new ImpactCapmaignModel())->modelFromDictionary($feature['impactCampaign']);
+        if (isset($feature->impactCampaign)) {
+            $this->impactCampaign = (new ImpactCapmaignModel())->modelFromDictionary($feature->impactCampaign);
         }
 
-        if (isset($feature['m']) && is_array($feature['m'])) {
-            $metricList = $feature['m'];
-            foreach ($metricList as $metric) {
-                $this->metrics[] = (new MetricModel())->modelFromDictionary($metric);
-            }
-        } elseif (isset($feature['metrics']) && is_array($feature['metrics'])) {
-            $metricList = $feature['metrics'];
+        if (isset($feature->m) || isset($feature->metrics)) {
+            $metricList = isset($feature->m) ? $feature->m : $feature->metrics;
             foreach ($metricList as $metric) {
                 $this->metrics[] = (new MetricModel())->modelFromDictionary($metric);
             }
         }
 
-        if (isset($feature['rules']) && is_array($feature['rules'])) {
-            $ruleList = $feature['rules'];
+        if (isset($feature->rules)) {
+            $ruleList = $feature->rules;
             foreach ($ruleList as $rule) {
                 $this->rules[] = (new RuleModel())->modelFromDictionary($rule);
             }
         }
 
-        if (isset($feature['rulesLinkedCampaign']) && is_array($feature['rulesLinkedCampaign'])) {
-            $linkedCampaignList = $feature['rulesLinkedCampaign'];
+        if (isset($feature->rulesLinkedCampaign)) {
+            $linkedCampaignList = $feature->rulesLinkedCampaign;
             foreach ($linkedCampaignList as $linkedCampaign) {
                 $this->rulesLinkedCampaign[] = (new CampaignModel())->modelFromDictionary($linkedCampaign);
             }
@@ -85,9 +80,14 @@ class FeatureModel
         return $this->rulesLinkedCampaign;
     }
 
-    public function setImpactCampaign($rulesLinkedCampaign)
+    public function setImpactCampaign($impactCampaign)
     {
-        $this->rulesLinkedCampaign = $rulesLinkedCampaign;
+        $this->impactCampaign = $impactCampaign;
+    }
+
+    public function getImpactCampaign()
+    {
+        return $this->impactCampaign;
     }
 
     public function setMetrics($metrics)
@@ -123,11 +123,6 @@ class FeatureModel
     public function getRules()
     {
         return $this->rules;
-    }
-
-    public function getImpactCampaign()
-    {
-        return $this->impactCampaign;
     }
 }
 ?>

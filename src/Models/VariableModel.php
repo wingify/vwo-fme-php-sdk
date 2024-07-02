@@ -18,22 +18,19 @@
 
 namespace vwo\Models;
 
-use vwo\Utils\FunctionUtil;
-
 class VariableModel {
-  public $value;
-  public $type;
-  public $key;
-  public $id;
+  private $value;
+  private $type;
+  private $key;
+  private $id;
 
   public function modelFromDictionary($variable) {
-     $variable = FunctionUtil::convertObjectToArray($variable);
-    $this->value = isset($variable['val']) ? $variable['val'] : (isset($variable['value']) ? $variable['value'] : null);
-    $this->type = isset($variable['type']) ? $variable['type'] : null;
-    $this->key = isset($variable['k']) ? $variable['k'] : (isset($variable['key']) ? $variable['key'] : null);
-    $this->id = isset($variable['i']) ? $variable['i'] : (isset($variable['id']) ? $variable['id'] : null);
+    $this->value = isset($variable->val) ? $variable->val : (isset($variable->value) ? $variable->value : null);
+    $this->type = isset($variable->type) ? $variable->type : null;
+    $this->key = isset($variable->k) ? $variable->k : (isset($variable->key) ? $variable->key : null);
+    $this->id = isset($variable->i) ? $variable->i : (isset($variable->id) ? $variable->id : null);
     return $this;
-}
+  }
 
   public function setValue($value) {
     $this->value = $value;

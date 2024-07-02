@@ -42,7 +42,8 @@ class DecisionMaker {
     public function calculateBucketValue($str, $multiplier = 1, $maxValue = 10000): int {
         $hashValue = $this->generateHashValue($str);
 
-        return $this->generateBucketValue($hashValue, $maxValue, $multiplier);
+        $val = $this->generateBucketValue($hashValue, $maxValue, $multiplier);
+        return $val;
     }
 
     public function generateHashValue($hashKey) {

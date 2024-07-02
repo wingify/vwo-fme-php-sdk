@@ -34,7 +34,7 @@ class SegmentationManager {
         $this->evaluator = $evaluator ?? new SegmentEvaluator();
     }
 
-    public function validateSegmentation($dsl, $properties, SettingsModel $settings, $context = null): bool {
+    public function validateSegmentation($dsl, $properties, $settings, $context = null) {
         return $this->evaluator->isSegmentationValid($dsl, $properties, $settings, $context);
     }
 }

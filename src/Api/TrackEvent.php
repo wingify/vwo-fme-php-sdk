@@ -30,12 +30,12 @@ use vwo\Services\HooksManager as HooksManager;
 // Interface for tracking functionality
 interface ITrack
 {
-    public function track(SettingsModel $settings, string $eventName, array $eventProperties, array $context, HooksManager $hookManager): array;
+    public function track( $settings, $eventName, $eventProperties, $context, $hookManager);
 }
 
 class TrackEvent implements ITrack
 {
-    public function track(SettingsModel $settings, string $eventName, array $eventProperties, array $context, HooksManager $hookManager): array
+    public function track( $settings, $eventName, $eventProperties, $context, $hookManager)
     {
         if (FunctionUtil::eventExists($eventName, $settings)) {
             // Create impression for track
@@ -55,7 +55,7 @@ class TrackEvent implements ITrack
         return [$eventName => false];
     }
 
-    private function createImpressionForTrack(SettingsModel $settings, string $eventName, array $user, array $eventProperties): void
+    private function createImpressionForTrack( $settings,  $eventName,  $user,  $eventProperties)
     {
         $networkUtil = new NetworkUtil();
 

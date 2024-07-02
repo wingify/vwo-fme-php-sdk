@@ -28,7 +28,7 @@ use vwo\Packages\Logger\Core\LogManager;
 class CampaignUtil
 {
 
-    public static function setVariationAllocation(CampaignModel $campaign)
+    public static function setVariationAllocation($campaign)
     {
         if ($campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE) {
             // Handle special logic for rollout or personalize campaigns
@@ -94,7 +94,7 @@ class CampaignUtil
         return $stepFactor;
     }
 
-    private static function getVariationBucketRange(float &$variationWeight)
+    private static function getVariationBucketRange(&$variationWeight)
     {
         if (!$variationWeight || $variationWeight === 0) {
             return 0;
@@ -105,7 +105,7 @@ class CampaignUtil
         return min($startRange, Constants::MAX_TRAFFIC_VALUE);
     }
 
-    public static function scaleVariationWeights(array &$variations)
+    public static function scaleVariationWeights(&$variations)
     {
         $totalWeight = array_reduce($variations, function ($acc, $variation) {
             return $acc + $variation['weight'];
@@ -131,11 +131,11 @@ class CampaignUtil
         return "{$campaign->id}_{$userId}";
     }
 
-    public static function getCampaignVariation(SettingsModel $settings, string $campaignKey, $variationId)
+    public static function getCampaignVariation($settings, $campaignKey, $variationId)
     {
         $campaign = null;
         foreach ($settings->getCampaigns() as $campaignItem) {
-            if ($campaignItem['key'] === $campaignKey) {
+            if ($campaignItem->getKey() === $campaignKey) {
                 $campaign = $campaignItem;
                 break;
             }
@@ -143,8 +143,8 @@ class CampaignUtil
 
         if ($campaign) {
             $variation = null;
-            foreach ($campaign['variations'] as $variationItem) {
-                if ($variationItem['id'] === $variationId) {
+            foreach ($campaign->getVariations() as $variationItem) {
+                if ($variationItem->getId() === $variationId) {
                     $variation = $variationItem;
                     break;
                 }
@@ -157,7 +157,7 @@ class CampaignUtil
         return null;
     }
 
-    public static function getRolloutVariation(SettingsModel $settings, string $rolloutKey, $variationId)
+    public static function getRolloutVariation($settings, string $rolloutKey, $variationId)
     {
         $rolloutCampaign = null;
         foreach ($settings->getCampaigns() as $campaign) {
@@ -188,9 +188,7 @@ class CampaignUtil
         $stepFactor = 0;
         $currentAllocation = 0;
 
-        for ($i = 0; $i < count($campaigns); $i++) {
-            $campaign = &$campaigns[$i];
-
+        foreach ($campaigns as &$campaign) {
             $stepFactor = self::assignRangeValuesMEG($campaign, $currentAllocation);
             $currentAllocation += $stepFactor;
         }
@@ -198,25 +196,25 @@ class CampaignUtil
 
     public static function isPartOfGroup($settings, $campaignId)
     {
-        if (isset($settings->campaignGroups) && isset($settings->campaignGroups[$campaignId])) {
-            $groupId = $settings->campaignGroups[$campaignId];
+        // Check if campaignGroups property exists and the campaignId exists within it
+        if (!empty($settings->getCampaignGroups()) && !empty($settings->getCampaignGroups()->{$campaignId})) {
+            $groupId = $settings->getCampaignGroups()->{$campaignId};
 
-            // Ensure $groupId is used correctly to access $settings->groups
-            if (isset($settings->groups[$groupId])) {
-                $group = $settings->groups[$groupId];
+            // Ensure groupId is used correctly to access settings->groups
+            if (isset($settings->getGroups()->{$groupId})) {
+                $group = $settings->getGroups()->{$groupId};
 
-                // Ensure $group is an array and contains the 'name' key
-                if (is_array($group) && isset($group['name'])) {
+                // Ensure $group is an object and contains the 'name' property
+                if (is_object($group) && isset($group->name)) {
                     return [
                         'groupId' => $groupId,
-                        'groupName' => $group['name']
+                        'groupName' => $group->name
                     ];
                 }
             }
         }
         return [];
     }
-
 
     public static function findGroupsFeaturePartOf($settings, string $featureKey)
     {
@@ -244,17 +242,19 @@ class CampaignUtil
         return $groups;
     }
 
-    public static function getCampaignsByGroupId(SettingsModel $settings, $groupId)
+    public static function getCampaignsByGroupId($settings, $groupId)
     {
-        $group = $settings->getGroups()[$groupId] ?? null;
-        if ($group) {
-            return $group['campaigns'];
+        $groups = $settings->getGroups();
+
+        // Check if the group exists in the object
+        if (isset($groups->{$groupId})) {
+            return $groups->{$groupId}->campaigns;
         } else {
             return []; // Return an empty array if the group ID is not found
         }
     }
 
-    public static function getFeatureKeysFromCampaignIds(SettingsModel $settings, $campaignIds)
+    public static function getFeatureKeysFromCampaignIds($settings, $campaignIds)
     {
         $featureKeys = [];
         foreach ($campaignIds as $campaignId) {
@@ -281,32 +281,31 @@ class CampaignUtil
         }
         return $campaignIds;
     }
-
-    private static function assignRangeValuesMEG(&$data, $currentAllocation)
+    private static function assignRangeValuesMEG(object &$data, int $currentAllocation)
     {
-        $data = FunctionUtil::convertObjectToArray($data);
-        $stepFactor = self::getVariationBucketRange($data['weight']);
+        $weight = $data->getWeight(); // Store the result of getWeight() in a variable
+        $stepFactor = self::getVariationBucketRange($weight); // Pass the variable to the method
 
         if ($stepFactor) {
-            $data['startRangeVariation'] = $currentAllocation + 1;
-            $data['endRangeVariation'] = $currentAllocation + $stepFactor;
+            $data->setStartRange($currentAllocation + 1);
+            $data->setEndRange($currentAllocation + $stepFactor);
         } else {
-            $data['startRangeVariation'] = -1;
-            $data['endRangeVariation'] = -1;
+            $data->setStartRange(-1);
+            $data->setEndRange(-1);
         }
         return $stepFactor;
     }
 
-    public static function getRuleTypeUsingCampaignIdFromFeature($feature, $campaignId) {
-        $feature = FunctionUtil::convertObjectToArray($feature);
+    public static function getRuleTypeUsingCampaignIdFromFeature($feature, $campaignId)
+    {
         $ruleType = '';
-        foreach ($feature['rules'] as $rule) {
-            if ($rule['campaignId'] === $campaignId) {
-                $ruleType = $rule['type'];
+
+        foreach ($feature->getRules() as $rule) {
+            if ($rule->getCampaignId() === $campaignId) {
+                $ruleType = $rule->getType();
                 break;
             }
         }
         return $ruleType;
     }
-    
 }

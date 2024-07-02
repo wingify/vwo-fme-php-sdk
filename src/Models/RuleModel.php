@@ -19,34 +19,50 @@
 namespace vwo\Models;
 
 class RuleModel {
-  public $status;
-  public $variationId;
-  public $campaignId;
-  public $type;
+    private $status;
+    private $variationId;
+    private $campaignId;
+    private $type;
 
-  public function modelFromDictionary($rule) {
-    $this->type = isset($rule['type']) ? $rule['type'] : null;
-    $this->status = isset($rule['status']) ? $rule['status'] : null;
-    $this->variationId = isset($rule['variationId']) ? $rule['variationId'] : null;
-    $this->campaignId = isset($rule['campaignId']) ? $rule['campaignId'] : null;
-    return $this;
-  }
+    public function modelFromDictionary($rule) {
+        $this->type = isset($rule->type) ? $rule->type : null;
+        $this->status = isset($rule->status) ? $rule->status : null;
+        $this->variationId = isset($rule->variationId) ? $rule->variationId : null;
+        $this->campaignId = isset($rule->campaignId) ? $rule->campaignId : null;
+        return $this;
+    }
 
-  public function getCampaignId() {
-    return $this->campaignId;
-  }
+    public function getCampaignId() {
+        return $this->campaignId;
+    }
 
-  public function getVariationId() {
-    return $this->variationId;
-  }
+    public function getVariationId() {
+        return $this->variationId;
+    }
 
-  public function getStatus() {
-    return $this->status;
-  }
+    public function getStatus() {
+        return $this->status;
+    }
 
-  public function getType() {
-    return $this->type;
-  }
+    public function getType() {
+        return $this->type;
+    }
+
+    public function setCampaignId($campaignId) {
+        $this->campaignId = $campaignId;
+    }
+
+    public function setVariationId($variationId) {
+        $this->variationId = $variationId;
+    }
+
+    public function setStatus($status) {
+        $this->status = $status;
+    }
+
+    public function setType($type) {
+        $this->type = $type;
+    }
 }
 
 ?>
