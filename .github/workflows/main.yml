@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  run:
+    if: "!contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    runs-on: ${{ matrix.operating-system }}
+    strategy:
+      matrix:
+        operating-system: [ubuntu-latest]
+        php-versions: ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4']
+    name: PHP ${{ matrix.php-versions }} Test on ${{ matrix.operating-system }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php-versions }}
+        extensions: intl #optional
+        ini-values: "post_max_size=256M" #optional
+    - name: Get composer cache directory
+      id: composer-cache
+      run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+    - name: Cache dependencies
+      uses: actions/cache@v2
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: ${{ runner.os }}-composer-
+    - name: Install dependencies
+      run: composer install
+    - name: Run scripts
+      run: |
+        mkdir -p build/logs
+        ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml
+    - name: Coverage
+      env:
+        COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: vendor/bin/php-coveralls -v
+    - name: Notification
+      if: always()
+      id: slack
+      uses: wingify/slack-github-action@v1.15.1-wingify
+      with:
+        channel-id: "fs-review-team"
+        slack-message: "<!here> Test on *PHP-${{ matrix.php-versions }}* and *${{ matrix.operating-system }}* got *${{job.status}}* ${{job.status == 'success' && ':heavy_check_mark:' || ':x:'}} \nCommit: `${{github.event.head_commit.message}}`. \nCheck the latest build: https://github.com/wingify/vwo-php-sdk/actions"
+        color: "${{job.status == 'success' && '#00FF00' || '#FF0000'}}"
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
