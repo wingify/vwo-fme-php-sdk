@@ -188,7 +188,12 @@ class SegmentOperandEvaluator {
                 }
                 break;
             case SegmentOperandValueEnum::REGEX_VALUE:
-                $result = preg_match('/' . $operandValue . '/', $tagValue);
+                // Check if operandValue is a valid regex pattern
+                if (@preg_match('/' . $operandValue . '/', '') === false) {
+                    $result = false;
+                } else {
+                    $result = preg_match('/' . $operandValue . '/', $tagValue);
+                }
                 break;
             case SegmentOperandValueEnum::EQUAL_VALUE:
                 $result = $tagValue === $operandValue;

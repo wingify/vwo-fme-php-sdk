@@ -94,9 +94,10 @@ class CampaignDecisionService implements ICampaignDecisionService {
             LogManager::instance()->debug("For userId:{$context['user']['id']} of Campaign:{$campaign->getKey()}, segment was missing, hence skipping segmentation");
             return true;
         } else {
+            $customVariables = isset($context['user']['customVariables']) ? $context['user']['customVariables'] : [];
             $preSegmentationResult = SegmentationManager::Instance()->validateSegmentation(
                 $segments,
-                $context['user']['customVariables'],
+                $customVariables,
                 $settings,
                 $context['user']
                 // array(

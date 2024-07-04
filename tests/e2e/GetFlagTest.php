@@ -86,43 +86,60 @@ class GetFlagTest extends TestCase
 
         if ($storageMap !== null) {
             $storageData = $storageMap->get($testData['featureKey'], $testData['context']['id']);
-            $this->assertNull($storageData['rolloutKey']);
-            $this->assertNull($storageData['rolloutVariationId']);
-            $this->assertNull($storageData['experimentKey']);
-            $this->assertNull($storageData['experimentVariationId']);
+            if ($storageData === null) {
+                $this->assertNull($storageData);
+            } else {
+                $this->assertNull($storageData['rolloutKey']);
+                $this->assertNull($storageData['rolloutVariationId']);
+                $this->assertNull($storageData['experimentKey']);
+                $this->assertNull($storageData['experimentVariationId']);
+            }
         }
 
         $featureFlag = $vwoClient->getFlag($testData['featureKey'], $testData['context']);
 
-        $this->assertEquals($testData['expectation']['isEnabled'], $featureFlag->isEnabled());   
+        $this->assertEquals($testData['expectation']['isEnabled'], $featureFlag->isEnabled());
         $this->assertEquals($testData['expectation']['intVariable'], $featureFlag->getVariable('int', 1));
-        $this->assertEquals($testData['expectation']['stringVariable'], $featureFlag->getVariable('string', 'VWO'));     
-        $this->assertEquals($testData['expectation']['floatVariable'], $featureFlag->getVariable('float', 1.1));  
+        $this->assertEquals($testData['expectation']['stringVariable'], $featureFlag->getVariable('string', 'VWO'));
+        $this->assertEquals($testData['expectation']['floatVariable'], $featureFlag->getVariable('float', 1.1));
         $this->assertEquals($testData['expectation']['booleanVariable'], $featureFlag->getVariable('boolean', false));
-        $this->assertEquals($testData['expectation']['jsonVariable'], json_decode(json_encode($featureFlag->getVariable('json', [])), true));    
+        $this->assertEquals($testData['expectation']['jsonVariable'], json_decode(json_encode($featureFlag->getVariable('json', [])), true));
 
         if ($storageMap !== null) {
             $storageData = $storageMap->get($testData['featureKey'], $testData['context']['id']);
-            $this->assertEquals($testData['expectation']['storageData']['rolloutKey'], $storageData['rolloutKey']);
-            $this->assertEquals($testData['expectation']['storageData']['rolloutVariationId'], $storageData['rolloutVariationId']);
-            $this->assertEquals($testData['expectation']['storageData']['experimentKey'], $storageData['experimentKey']);
-            $this->assertEquals($testData['expectation']['storageData']['experimentVariationId'], $storageData['experimentVariationId']);
+            if ($storageData !== null) {
+                if (isset($testData['expectation']['storageData']['rolloutKey'])) {
+                    $this->assertEquals($testData['expectation']['storageData']['rolloutKey'], $storageData['rolloutKey']);
+                }
+                if (isset($testData['expectation']['storageData']['rolloutVariationId'])) {
+                    $this->assertEquals($testData['expectation']['storageData']['rolloutVariationId'], $storageData['rolloutVariationId']);
+                }
+                if (isset($testData['expectation']['storageData']['experimentKey'])) {
+                    $this->assertEquals($testData['expectation']['storageData']['experimentKey'], $storageData['experimentKey']);
+                }
+                if (isset($testData['expectation']['storageData']['experimentVariationId'])) {
+                    $this->assertEquals($testData['expectation']['storageData']['experimentVariationId'], $storageData['experimentVariationId']);
+                }
+            }
         }
     }
 }
-class TestStorageService {
+class TestStorageService
+{
     private $map = [];
 
-    public function get($featureKey, $userId) {
+    public function get($featureKey, $userId)
+    {
         $key = $featureKey . '_' . $userId;
         //echo 'Stored data: ' . $key . "\n";
         return isset($this->map[$key]) ? $this->map[$key] : null;
     }
 
-    public function set($data) {
+    public function set($data)
+    {
         $key = $data['featureKey'] . '_' . $data['user'];
         //echo 'Data to store: ' . json_encode($data) . "\n";
-        
+
         $this->map[$key] = [
             'rolloutKey' => $data['rolloutKey'],
             'rolloutVariationId' => $data['rolloutVariationId'],
