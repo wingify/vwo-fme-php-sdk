@@ -25,6 +25,10 @@ class SegmentOperandValueEnum {
     public const ENDING_STAR_VALUE = 4;
     public const REGEX_VALUE = 5;
     public const EQUAL_VALUE = 6;
+    public const GREATER_THAN_VALUE = 7;
+    public const GREATER_THAN_EQUAL_TO_VALUE = 8;
+    public const LESS_THAN_VALUE = 9;
+    public const LESS_THAN_EQUAL_TO_VALUE = 10;
 }
 
 ?>

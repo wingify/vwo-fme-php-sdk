@@ -22,12 +22,14 @@ use vwo\Utils\NetworkUtil as NetworkUtil;
 use vwo\Enums\EventEnum;
 
 interface ISetAttribute {
-    function setAttribute($settings, $attributeKey, $attributeValue, $context);
+    function setAttribute($settings, $attributeKey, $attributeValue, $context, $settingsFilePassedInOptions = false);
 }
 
 class SetAttribute implements ISetAttribute {
-    function setAttribute($settings, $attributeKey, $attributeValue, $context) {
-        createImpressionForAttribute($settings, $attributeKey, $attributeValue, $context);
+    function setAttribute($settings, $attributeKey, $attributeValue, $context, $settingsFilePassedInOptions = false) {
+        if (!$settingsFilePassedInOptions) {
+            createImpressionForAttribute($settings, $attributeKey, $attributeValue, $context);
+        }
     }
 }
 

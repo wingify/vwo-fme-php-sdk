@@ -43,7 +43,7 @@ class VWOGatewayServiceUtil {
                 $queryParams,
                 null,
                 null,
-                null,
+                UrlService::getProtocol(),
                 UrlService::getPort()
             );
 

@@ -40,6 +40,7 @@ class CampaignModel
     private $variationId;
     private $campaignId;
     private $weight;
+    private $ruleKey;
 
     public function copy($campaignModel)
     {
@@ -91,6 +92,7 @@ class CampaignModel
         $this->segments = isset($campaign->segments) ? $campaign->segments : null;
         $this->key = isset($campaign->key) ? $campaign->key : null;
         $this->type = isset($campaign->type) ? $campaign->type : null;
+        $this->ruleKey = isset($campaign->ruleKey) ? $campaign->ruleKey : null;
     }
 
     public function getId()
@@ -167,6 +169,10 @@ class CampaignModel
     {
         return $this->weight;
     }
+
+    public function getRuleKey() {
+        return $this->ruleKey;
+    }
     
     public function setId($id)
     {
@@ -237,5 +243,9 @@ class CampaignModel
     public function setWeight($weight)
     {
       $this->weight = $weight;
+    }
+    public function setRuleKey($ruleKey) 
+    {    
+        $this->ruleKey = $ruleKey;
     }
 }

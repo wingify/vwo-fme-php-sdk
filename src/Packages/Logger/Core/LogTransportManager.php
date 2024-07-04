@@ -89,12 +89,15 @@ class LogTransportManager extends Logger implements IlogTransport {
                     $logHandler = $transport['logHandler'];
                     $logHandler($formattedMessage, $level);
                 } else {
-                    if (method_exists($transport, $level)) {
-                        $transport->{$level}($formattedMessage, $level);
-                    }
+                    // Use php://stdout for console logging
+                    $this->logToConsole($level, $formattedMessage);
                 }
             }
         }
+    }
+
+    private function logToConsole($message) {
+        file_put_contents("php://stdout", $message . PHP_EOL);
     }
 }
 

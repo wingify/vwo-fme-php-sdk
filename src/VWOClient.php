@@ -67,9 +67,11 @@ class VWOClient implements IVWOClient {
 
         $defaultReturnValue = new GetFlagResultUtil(
             false,
-            [] // No variables
+            [], // No variables
+            []
         );
-    
+
+        $settingsFilePassedInOptions = isset($this->options['settingsFile']);
 
         try {
             $hookManager = new HooksManager($this->options);
@@ -96,7 +98,7 @@ class VWOClient implements IVWOClient {
             // Wrap the context in a 'user' key if it's not already
             $context = ['user' => $context];
 
-            return (new GetFlag())->get($featureKey, $this->settings, $context, $hookManager);
+            return (new GetFlag())->get($featureKey, $this->settings, $context, $hookManager, $settingsFilePassedInOptions);
         } catch (\Throwable $error) {
             LogManager::instance()->error(sprintf('API - %s failed to execute. Trace: %s', $apiName, $error->getMessage()));
             return $defaultReturnValue;
@@ -106,6 +108,7 @@ class VWOClient implements IVWOClient {
     public function trackEvent($eventName, $context, $eventProperties = [])
     {
         $apiName = 'trackEvent';
+        $settingsFilePassedInOptions = isset($this->options['settingsFile']);
         try {
             $hookManager = new HooksManager($this->options);
 
@@ -133,7 +136,7 @@ class VWOClient implements IVWOClient {
             // Wrap the context in a 'user' key 
             $context = ['user' => $context];
 
-            return (new TrackEvent())->track($this->settings, $eventName, $eventProperties, $context, $hookManager);
+            return (new TrackEvent())->track($this->settings, $eventName, $eventProperties, $context, $hookManager, $settingsFilePassedInOptions);
         } catch (\Throwable $error) {
             LogManager::instance()->error(sprintf('API - %s failed to execute. Trace: %s', $apiName, $error->getMessage()));
             return [$eventName => false];
@@ -143,6 +146,7 @@ class VWOClient implements IVWOClient {
     public function setAttribute($attributeKey, $attributeValue, $context)
     {
         $apiName = 'setAttribute';
+        $settingsFilePassedInOptions = isset($this->options['settingsFile']);
         try {
             LogManager::instance()->debug(sprintf(DebugLogMessageEnum::API_CALLED, $apiName));
 
@@ -156,7 +160,7 @@ class VWOClient implements IVWOClient {
                 throw new \Error('TypeError: Invalid context');
             }
 
-            (new SetAttribute())->setAttribute($this->settings, $attributeKey, $attributeValue, $context);
+            (new SetAttribute())->setAttribute($this->settings, $attributeKey, $attributeValue, $context, $settingsFilePassedInOptions);
         } catch (\Throwable $error) {
             LogManager::instance()->error(sprintf('API - %s failed to execute. Trace: %s', $apiName, $error->getMessage()));
         }

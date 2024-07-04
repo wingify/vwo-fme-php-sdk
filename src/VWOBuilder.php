@@ -54,6 +54,7 @@ class VWOBuilder implements IVWOBuilder
     private $logManager;
     private $originalSettings;
     private $isSettingsFetchInProgress;
+    private $settingsSetManually = false;
 
     public function __construct($options = [])
     {
@@ -103,6 +104,7 @@ class VWOBuilder implements IVWOBuilder
         $this->originalSettings = $settings;
         $this->settings = new SettingsModel($settings);
         $this->settings = SettingsUtil::processSettings($this->settings);
+        $this->settingsSetManually = true;
     }
 
     public function getSettings($force = false)
@@ -112,8 +114,7 @@ class VWOBuilder implements IVWOBuilder
             return $this->settings;
         } else {
             try {
-                $var = $this->fetchSettings($force);
-                return $var;
+                return $this->fetchSettings($force);
             } catch (\Exception $error) {
                 $errorMessage = $error instanceof \Exception ? $error->getMessage() : 'Unknown error';
                 LogManager::instance()->error("Error getting settings: $errorMessage");
@@ -148,9 +149,9 @@ class VWOBuilder implements IVWOBuilder
                 ]
             );
             return $this;
-        } catch (\Exception $e) {
-            echo("In catch");
-            echo($e);
+        } catch (\Exception $error) {
+            $errorMessage = $error instanceof \Exception ? $error->getMessage() : 'Unknown error';
+            LogManager::instance()->error("Error setting Logger Instance: $errorMessage");
         }
     }
 
@@ -214,6 +215,9 @@ class VWOBuilder implements IVWOBuilder
 
         if ($this->options['pollInterval'] < 0) {
             LogManager::instance()->error('Poll interval should be greater than 1');
+            return $this;
+        }
+        if (!$this->settingsSetManually){
             return $this;
         }
 

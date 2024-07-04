@@ -23,11 +23,13 @@ class GetFlagResultUtil
 {
     private $isEnabled;
     private $variables;
+    private $ruleStatus;
 
-    public function __construct($isEnabled, $variables)
+    public function __construct($isEnabled, $variables, $ruleStatus)
     {
         $this->isEnabled = $isEnabled;
         $this->variables = $variables;
+        $this->ruleStatus = $ruleStatus;
     }
 
     public function isEnabled()
@@ -50,5 +52,10 @@ class GetFlagResultUtil
             }
         }
         return $defaultValue;
+    }
+
+    public function getRuleStatus()
+    {
+        return $this->ruleStatus;
     }
 }
