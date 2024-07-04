@@ -89,6 +89,10 @@ class VariationModel
         $this->type = $type;
     }
 
+    public function setId($id) {
+        $this->id = $id;
+    }
+
     public function setPercentTraffic($percentTraffic) {
         $this->percentTraffic = $percentTraffic;
     }

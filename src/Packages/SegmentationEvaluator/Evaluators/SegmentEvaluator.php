@@ -101,7 +101,7 @@ class SegmentEvaluator implements Segmentation
 
             if ($isUaParser && $keyCount === count($dslNodes)) {
                 try {
-                    if (!$context['userAgent'] || $context['userAgent'] === null) {
+                    if (!isset($context['userAgent']) || $context['userAgent'] === null) {
                         LogManager::instance()->error('To evaluate user agent related segments, please pass userAgent in context object');
                         return false;
                     }
@@ -146,14 +146,14 @@ class SegmentEvaluator implements Segmentation
 
     public function addLocationValuesToMap($dsl, &$locationMap): void
     {
-        if (isset($dsl[SegmentOperatorValueEnum::COUNTRY])) {
-            $locationMap[SegmentOperatorValueEnum::COUNTRY] = $dsl[SegmentOperatorValueEnum::COUNTRY];
+        if (isset($dsl->{SegmentOperatorValueEnum::COUNTRY})) {
+            $locationMap[SegmentOperatorValueEnum::COUNTRY] = $dsl->{SegmentOperatorValueEnum::COUNTRY};
         }
-        if (isset($dsl[SegmentOperatorValueEnum::REGION])) {
-            $locationMap[SegmentOperatorValueEnum::REGION] = $dsl[SegmentOperatorValueEnum::REGION];
+        if (isset($dsl->{SegmentOperatorValueEnum::REGION})) {
+            $locationMap[SegmentOperatorValueEnum::REGION] = $dsl->{SegmentOperatorValueEnum::REGION};
         }
-        if (isset($dsl[SegmentOperatorValueEnum::CITY])) {
-            $locationMap[SegmentOperatorValueEnum::CITY] = $dsl[SegmentOperatorValueEnum::CITY];
+        if (isset($dsl->{SegmentOperatorValueEnum::CITY})) {
+            $locationMap[SegmentOperatorValueEnum::CITY] = $dsl->{SegmentOperatorValueEnum::CITY};
         }
     }
 
@@ -164,7 +164,7 @@ class SegmentEvaluator implements Segmentation
         if (!$userLocation || $userLocation === null || $userLocation === 'false') {
             return false;
         }
-        return $this->valuesMatch($locationMap, $userLocation['location']);
+        return $this->valuesMatch($locationMap, $userLocation->location);
     }
 
     public function checkUserAgentParser($uaParserMap, $userAgent): bool
@@ -223,9 +223,9 @@ class SegmentEvaluator implements Segmentation
     public function valuesMatch($expectedLocationMap, $userLocation): bool
     {
         foreach ($expectedLocationMap as $key => $value) {
-            if (isset($userLocation[$key])) {
+            if (isset($userLocation->$key)) {
                 $normalizedValue1 = $this->normalizeValue($value);
-                $normalizedValue2 = $this->normalizeValue($userLocation[$key]);
+                $normalizedValue2 = $this->normalizeValue($userLocation->$key);
                 if ($normalizedValue1 !== $normalizedValue2) {
                     return false;
                 }

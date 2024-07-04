@@ -22,6 +22,7 @@ use vwo\Utils\VWOGatewayServiceUtil;
 use vwo\Enums\UrlEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandRegexEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandValueEnum;
+use vwo\Packages\Logger\Core\LogManager;
 
 class SegmentOperandEvaluator {
     public function evaluateCustomVariableDSL($dslOperandValue, $properties): bool {
@@ -44,7 +45,7 @@ class SegmentOperandEvaluator {
         if (preg_match(SegmentOperandRegexEnum::IN_LIST, $operand)) {
             preg_match(SegmentOperandRegexEnum::IN_LIST, $operand, $matches);
             if (!$matches || count($matches) < 2) {
-                echo "Invalid 'inList' operand format";
+                LogManager::instance()->error('Invalid inList operand format');
                 return false;
             }
 
@@ -64,7 +65,7 @@ class SegmentOperandEvaluator {
                 }
                 return $res;
             } catch (\Exception $error) {
-                echo "Error while fetching data:", $error->getMessage();
+                LogManager::instance()->error('Error while fetching data:'. $error->getMessage());
                 return false;
             }
         } else {
@@ -90,11 +91,11 @@ class SegmentOperandEvaluator {
 
     public function evaluateUserAgentDSL($dslOperandValue, $context): bool {
         $operand = $dslOperandValue;
-        if (!isset($context->userAgent) || $context->userAgent === null) {
-            echo 'To Evaluate UserAgent segmentation, please provide userAgent in context';
+        if (!isset($context['userAgent']) || $context['userAgent'] === null) {
+            LogManager::instance()->error('To Evaluate UserAgent segmentation, please provide userAgent in context');
             return false;
         }
-        $tagValue = urldecode($context->userAgent);
+        $tagValue = urldecode($context['userAgent']);
         $operandTypeAndValue = $this->preProcessOperandValue($operand);
         $processedValues = $this->processValues($operandTypeAndValue->operandValue, $tagValue);
         $tagValue = $processedValues->tagValue;
@@ -133,6 +134,18 @@ class SegmentOperandEvaluator {
         } elseif (preg_match(SegmentOperandRegexEnum::REGEX_MATCH, $operand)) {
             $operandType = SegmentOperandValueEnum::REGEX_VALUE;
             $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::REGEX_MATCH);
+        } elseif (preg_match(SegmentOperandRegexEnum::GREATER_THAN, $operand)) {
+            $operandType = SegmentOperandValueEnum::GREATER_THAN_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::GREATER_THAN);
+        } elseif (preg_match(SegmentOperandRegexEnum::GREATER_THAN_EQUAL_TO, $operand)) {
+            $operandType = SegmentOperandValueEnum::GREATER_THAN_EQUAL_TO_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::GREATER_THAN_EQUAL_TO);
+        } elseif (preg_match(SegmentOperandRegexEnum::LESS_THAN, $operand)) {
+            $operandType = SegmentOperandValueEnum::LESS_THAN_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::LESS_THAN);
+        } elseif (preg_match(SegmentOperandRegexEnum::LESS_THAN_EQUAL_TO, $operand)) {
+            $operandType = SegmentOperandValueEnum::LESS_THAN_EQUAL_TO_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::LESS_THAN_EQUAL_TO);
         } else {
             $operandType = SegmentOperandValueEnum::EQUAL_VALUE;
             $operandValue = $operand;
@@ -197,6 +210,26 @@ class SegmentOperandEvaluator {
                 break;
             case SegmentOperandValueEnum::EQUAL_VALUE:
                 $result = $tagValue === $operandValue;
+                break;
+            case SegmentOperandValueEnum::GREATER_THAN_VALUE:
+                if ($tagValue !== null) {
+                    $result = $tagValue > $operandValue;
+                }
+                break;
+            case SegmentOperandValueEnum::GREATER_THAN_EQUAL_TO_VALUE:
+                if ($tagValue !== null) {
+                    $result = $tagValue >= $operandValue;
+                }
+                break;
+            case SegmentOperandValueEnum::LESS_THAN_VALUE:
+                if ($tagValue !== null) {
+                    $result = $tagValue < $operandValue;
+                }
+                break;
+            case SegmentOperandValueEnum::LESS_THAN_EQUAL_TO_VALUE:
+                if ($tagValue !== null) {
+                    $result = $tagValue <= $operandValue;
+                }
                 break;
             default:
                 $result = false;

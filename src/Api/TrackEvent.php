@@ -30,16 +30,18 @@ use vwo\Services\HooksManager as HooksManager;
 // Interface for tracking functionality
 interface ITrack
 {
-    public function track( $settings, $eventName, $eventProperties, $context, $hookManager);
+    public function track( $settings, $eventName, $eventProperties, $context, $hookManager, $settingsFilePassedInOptions = false);
 }
 
 class TrackEvent implements ITrack
 {
-    public function track( $settings, $eventName, $eventProperties, $context, $hookManager)
+    public function track( $settings, $eventName, $eventProperties, $context, $hookManager, $settingsFilePassedInOptions = false)
     {
         if (FunctionUtil::eventExists($eventName, $settings)) {
-            // Create impression for track
-            $this->createImpressionForTrack($settings, $eventName, $context['user'], $eventProperties);
+            if (!$settingsFilePassedInOptions) {
+                // Create impression for track
+                $this->createImpressionForTrack($settings, $eventName, $context['user'], $eventProperties);
+            }
 
             // Integration callback for track
             $hookManager->set([

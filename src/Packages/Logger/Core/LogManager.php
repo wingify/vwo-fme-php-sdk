@@ -86,7 +86,7 @@ class LogManager extends Logger implements ILogManager {
             $this->addTransport([
                 'level' => $this->config['level'],
                 'logHandler' => function ($message, $level) {
-                    echo $message.PHP_EOL;
+                    file_put_contents("php://stdout", $message . PHP_EOL);
                 }
             ]);
         }

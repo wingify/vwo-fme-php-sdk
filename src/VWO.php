@@ -46,9 +46,17 @@ class VWO
             ->initBatching()
             ->initPolling();
 
+
+        if (isset($options['settingsFile'])) {
+            // Use the provided settings file
+            $settingsObject = json_decode($options['settingsFile']);
+            self::$vwoBuilder->setSettings($settingsObject);
+            $settings = new SettingsModel($settingsObject);
+        } else {
+            // Fetch settings and build VWO instance
+            $settings = self::$vwoBuilder->getSettings();
+        }
         
-        // Fetch settings and build VWO instance
-        $settings = self::$vwoBuilder->getSettings();
         if ($settings) {
             self::$instance = self::$vwoBuilder->build($settings);
         }
@@ -82,7 +90,7 @@ class VWO
         } catch (\Throwable $error) {            
             $msg = sprintf('API - %s failed to execute. Trace: %s. ', $apiName, $error->getMessage());
             $logMessage = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $msg);
-            echo $logMessage;
+            file_put_contents("php://stdout", $logMessage . PHP_EOL);
         }
     }
 }

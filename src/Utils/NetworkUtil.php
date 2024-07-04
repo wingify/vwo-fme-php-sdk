@@ -227,7 +227,8 @@ class NetworkUtil {
             $response = NetworkManager::Instance()->post($request);
             return $response;
         } catch (Exception $err) {
-            echo 'Error occurred while sending POST request: ' . $err->getMessage();
+            $errorMessage = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
+            LogManager::instance()->error("Error occurred while sending POST request $errorMessage");
         }
     }
 
@@ -248,7 +249,8 @@ class NetworkUtil {
             $response = NetworkManager::Instance()->get($request);
             return $response; // Return the response model
         } catch (Exception $err) {
-            echo 'Error occurred while sending GET request:' . $err;
+            $errorMessage = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
+            LogManager::instance()->error("Error occurred while sending GET request $errorMessage ");
             return null;
         }
     }

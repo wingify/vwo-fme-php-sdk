@@ -123,6 +123,7 @@ class FunctionUtil
                         $linkedCampaign->setVariationId($rule->getVariationId());
                         $linkedCampaign->setType($rule->getType());
                         $linkedCampaign->setCampaignId($rule->getCampaignId());
+                        $linkedCampaign->setRuleKey($rule->getRuleKey());
 
                         $variationId = $rule->getVariationId();
                         if ($variationId) {

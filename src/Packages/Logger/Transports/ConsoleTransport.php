@@ -52,7 +52,7 @@ class ConsoleTransport implements Logger {
 
     public function log($level, $message): void {
         // Ensure the message is output to the console with a single newline
-        echo rtrim($message) . PHP_EOL;
+        file_put_contents("php://stdout", $message . PHP_EOL);
     }
 }
 

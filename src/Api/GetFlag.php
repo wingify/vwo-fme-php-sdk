@@ -36,12 +36,12 @@ use vwo\Utils\GetFlagResultUtil;
 
 interface IGetFlag
 {
-    public function get($featureKey, $settings, $context, $hookManager);
+    public function get($featureKey, $settings, $context, $hookManager, $settingsFilePassedInOptions = false);
 }
 
 class GetFlag implements IGetFlag
 {
-    public function get($featureKey, $settings, $context, $hookManager)
+    public function get($featureKey, $settings, $context, $hookManager, $settingsFilePassedInOptions = false)
     {
         // initialize contextUtil object
         $decision = $this->createDecision($settings, $featureKey, $context);
@@ -51,7 +51,7 @@ class GetFlag implements IGetFlag
         $rulesInformation = []; // for storing and integration callback
         $evaluatedFeatureMap = array();
         $shouldCheckForAbPersonalise = false;
-
+        $ruleStatus = [];
 
         $storageService = new StorageService();
         $storedData = (new StorageDecorator())->getFeatureFromStorage(
@@ -74,7 +74,8 @@ class GetFlag implements IGetFlag
                     );
                     return new GetFlagResultUtil(
                         true,
-                        $variation->getVariables()
+                        $variation->getVariables(),
+                        $ruleStatus
                     );
                 }
             }
@@ -106,14 +107,15 @@ class GetFlag implements IGetFlag
         $feature = FunctionUtil::getFeatureFromKey($settings, $featureKey);
         if (!is_object($feature) || $feature === null) {
             LogManager::instance()->info("Feature not found for the key {$featureKey}");
-            return new GetFlagResultUtil(false, []);
+            return new GetFlagResultUtil(false, [], $ruleStatus);
         }
 
         $rollOutRules = FunctionUtil::getSpecificRulesBasedOnType($settings, $featureKey, CampaignTypeEnum::ROLLOUT);
 
         if (count($rollOutRules) > 0 && !$isEnabled) {
             foreach ($rollOutRules as $rule) {
-                $evaluateRuleResult = $this->evaluateRule($settings, $feature, $rule, $context, false, $decision);
+                
+                $evaluateRuleResult = $this->evaluateRule($settings, $feature, $rule, $context, false, $decision, $settingsFilePassedInOptions);
                 if ($evaluateRuleResult[0]) {
                     $ruleToTrack[] = $rule;
                     $evaluatedFeatureMap[$featureKey] = [
@@ -121,7 +123,10 @@ class GetFlag implements IGetFlag
                         'rolloutKey' => $rule->getKey(),
                         'rolloutVariationId' => $rule->getVariations()[0]->getId()
                     ];
+                    $ruleStatus[$rule->getRuleKey()] = "Passed";
                     break;
+                } else {
+                    $ruleStatus[$rule->getRuleKey()] = "Failed";
                 }
                 continue;
             }
@@ -133,7 +138,7 @@ class GetFlag implements IGetFlag
         if (count($ruleToTrack) > 0) {
             $ruleElement = array_pop($ruleToTrack);
             $campaign = $ruleElement;
-            $variation = $this->trafficCheckAndReturnVariation($settings, $feature, $campaign, $context, $rulesInformation, $decision);
+            $variation = $this->trafficCheckAndReturnVariation($settings, $feature, $campaign, $context, $rulesInformation, $decision, $settingsFilePassedInOptions);
 
             if (DataTypeUtil::isObject($variation)) {
                 $isEnabled = true;
@@ -257,7 +262,8 @@ class GetFlag implements IGetFlag
                     $rule,
                     $context,
                     false,
-                    $decision
+                    $decision,
+                    $settingsFilePassedInOptions
                 );
 
                 if ($abPersonalizeResult) {
@@ -272,7 +278,10 @@ class GetFlag implements IGetFlag
                             'experimentVariationId' => $whitelistedVariation['variationId']
                         ]);
                     }
+                    $ruleStatus[$rule->getRuleKey()] = "Passed";
                     break;
+                } else {
+                    $ruleStatus[$rule->getRuleKey()] = "Failed";
                 }
                 $campaignToSkip[] = $rule->getId();
                 continue;
@@ -282,7 +291,7 @@ class GetFlag implements IGetFlag
         if (count($ruleToTrack) > 0) {
             $ruleElement = array_pop($ruleToTrack);
             $campaign = $ruleElement;
-            $variation = $this->trafficCheckAndReturnVariation($settings, $feature, $campaign, $context, $rulesInformation, $decision);
+            $variation = $this->trafficCheckAndReturnVariation($settings, $feature, $campaign, $context, $rulesInformation, $decision, $settingsFilePassedInOptions);
 
             if ($variation !== null) {
                 $isEnabled = true;
@@ -299,13 +308,19 @@ class GetFlag implements IGetFlag
             $hookManager->execute($hookManager->get());
         }
 
-        if ($feature->getImpactCampaign()->getcampaignId()) {
+        if ($feature->getImpactCampaign()->getcampaignId() && !$settingsFilePassedInOptions) {
+            $campaign = new \vwo\Models\CampaignModel();
+            $campaign->setId($feature->getImpactCampaign()->getCampaignId());
+
+            $variation = new \vwo\Models\VariationModel();
+            $variation->setId($isEnabled ? 2 : 1);  
+
             $this->createImpressionForVariationShown(
                 $settings,
                 $feature,
-                ['id' => $feature->impactCampaign->campaignId],
+                $campaign,
                 $context['user'],
-                ['id' => $isEnabled ? 2 : 1],
+                $variation,
                 true
             );
         }
@@ -317,7 +332,7 @@ class GetFlag implements IGetFlag
             $variables = $rolloutVariationToReturn->getVariables() ?? null;
         }
 
-        return new GetFlagResultUtil($isEnabled, $variables);
+        return new GetFlagResultUtil($isEnabled, $variables, $ruleStatus);
     }
 
     private function createDecision($settings, $featureKey, $context)
@@ -331,7 +346,7 @@ class GetFlag implements IGetFlag
         ];
     }
 
-    private function trafficCheckAndReturnVariation($settings, $feature, $campaign, $context, &$rulesInformation, &$decision)
+    private function trafficCheckAndReturnVariation($settings, $feature, $campaign, $context, &$rulesInformation, &$decision, $settingsFilePassedInOptions)
     {
         $variation = DecisionUtil::evaluateTrafficAndGetVariation($settings, $campaign, $context['user']['id']);
 
@@ -355,7 +370,8 @@ class GetFlag implements IGetFlag
             $decision = array_merge($decision, $rulesInformation);
 
             // Assuming createImpressionForVariationShown() accepts objects for $campaign and $variation
-            $this->createImpressionForVariationShown($settings, $feature, $campaign, $context['user'], $variation);
+            if (!$settingsFilePassedInOptions)
+                $this->createImpressionForVariationShown($settings, $feature, $campaign, $context['user'], $variation);
 
             return $variation;
         }
@@ -369,7 +385,7 @@ class GetFlag implements IGetFlag
      * @param user    user object
      * @returns
      */
-    public function evaluateRule($settings, $feature, $campaign, $context, $isMegWinnerRule, &$decision)
+    public function evaluateRule($settings, $feature, $campaign, $context, $isMegWinnerRule, &$decision, $settingsFilePassedInOptions = false)
     {
         // check for whitelisting and pre segmentation
         $result = DecisionUtil::checkWhitelistingAndPreSeg(
@@ -389,12 +405,13 @@ class GetFlag implements IGetFlag
                 'experimentKey' => $campaign->getKey(),
                 'experimentVariationId' => $whitelistedObject->variationId,
             ]);
-            $this->createImpressionForVariationShown($settings, $feature, $campaign, $context['user'], $whitelistedObject['variation']);
+            if (!$settingsFilePassedInOptions)
+                $this->createImpressionForVariationShown($settings, $feature, $campaign, $context['user'], $whitelistedObject['variation']);
         }
         return [$preSegmentationResult, $whitelistedObject];
     }
 
-    function createImpressionForVariationShown($settings, $feature, $campaign, $user, $variation, $isImpactCampaign = false)
+    function createImpressionForVariationShown($settings, $feature, $campaign, $user, $variation, $isImpactCampaign = false, $settingsFilePassedInOptions = false)
     {
         if (isset($user['userAgent'])) {
             $userAgent = $user['userAgent'];
