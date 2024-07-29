@@ -17,7 +17,6 @@
  */
 
 namespace vwo\Utils;
-require 'vendor/autoload.php';
 
 use Ramsey\Uuid\Uuid;
 
