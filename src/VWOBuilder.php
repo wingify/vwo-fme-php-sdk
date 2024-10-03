@@ -28,12 +28,13 @@ use vwo\Packages\Storage\Storage;
 use vwo\Utils\FunctionUtil;
 use vwo\Utils\SettingsUtil;
 use vwo\Models\SettingsModel;
+use vwo\Services\SettingsService;
 
 interface IVWOBuilder
 {
     public function build($settings);
     public function fetchSettings($force = false);
-    public function setSettingsManager();
+    public function setSettingsService();
     public function setSettings($settings);
     public function getSettings($force = false);
     public function setStorage();
@@ -54,6 +55,8 @@ class VWOBuilder implements IVWOBuilder
     private $logManager;
     private $originalSettings;
     private $isSettingsFetchInProgress;
+    private $settingsSetManually = false;
+    private $vwoInstance;
 
     public function __construct($options = [])
     {
@@ -103,6 +106,7 @@ class VWOBuilder implements IVWOBuilder
         $this->originalSettings = $settings;
         $this->settings = new SettingsModel($settings);
         $this->settings = SettingsUtil::processSettings($this->settings);
+        $this->settingsSetManually = true;
     }
 
     public function getSettings($force = false)
@@ -112,8 +116,7 @@ class VWOBuilder implements IVWOBuilder
             return $this->settings;
         } else {
             try {
-                $var = $this->fetchSettings($force);
-                return $var;
+                return $this->fetchSettings($force);
             } catch (\Exception $error) {
                 $errorMessage = $error instanceof \Exception ? $error->getMessage() : 'Unknown error';
                 LogManager::instance()->error("Error getting settings: $errorMessage");
@@ -132,25 +135,20 @@ class VWOBuilder implements IVWOBuilder
         return $this;
     }
 
-    public function setSettingsManager()
+    public function setSettingsService()
     {
-        $this->settingFileManager = new SettingsManager($this->options);
+        $this->settingFileManager = new SettingsService($this->options);
         return $this;
     }
 
     public function setLogger()
     {
         try {
-            $this->logManager = new LogManager(
-                $this->options['logger'] ?? [
-                    'level' => LogLevelEnum::DEBUG,
-                    'defaultTransport' => true
-                ]
-            );
+            $this->logManager = new LogManager(isset($this->options['logger']) ? $this->options['logger'] : []);
             return $this;
-        } catch (\Exception $e) {
-            echo("In catch");
-            echo($e);
+        } catch (\Exception $error) {
+            $errorMessage = $error instanceof \Exception ? $error->getMessage() : 'Unknown error';
+            LogManager::instance()->error("Error setting Logger Instance: $errorMessage");
         }
     }
 
@@ -216,6 +214,9 @@ class VWOBuilder implements IVWOBuilder
             LogManager::instance()->error('Poll interval should be greater than 1');
             return $this;
         }
+        if (!$this->settingsSetManually){
+            return $this;
+        }
 
         $this->checkAndPoll($this->options['pollInterval']);
         return $this;
@@ -235,6 +236,7 @@ class VWOBuilder implements IVWOBuilder
                     $clonedSettings = FunctionUtil::cloneObject($latestSettingsFile);
                     $thisReference->settings = SettingsUtil::processSettings($clonedSettings);
                     LogManager::instance()->info('Settings file updated');
+                    SettingsUtil::setSettingsAndAddCampaignsToRules($clonedSettings, $this->vwoInstance);
                 }
             } catch (\Exception $error) {
                 LogManager::instance()->error('Error while fetching VWO settings with polling');
@@ -244,6 +246,7 @@ class VWOBuilder implements IVWOBuilder
 
     public function build($settings)
     {
-        return new VWOClient($this->settings, $this->options);
+        $this->vwoInstance = new VWOClient($this->settings, $this->options);
+        return $this->vwoInstance;
     }
 }

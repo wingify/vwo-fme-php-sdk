@@ -17,7 +17,6 @@
  */
 
 namespace vwo\Utils;
-require 'vendor/autoload.php';
 
 use Ramsey\Uuid\Uuid;
 
@@ -25,37 +24,68 @@ class UuidUtil
 {
     const VWO_NAMESPACE_URL = 'https://vwo.com';
 
+    /**
+     * Generates a random UUID based on an API key.
+     * 
+     * @param string $apiKey The API key used to generate a namespace for the UUID.
+     * @return string A random UUID string.
+     */
     public static function getRandomUUID($apiKey)
     {
+        // Generate a namespace based on the API key using DNS namespace
         $namespace = self::generateUUID($apiKey, Uuid::NAMESPACE_DNS);
+        // Generate a random UUID using the namespace derived from the API key
         $randomUUID = Uuid::uuid5($namespace, Uuid::uuid4()->toString());
 
         return $randomUUID->toString();
     }
 
+    /**
+     * Generates a UUID for a user based on their userId and accountId.
+     * 
+     * @param string $userId The user's ID.
+     * @param string $accountId The account ID associated with the user.
+     * @return string A UUID string formatted without dashes and in uppercase.
+     */
     public static function getUUID($userId, $accountId)
     {
-        // Cast userId and accountId to string
+        // Convert userId and accountId to strings to ensure proper type
         $userId = (string)$userId;
         $accountId = (string)$accountId;
 
+        // Generate a namespace UUID based on the accountId
         $userIdNamespace = self::generateUUID($accountId, self::getVwoNamespace());
+        // Generate a UUID based on the userId and the previously generated namespace
         $uuidForUserIdAccountId = self::generateUUID($userId, $userIdNamespace);
 
+        // Remove all dashes from the UUID and convert it to uppercase
         $desiredUuid = strtoupper(str_replace('-', '', $uuidForUserIdAccountId->toString()));
 
         return $desiredUuid;
     }
 
+    /**
+     * Helper function to generate a UUID v5 based on a name and a namespace.
+     * 
+     * @param string $name The name from which to generate the UUID.
+     * @param string $namespace The namespace used to generate the UUID.
+     * @return \Ramsey\Uuid\UuidInterface|null A UUID object or null if inputs are invalid.
+     */
     private static function generateUUID($name, $namespace)
     {
         if (!$name || !$namespace) {
             return null;
         }
 
+        // Generate and return the UUID v5
         return Uuid::uuid5($namespace, $name);
     }
 
+    /**
+     * Generates the VWO namespace UUID based on a constant URL.
+     * 
+     * @return string The VWO namespace UUID string.
+     */
     private static function getVwoNamespace()
     {
         return Uuid::uuid5(Uuid::NAMESPACE_URL, self::VWO_NAMESPACE_URL)->toString();

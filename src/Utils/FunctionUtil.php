@@ -18,80 +18,115 @@
 
 namespace vwo\Utils;
 
-use vwo\Models\SettingsModel;
 use vwo\Enums\CampaignTypeEnum;
-use vwo\Models\RuleModel;
+use vwo\Models\SettingsModel;
+use vwo\Models\FeatureModel;
+use vwo\Models\CampaignModel;
 
 class FunctionUtil
 {
+    /**
+     * Clones an object deeply.
+     * @param mixed $obj - The object to clone.
+     * @return mixed The cloned object.
+     */
     public static function cloneObject($obj)
     {
         if (!$obj) {
             return $obj;
         }
-        return json_decode(json_encode($obj), true);
+        return clone $obj;
     }
 
+    /**
+     * Gets the current Unix timestamp in seconds.
+     * @return int The current Unix timestamp.
+     */
     public static function getCurrentUnixTimestamp()
     {
-        return (int)ceil(microtime(true));
+        return (int) ceil(microtime(true));
     }
 
+    /**
+     * Gets the current Unix timestamp in milliseconds.
+     * @return int The current Unix timestamp in milliseconds.
+     */
     public static function getCurrentUnixTimestampInMillis()
     {
-        return (int)(microtime(true) * 1000);
+        return (int) (microtime(true) * 1000);
     }
 
+    /**
+     * Generates a random number between 0 and 1.
+     * @return float A random number.
+     */
     public static function getRandomNumber()
     {
         return mt_rand() / mt_getrandmax();
     }
 
-
-    public static function getSpecificRulesBasedOnType($settings, $featureKey, $type = null)
+    /**
+     * Retrieves specific rules based on the type from a feature.
+     * @param FeatureModel $feature - The feature object.
+     * @param string|null $type - The type of the rules to retrieve.
+     * @return array An array of rules that match the type.
+     */
+    public static function getSpecificRulesBasedOnType($feature, $type = null)
     {
-        $feature = self::getFeatureFromKey($settings, $featureKey);
-
-        // Check if the feature exists and has linked rules
-        if (!$feature || !$feature->getRulesLinkedCampaign()) {
+        if ($feature && !$feature->getRulesLinkedCampaign()) {
             return [];
         }
 
-        // If type is specified and it's a string, filter the rules based on the type
-        if ($type && is_string($type)) {
-            $filteredRules = array_filter($feature->getRulesLinkedCampaign(), function ($rule) use ($type) {
-                return $rule && $rule->getType() === $type;
+        if ($feature && $feature->getRulesLinkedCampaign() && $type && is_string($type)) {
+            return array_filter($feature->getRulesLinkedCampaign(), function ($rule) use ($type) {
+                $ruleModel = (new CampaignModel())->modelFromDictionary($rule);
+                return $ruleModel->getType() === $type;
             });
-            return $filteredRules;
         }
 
-        // Return all linked rules if no type is specified
         return $feature->getRulesLinkedCampaign();
     }
 
-    public static function getAllAbAndPersonaliseRules($settings, $featureKey)
+    /**
+     * Retrieves all AB and Personalize rules from a feature.
+     * @param FeatureModel $feature - The feature containing rules.
+     * @return array An array of AB and Personalize rules.
+     */
+    public static function getAllExperimentRules($feature)
     {
-        $feature = self::getFeatureFromKey($settings, $featureKey);
-        // Get the rules linked to the campaign and ensure they are RuleModel objects
+        // Retrieve the rules linked to the campaign
         $rulesLinkedCampaign = $feature->getRulesLinkedCampaign();
 
         // Filter and return the rules that are of type 'AB' or 'Personalize'
         return array_filter($rulesLinkedCampaign, function ($rule) {
-            // Check if the rule is an instance of RuleModel and check the 'type' property
             return $rule &&
                 ($rule->getType() === CampaignTypeEnum::AB || $rule->getType() === CampaignTypeEnum::PERSONALIZE);
         });
     }
 
+    /**
+     * Retrieves a feature by its key from the settings.
+     * @param SettingsModel $settings - The settings containing features.
+     * @param string $featureKey - The key of the feature to find.
+     * @return mixed The feature if found, otherwise null.
+     */
     public static function getFeatureFromKey($settings, $featureKey)
     {
-        $features = array_values(array_filter($settings->getFeatures(), function ($feature) use ($featureKey) {
-            return $feature->getKey() === $featureKey;
-        }));
-        return !empty($features) ? $features[0] : null;
+        foreach ($settings->getFeatures() as $feature) {
+            if ($feature->getKey() === $featureKey) {
+                return $feature;
+            }
+        }
+        return null;
     }
 
-    public static function eventExists($eventName, $settings)
+    /**
+     * Checks if an event exists within any feature's metrics.
+     * @param string $eventName - The name of the event to check.
+     * @param SettingsModel $settings - The settings containing features.
+     * @return bool True if the event exists, otherwise false.
+     */
+    public static function doesEventBelongToAnyFeature($eventName, $settings)
     {
         foreach ($settings->getFeatures() as $feature) {
             foreach ($feature->getMetrics() as $metric) {
@@ -103,45 +138,53 @@ class FunctionUtil
         return false;
     }
 
-    public static function addLinkedCampaignsToSettings($settingsFile)
+    /**
+     * Adds linked campaigns to each feature in the settings based on rules.
+     * @param SettingsModel $settings - The settings file to modify.
+     */
+    public static function addLinkedCampaignsToSettings($settings)
     {
-        foreach ($settingsFile->getFeatures() as $feature) {
+        // Create a map for quick access to campaigns
+        $campaignMap = [];
+        foreach ($settings->getCampaigns() as $campaign) {
+            $campaignMap[$campaign->getId()] = $campaign;
+        }
+
+        // Loop over all features
+        foreach ($settings->getFeatures() as $feature) {
             $rulesLinkedCampaign = [];
             foreach ($feature->getRules() as $rule) {
                 $campaignId = $rule->getCampaignId();
-                if ($campaignId) {
+                if (isset($campaignMap[$campaignId])) {
+                    $campaign = clone $campaignMap[$campaignId];
+                    $campaign->setStatus($rule->getStatus());
+                    $campaign->setVariationId($rule->getVariationId());
+                    $campaign->setType($rule->getType());
+                    $campaign->setCampaignId($rule->getCampaignId());
+                    $campaign->setRuleKey($rule->getRuleKey());
 
-                    $campaigns = array_values(array_filter($settingsFile->getCampaigns(), function ($c) use ($campaignId) {
-                        return $c->getId() === $campaignId;
-                    }));
-                    if (!empty($campaigns)) {
-                        $campaign = $campaigns[0];
-                        $linkedCampaign = clone $campaign;
-
-                        // Merge $rule properties into $linkedCampaign using getter methods
-                        $linkedCampaign->setStatus($rule->getStatus());
-                        $linkedCampaign->setVariationId($rule->getVariationId());
-                        $linkedCampaign->setType($rule->getType());
-                        $linkedCampaign->setCampaignId($rule->getCampaignId());
-
-                        $variationId = $rule->getVariationId();
-                        if ($variationId) {
-                            $variations = array_values(array_filter($campaign->getVariations(), function ($v) use ($variationId) {
-                                return $v->getId() === $variationId;
-                            }));
-                            if (!empty($variations)) {
-                                $variation = $variations[0];
-                                $linkedCampaign->setVariations([$variation]);
-                            }
+                    if ($variationId = $rule->getVariationId()) {
+                        $variations = array_filter($campaign->getVariations(), function ($v) use ($variationId) {
+                            return $v->getId() === $variationId;
+                        });
+                        if (!empty($variations)) {
+                            $campaign->setVariations([reset($variations)]);
                         }
-                        $rulesLinkedCampaign[] = $linkedCampaign;
                     }
+
+                    $rulesLinkedCampaign[] = $campaign;
                 }
             }
             $feature->setRulesLinkedCampaign($rulesLinkedCampaign);
         }
     }
 
+    /**
+     * Retrieves the feature name by its key.
+     * @param SettingsModel $settings - The settings containing features.
+     * @param string $featureKey - The key of the feature.
+     * @return string The feature name if found, otherwise an empty string.
+     */
     public static function getFeatureNameFromKey(SettingsModel $settings, $featureKey)
     {
         $features = array_values(array_filter($settings->getFeatures(), function ($f) use ($featureKey) {
@@ -150,6 +193,12 @@ class FunctionUtil
         return !empty($features) ? $features[0]->getName() : '';
     }
 
+    /**
+     * Retrieves the feature ID by its key.
+     * @param SettingsModel $settings - The settings containing features.
+     * @param string $featureKey - The key of the feature.
+     * @return int|null The feature ID if found, otherwise null.
+     */
     public static function getFeatureIdFromKey(SettingsModel $settings, $featureKey)
     {
         $features = array_values(array_filter($settings->getFeatures(), function ($f) use ($featureKey) {

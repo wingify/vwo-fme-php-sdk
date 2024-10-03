@@ -31,6 +31,6 @@ class SegmentOperandRegexEnum {
     const LESS_THAN = '/^lt\(((\d+\.?\d*)|(\.\d+))\)/';
     const GREATER_THAN_EQUAL_TO = '/^gte\(((\d+\.?\d*)|(\.\d+))\)/';
     const LESS_THAN_EQUAL_TO = '/^lte\(((\d+\.?\d*)|(\.\d+))\)/';
-    const IN_LIST = '/inlist\((\w+:\d+)\)/';
+    const IN_LIST = '/inlist\(([^)]+)\)/';
 }
 ?>

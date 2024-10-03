@@ -39,6 +39,7 @@ class VariationModel
     private $status;
     private $variationId;
     private $campaignId;
+    private $ruleKey;
 
     public function modelFromDictionary($variation)
     {
@@ -57,6 +58,8 @@ class VariationModel
         $this->status = isset($variation->status) ? $variation->status : null;
         $this->variationId = isset($variation->variationId) ? $variation->variationId : null;
         $this->campaignId = isset($variation->campaignId) ? $variation->campaignId : null;
+        $this->ruleKey = isset($variation->ruleKey) ? $variation->ruleKey : null;
+        
 
         if (isset($variation->variables)) {
             foreach ($variation->variables as $variable) {
@@ -89,6 +92,10 @@ class VariationModel
         $this->type = $type;
     }
 
+    public function setId($id) {
+        $this->id = $id;
+    }
+
     public function setPercentTraffic($percentTraffic) {
         $this->percentTraffic = $percentTraffic;
     }
@@ -115,6 +122,10 @@ class VariationModel
 
     public function setCampaignId($campaignId) {
         $this->campaignId = $campaignId;
+    }
+
+    public function setRuleKey($ruleKey) {
+        $this->ruleKey = $ruleKey;
     }
 
     public function getId() {
@@ -183,5 +194,9 @@ class VariationModel
 
     public function getCampaignId() {
         return $this->campaignId;
+    }
+
+    public function getRuleKey() {
+        return $this->ruleKey;
     }
 }

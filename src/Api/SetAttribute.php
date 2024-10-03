@@ -18,49 +18,69 @@
 
 namespace vwo\Api;
 
-use vwo\Utils\NetworkUtil as NetworkUtil;
+use vwo\Models\User\ContextModel;
+use vwo\Models\SettingsModel;
 use vwo\Enums\EventEnum;
+use vwo\Utils\NetworkUtil;
 
-interface ISetAttribute {
-    function setAttribute($settings, $attributeKey, $attributeValue, $context);
+interface ISetAttribute
+{
+    /**
+     * Sets an attribute for a user.
+     * @param SettingsModel $settings Configuration settings.
+     * @param string $attributeKey The key of the attribute to set.
+     * @param mixed $attributeValue The value of the attribute.
+     * @param ContextModel $context Context containing user information.
+     */
+    public function setAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context): void;
 }
 
-class SetAttribute implements ISetAttribute {
-    function setAttribute($settings, $attributeKey, $attributeValue, $context) {
-        createImpressionForAttribute($settings, $attributeKey, $attributeValue, $context);
-    }
-}
-
-function createImpressionForAttribute($settings, $attributeKey, $attributeValue, $user) {
-    $networkUtil = new NetworkUtil();
-
-    if(isset($user['userAgent'])){
-        $userAgent = $user['userAgent'];
-    } else {
-        $userAgent = '';
-    }
-
-    if(isset($user['ipAddress'])){
-        $userIpAddress = $user['ipAddress'];
-    } else {
-        $userIpAddress = '';
+class SetAttribute implements ISetAttribute
+{
+    /**
+     * Implementation of setAttribute to create an impression for a user attribute.
+     * @param SettingsModel $settings Configuration settings.
+     * @param string $attributeKey The key of the attribute to set.
+     * @param mixed $attributeValue The value of the attribute.
+     * @param ContextModel $context Context containing user information.
+     */
+    public function setAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context): void
+    {
+        $this->createImpressionForAttribute($settings, $attributeKey, $attributeValue, $context);
     }
 
-    $properties = $networkUtil->getEventsBaseProperties(
-        $settings,
-        EventEnum::VWO_SYNC_VISITOR_PROP,
-        $userAgent,
-        $userIpAddress
-    );
-    $payload = $networkUtil->getAttributePayloadData(
-        $settings,
-        $user['id'],
-        EventEnum::VWO_SYNC_VISITOR_PROP,
-        $attributeKey,
-        $attributeValue,
-        $userAgent,
-        $userIpAddress
-    );
-    $networkUtil->sendPostApiRequest($properties, $payload);
+    /**
+     * Creates an impression for a user attribute and sends it to the server.
+     * @param SettingsModel $settings Configuration settings.
+     * @param string $attributeKey The key of the attribute.
+     * @param mixed $attributeValue The value of the attribute.
+     * @param ContextModel $context Context containing user information.
+     */
+    private function createImpressionForAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context): void
+    {
+        $networkUtil = new NetworkUtil();
+
+        // Retrieve base properties for the event
+        $properties = $networkUtil->getEventsBaseProperties(
+            $settings,
+            EventEnum::VWO_SYNC_VISITOR_PROP,
+            $context->getUserAgent(),
+            $context->getIpAddress()
+        );
+
+        // Construct payload data for the attribute
+        $payload = $networkUtil->getAttributePayloadData(
+            $settings,
+            $context->getId(),
+            EventEnum::VWO_SYNC_VISITOR_PROP,
+            $attributeKey,
+            $attributeValue,
+            $context->getUserAgent(),
+            $context->getIpAddress()
+        );
+
+        // Send the constructed payload via POST request
+        $networkUtil->sendPostApiRequest($properties, $payload);
+    }
 }
 ?>

@@ -21,7 +21,7 @@ namespace vwo\Utils;
 use vwo\Utils\FunctionUtil;
 use vwo\Utils\UuidUtil;
 use vwo\Constants\Constants;
-use vwo\Services\UrlService;
+use vwo\Utils\UrlUtil;
 use vwo\Enums\UrlEnum;
 use vwo\Packages\Logger\Core\LogManager;
 use vwo\Utils\DataTypeUtil;
@@ -30,6 +30,7 @@ use vwo\Enums\HeadersEnum;
 use vwo\Packages\NetworkLayer\Models\RequestModel;
 use vwo\Utils\ComposerUtil;
 use Exception;
+use vwo\Services\SettingsService;
 
 class NetworkUtil {
   public function getBasePropertiesForBulk($accountId, $userId) {
@@ -101,12 +102,18 @@ class NetworkUtil {
             'env' => $sdkKey,
             'eTime' => FunctionUtil::getCurrentUnixTimestampInMillis(),
             'random' => FunctionUtil::getRandomNumber(),
-            'p' => 'FS',
-            'visitor_ua' => $visitorUserAgent,
-            'visitor_ip' => $ipAddress,
+            'p' => 'FS'
         ];
+        
+        if (!empty($visitorUserAgent) && $visitorUserAgent !== null) {
+            $properties['visitor_ua'] = $visitorUserAgent;
+        }
 
-        $properties['url'] = Constants::HTTPS_PROTOCOL . UrlService::getBaseUrl() . UrlEnum::EVENTS;
+        if (!empty($ipAddress) && $ipAddress !== null) {
+            $properties['visitor_ip'] = $ipAddress;
+        }
+
+        $properties['url'] = Constants::HTTPS_PROTOCOL . UrlUtil::getBaseUrl() . UrlEnum::EVENTS;
         return $properties;
     }
 
@@ -132,8 +139,6 @@ class NetworkUtil {
                 'msgId' => "{$uuid}-" . FunctionUtil::getCurrentUnixTimestampInMillis(),
                 'visId' => $uuid,
                 'sessionId' => FunctionUtil::getCurrentUnixTimestamp(),
-                'visitor_ua' => $visitorUserAgent,
-                'visitor_ip' => $ipAddress,
                 'event' => [
                     'props' => $props,
                     'name' => $eventName,
@@ -146,6 +151,13 @@ class NetworkUtil {
                 ],
             ],
         ];
+        if (!empty($visitorUserAgent) && $visitorUserAgent !== null) {
+            $properties['d']['visitor_ua'] = $visitorUserAgent;
+        }
+
+        if (!empty($ipAddress) && $ipAddress !== null) {
+            $properties['d']['visitor_ip'] = $ipAddress;
+        }
 
         return $properties;
     }
@@ -201,8 +213,8 @@ class NetworkUtil {
 
         $headers = [];
 
-        $userAgent = $payload['d']['visitor_ua'];
-        $ipAddress = $payload['d']['visitor_ip'];
+        $userAgent = isset($payload['d']['visitor_ua']) ? $payload['d']['visitor_ua'] : null;
+        $ipAddress = isset($payload['d']['visitor_ip']) ? $payload['d']['visitor_ip'] : null;
 
         // Set headers
         if ($userAgent) {
@@ -213,21 +225,22 @@ class NetworkUtil {
         }
 
         $request = new RequestModel(
-            UrlService::getBaseUrl(),
+            UrlUtil::getBaseUrl(),
             'POST',
             UrlEnum::EVENTS,
             $properties,
             $payload,
             $headers,
-            UrlService::getProtocol(),
-            UrlService::getPort()
+            SettingsService::instance()->protocol,
+            SettingsService::instance()->port
         );
 
         try {
             $response = NetworkManager::Instance()->post($request);
             return $response;
         } catch (Exception $err) {
-            echo 'Error occurred while sending POST request: ' . $err->getMessage();
+            $errorMessage = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
+            LogManager::instance()->error("Error occurred while sending POST request $errorMessage");
         }
     }
 
@@ -235,20 +248,21 @@ class NetworkUtil {
   public function sendGetApiRequest($properties, $endpoint) {
         NetworkManager::Instance()->attachClient();
         $request = new RequestModel(
-            UrlService::getBaseUrl(),
+            UrlUtil::getBaseUrl(),
             'Get',
             $endpoint,
             $properties,
             null,
             null,
-            UrlService::getProtocol(),
-            UrlService::getPort()
+            SettingsService::instance()->protocol,
+            SettingsService::instance()->port,
         );
         try {
             $response = NetworkManager::Instance()->get($request);
             return $response; // Return the response model
         } catch (Exception $err) {
-            echo 'Error occurred while sending GET request:' . $err;
+            $errorMessage = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
+            LogManager::instance()->error("Error occurred while sending GET request $errorMessage ");
             return null;
         }
     }

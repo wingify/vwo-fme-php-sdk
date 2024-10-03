@@ -18,130 +18,225 @@
 
 namespace vwo\Utils;
 
-use vwo\Models\SettingsModel;
-use vwo\Packages\Logger\Core\LogManager;
-use vwo\Utils\DataTypeUtil;
-use vwo\Packages\SegmentationEvaluator\Core\SegmentationManager;
-use vwo\Utils\UuidUtil;
-use vwo\Services\CampaignDecisionService;
-use vwo\Models\CampaignModel;
 use vwo\Enums\CampaignTypeEnum;
 use vwo\Enums\StatusEnum;
-use vwo\Utils\FunctionUtil;
-use vwo\Utils\CampaignUtil;
+use vwo\Models\CampaignModel;
+use vwo\Models\FeatureModel;
+use vwo\Models\VariationModel;
+use vwo\Models\SettingsModel;
+use vwo\Models\User\ContextModel;
+use vwo\Packages\Logger\Core\LogManager;
+use vwo\Services\CampaignDecisionService;
+use vwo\Services\StorageService;
 use vwo\Packages\DecisionMaker\DecisionMaker;
+use vwo\Packages\SegmentationEvaluator\Core\SegmentationManager;
+use vwo\Decorators\StorageDecorator;
 
 class DecisionUtil
 {
-    public static function checkWhitelistingAndPreSeg($settings, $campaign, $context, $isMegWinnerRule, &$decision)
-    {
-        $vwoUserId = UuidUtil::getUUID($context['user']['id'], $settings->getAccountId());
+    public static function checkWhitelistingAndPreSeg(
+        SettingsModel $settings,
+        FeatureModel $feature,
+        CampaignModel $campaign,
+        ContextModel $context,
+        &$evaluatedFeatureMap,
+        &$megGroupWinnerCampaigns,
+        StorageService $storageService,
+        &$decision
+    ) {
+        $vwoUserId = UuidUtil::getUUID((string)$context->getId(), $settings->getAccountId());
+        $campaignId = $campaign->getId();
 
-        // only check whitelisting for ab campaigns
         if ($campaign->getType() === CampaignTypeEnum::AB) {
-            // set _vwoUserId for variation targeting variables
-            $context['user']['variationTargetingVariables'] = array_merge($context['user']['variationTargetingVariables'] ?? [], [
-                '_vwoUserId' => $campaign->getIsUserListEnabled() ? $vwoUserId : $context['user']['id'],
-            ]);
-            $decision['variationTargetingVariables'] = $context['user']['variationTargetingVariables']; // for integration
+            // Set _vwoUserId for variation targeting variables
+            $context->setVariationTargetingVariables(array_merge(
+                $context->getVariationTargetingVariables() ?? [],
+                ['_vwoUserId' => $campaign->getIsUserListEnabled() ? $vwoUserId : $context->getId()]
+            ));
+            $decision['variationTargetingVariables'] = $context->getVariationTargetingVariables();
 
-            // check if the campaign satisfies the whitelisting
+            // Check if the campaign satisfies the whitelisting
             if ($campaign->getIsForcedVariationEnabled()) {
-                $whitelistedVariation = self::checkForWhitelisting($campaign, $campaign->getKey(), $settings, $context);
+                $whitelistedVariation = self::_checkCampaignWhitelisting($campaign, $context);
                 if ($whitelistedVariation && !empty($whitelistedVariation)) {
                     return [true, $whitelistedVariation];
                 }
             } else {
                 LogManager::instance()->info(
-                    "WHITELISTING_SKIPPED: Whitelisting is not used for Campaign:{$campaign->getKey()}, hence skipping evaluating whitelisting for User ID:{$context['user']['id']}"
+                    "WHITELISTING_SKIPPED: Whitelisting is not used for Campaign:{$campaign->getRuleKey()}, hence skipping evaluating whitelisting for User ID:{$context->getId()}"
                 );
             }
         }
 
-        if ($isMegWinnerRule) {
-            return [true, null];    // for MEG winner rule, no need to check for pre segmentation as it's already evaluated
+        // userlist segment is also available for campaign pre segmentation
+        $context->setCustomVariables(array_merge(
+            $context->getCustomVariables() ?? [],
+            ['_vwoUserId' => $campaign->getIsUserListEnabled() ? $vwoUserId : $context->getId()]
+        ));
+        $decision['customVariables'] = $context->getCustomVariables();
+
+        // Check if Rule being evaluated is part of Mutually Exclusive Group
+        $groupDetails = CampaignUtil::getGroupDetailsIfCampaignPartOfIt($settings,$campaign->getId(), $campaign->getType() === CampaignTypeEnum::PERSONALIZE ? $campaign->getVariations()[0]->getId() : null);
+
+        if (is_array($groupDetails) && isset($groupDetails['groupId'])) {
+            $groupWinnerCampaignId = $megGroupWinnerCampaigns[$groupDetails['groupId']] ?? null;
+        } else  {
+            $groupWinnerCampaignId = null;
         }
 
-        // userlist segment is also available for campaign pre segmentation
-        $context['user']['customVariables'] = array_merge($context['user']['customVariables'] ?? [], [
-            '_vwoUserId' => $campaign->getIsUserListEnabled() ? $vwoUserId : $context['user']['id'],
-        ]);
-        $decision['customVariables'] = $context['user']['customVariables'];    // for integration
+        if ($groupWinnerCampaignId) {
+            if ($campaign->getType() === CampaignTypeEnum::AB) {
+                if ($groupWinnerCampaignId === $campaignId) {
+                    return [true, null];
+                }
+            } else if ($campaign->getType() === CampaignTypeEnum::PERSONALIZE) {
+                if ($groupWinnerCampaignId === $campaignId . '_' . $campaign->getVariations()[0]->getId()) {
+                    return [true, null];
+                }
+            }
+            return [false, null];
+        } else {
+            if (!empty($groupDetails) && isset($groupDetails['groupId'])) {
+                $storedData = (new StorageDecorator())->getFeatureFromStorage(
+                    "_vwo_meta_meg_{$groupDetails['groupId']}",
+                    $context,
+                    $storageService
+                );
+                if ($storedData && isset($storedData['experimentKey']) && isset($storedData['experimentId'])) {
+                    LogManager::instance()->info(
+                        "MEG_CAMPAIGN_FOUND_IN_STORAGE: Campaign:{$storedData['experimentKey']} found in storage for User:{$context->getId()}"
+                    );
+                    if ($storedData['experimentId'] == $campaignId) {
+                        if ($campaign->getType() === CampaignTypeEnum::PERSONALIZE) {
+                            if ($storedData['experimentVariationId'] == $campaign->getVariations()[0]->getId()) {
+                                return [true, null];
+                            } else {
+                                $megGroupWinnerCampaigns[$groupDetails['groupId']] = $storedData['experimentId'] . '_' . $storedData['experimentVariationId'];
+                                return [false, null];
+                            }
+                        } else {
+                            return [true, null];
+                        }
+                    }
+                    if ($storedData['experimentVariationId'] != -1) {
+                        $megGroupWinnerCampaigns[$groupDetails['groupId']] = $storedData['experimentId'] . '_' . $storedData['experimentVariationId'];
+                    } else {
+                        $megGroupWinnerCampaigns[$groupDetails['groupId']] = $storedData['experimentId'];
+                    }
+                    return [false, null];
+                }
+            }
+        }
 
-        // check for campaign pre segmentation
-        $preSegmentationResult = (new CampaignDecisionService())->getDecision($campaign, $settings, $context);
-        return [$preSegmentationResult, null];
+        // If Whitelisting is skipped/failed and campaign not part of any MEG Groups
+        // Check campaign's pre-segmentation
+        $isPreSegmentationPassed = (new CampaignDecisionService())->getPreSegmentationDecision($campaign, $context);
+
+        if ($isPreSegmentationPassed && isset($groupDetails['groupId'])) {
+            $winnerCampaign = MegUtil::evaluateGroups(
+                $settings,
+                $feature,
+                $groupDetails['groupId'],
+                $evaluatedFeatureMap,
+                $context,
+                $storageService
+            );
+            if ($winnerCampaign && $winnerCampaign->getId() === $campaignId) {
+                if ($winnerCampaign->getType() === CampaignTypeEnum::AB) {
+                    return [true, null];
+                } else {
+                    if ($winnerCampaign->getVariations()[0]->getId() === $campaign->getVariations()[0]->getId()) {
+                        return [true, null];
+                    } else {
+                        $megGroupWinnerCampaigns[$groupDetails['groupId']] = $winnerCampaign->getId() . '_' . $winnerCampaign->getVariations()[0]->getId();
+                        return [false, null];
+                    }
+                }
+            } else if ($winnerCampaign) {
+                if ($winnerCampaign->getType() === CampaignTypeEnum::AB) {
+                    $megGroupWinnerCampaigns[$groupDetails['groupId']] = $winnerCampaign->getId();
+                } else {
+                    $megGroupWinnerCampaigns[$groupDetails['groupId']] = $winnerCampaign->getId() . '_' . $winnerCampaign->getVariations()[0]->getId();
+                }
+                return [false, null];
+            }
+            $megGroupWinnerCampaigns[$groupDetails['groupId']] = -1;
+            return [false, null];
+        }
+        
+        return [$isPreSegmentationPassed, null];
     }
 
-    /**
-     * Check for whitelisting
-     * @param CampaignModel $campaign      Campaign object
-     * @param string        $campaignKey   Campaign key
-     * @param SettingsModel $settings      Settings model
-     * @param array         $context       Context
-     * @return array|null
-     */
-    private static function checkForWhitelisting($campaign, $campaignKey, $settings, $context)
+    public static function evaluateTrafficAndGetVariation(SettingsModel $settings, CampaignModel $campaign, $userId)
     {
-        $status = null;
-        // check if the campaign satisfies the whitelisting
-        $whitelistingResult = self::_evaluateWhitelisting($campaign, $campaignKey, $settings, $context);
-        $variationString = '';
-        if ($whitelistingResult) {
-            $status = StatusEnum::PASSED;
-            $variationString = $whitelistingResult['variation']->getKey();
-        } else {
-            $status = StatusEnum::FAILED;
+        $variation = (new CampaignDecisionService())->getVariationAlloted($userId, $settings->getAccountId(), $campaign);
+        $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
+        if (!$variation) {
+            LogManager::instance()->info(
+                "USER_CAMPAIGN_BUCKET_INFO: Campaign:{$campaignKey} User:{$userId} did not get any variation"
+            );
+            return null;
         }
+
         LogManager::instance()->info(
-            "SEGMENTATION_STATUS: User ID:{$context['user']['id']} for Campaign:{$campaignKey} with variables:" . json_encode($context['user']['variationTargetingVariables']) . " {$status} whitelisting {$variationString}"
+            "USER_CAMPAIGN_BUCKET_INFO: Campaign:{$campaignKey} User:{$userId} got variation:{$variation->getKey()}"
         );
+
+        return $variation;
+    }
+
+    /******************
+     * PRIVATE METHODS
+     ******************/
+
+    private static function _checkCampaignWhitelisting(CampaignModel $campaign, ContextModel $context)
+    {
+        $whitelistingResult = self::_evaluateWhitelisting($campaign, $context);
+        $status = $whitelistingResult ? StatusEnum::PASSED : StatusEnum::FAILED;
+        $variationString = $whitelistingResult ? $whitelistingResult['variation']->getKey() : '';
+        
+        $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
+        LogManager::instance()->info(
+            "WHITELISTING_STATUS: Campaign:{$campaignKey} User:{$context->getId()} Status:{$status} Variation:{$variationString}"
+        );
+
         return $whitelistingResult;
     }
 
-    private static function _evaluateWhitelisting($campaign, $campaignKey, $settings, $context)
+    private static function _evaluateWhitelisting(CampaignModel $campaign, ContextModel $context)
     {
-        $whitelistedVariation = null;
-        $status = null;
         $targetedVariations = [];
 
         foreach ($campaign->getVariations() as $variation) {
-            if (DataTypeUtil::isObject($variation->getSegments()) && empty($variation->getSegments())) {
-                LogManager::instance()->debug(
-                    "WHITELISTING_SKIP : Whitelisting is not used for experiment:{$campaignKey}, hence skipping evaluating whitelisting {$variation->getKey()} for User ID:{$context['user']['id']}",
+            if (is_object($variation->getSegments()) && empty((array)$variation->getSegments())) {
+                $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
+                LogManager::instance()->info(
+                    "WHITELISTING_SKIP: Campaign:{$campaignKey} User:{$context->getId()} Skipped for variation: {$variation->getKey()}"
                 );
                 continue;
             }
 
-            // check for segmentation and evaluate
-            if (DataTypeUtil::isObject($variation->getSegments()) && !empty((array) $variation->getSegments())) {
-
+            if (is_object($variation->getSegments())) {
                 $segmentEvaluatorResult = SegmentationManager::instance()->validateSegmentation(
                     $variation->getSegments(),
-                    $context['user']['variationTargetingVariables'],
-                    $settings
+                    $context->getVariationTargetingVariables()
                 );
 
                 if ($segmentEvaluatorResult) {
-                    $status = StatusEnum::PASSED;
-                    $targetedVariations[] = $variation;
-                } else {
-                    $status = StatusEnum::FAILED;
+                    $targetedVariations[] = clone $variation;
                 }
-            } else {
-                $status = StatusEnum::FAILED;
             }
         }
+
         if (count($targetedVariations) > 1) {
             CampaignUtil::scaleVariationWeights($targetedVariations);
-            $currentAllocation = 0;
-            foreach ($targetedVariations as $i => $variation) {
-                $stepFactor = CampaignUtil::assignRangeValues($variation, $currentAllocation);
+            for ($i = 0, $currentAllocation = 0, $stepFactor = 0; $i < count($targetedVariations); $i++) {
+                $stepFactor = CampaignUtil::assignRangeValues($targetedVariations[$i], $currentAllocation);
                 $currentAllocation += $stepFactor;
             }
             $whitelistedVariation = (new CampaignDecisionService())->getVariation(
                 $targetedVariations,
-                (new DecisionMaker())->calculateBucketValue(CampaignUtil::getBucketingSeed($context['user']['id'], $campaign, null))
+                (new DecisionMaker())->calculateBucketValue(CampaignUtil::getBucketingSeed($context->getId(), $campaign, null))
             );
         } else {
             $whitelistedVariation = $targetedVariations[0] ?? null;
@@ -156,21 +251,5 @@ class DecisionUtil
         }
 
         return null;
-    }
-
-    public static function evaluateTrafficAndGetVariation($settingsFile, $campaign, $userId)
-    {
-        $variation = (new CampaignDecisionService())->getVariationAlloted($userId, $settingsFile->getAccountId(), $campaign);
-
-        if (!$variation) {
-            LogManager::instance()->info(
-                "USER_NOT_BUCKETED: User ID:{$userId} for Campaign:{$campaign->getKey()} did not get any variation"
-            );
-            return null;
-        }
-        LogManager::instance()->info(
-            "USER_BUCKETED: User ID:{$userId} for Campaign:{$campaign->getKey()} " . ($variation->getKey() ? "got variation:{$variation->getKey()}" : "did not get any variation")
-        );
-        return $variation;
     }
 }

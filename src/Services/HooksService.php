@@ -18,7 +18,7 @@
 
 namespace vwo\Services;
 
-class HooksManager {
+class HooksService {
     private $callback;
     private $isCallBackFunction;
     private $decision;
@@ -30,8 +30,9 @@ class HooksManager {
     }
 
     /**
-     * Executes the callback
-     * @param array $properties Properties from the callback
+     * Executes the callback function with the provided properties.
+     * 
+     * @param array $properties The properties to be passed to the callback.
      */
     public function execute(array $properties): void {
         if ($this->isCallBackFunction) {
@@ -40,8 +41,9 @@ class HooksManager {
     }
 
     /**
-     * Sets properties to the decision object
-     * @param array $properties Properties to set
+     * Stores the provided properties in the decision object.
+     * 
+     * @param array $properties The properties to store.
      */
     public function set(array $properties): void {
         if ($this->isCallBackFunction) {
@@ -50,8 +52,9 @@ class HooksManager {
     }
 
     /**
-     * Retrieves the decision object
-     * @return array The decision object
+     * Retrieves the stored decision object.
+     * 
+     * @return array The stored decision object.
      */
     public function get(): array {
         return $this->decision;

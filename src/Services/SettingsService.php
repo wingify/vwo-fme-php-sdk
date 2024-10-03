@@ -25,22 +25,24 @@ use vwo\Constants\Constants;
 use vwo\Packages\NetworkLayer\Models\RequestModel;
 use Exception;
 
-// Defining interface ISettingsManager
-interface ISettingsManager {
+// Defining interface ISettingsService
+interface ISettingsService {
     public function getSettings($forceFetch);
     public function fetchSettings();
 }
 
-// Defining SettingsManager class
-class SettingsManager implements ISettingsManager {
+// Defining SettingsService class
+class SettingsService implements ISettingsService {
     // Declaring properties
     public $sdkKey;
     public $accountId;
     public $expiry;
     public $networkTimeout;
-    public $settingsFileUrl;
-    public $settingsFilePort;
-    public $settingsFileProtocol;
+    public $hostname;
+    public $port;
+    public $protocol;
+    public $isGatewayServiceProvided = false;
+    private static $instance;
 
     // Constructor
     public function __construct($options) {
@@ -51,48 +53,40 @@ class SettingsManager implements ISettingsManager {
         $this->networkTimeout = isset($options['settings']['timeout']) ? $options['settings']['timeout'] : Constants::SETTINGS_TIMEOUT;
 
         // Parsing URL if provided
-        if (isset($options['VWOGatewayService']['url'])) {
-            $VWOGatewayServiceUrl = $options['VWOGatewayService']['url'];
-
-            try {
-                $parsedUrl = null;
-
-                if (stripos($VWOGatewayServiceUrl, 'http://') === 0 || stripos($VWOGatewayServiceUrl, 'https://') === 0) {
-                    $parsedUrl = parse_url($VWOGatewayServiceUrl);
-                } else {
-                    $parsedUrl = parse_url('http://' . $VWOGatewayServiceUrl);
-                }
-
-                $this->settingsFileUrl = $parsedUrl['host'];
-                $this->settingsFileProtocol = $parsedUrl['scheme'] ?? 'https';
-                $this->settingsFilePort = $parsedUrl['port'] ?? null;
-
-            } catch (\Exception $e) {
-                LogManager::instance()->error('Error occurred while parsing web service URL: ' . $e->getMessage());
-                $this->settingsFileUrl = Constants::HOST_NAME;
+        if (isset($options['gatewayService']['url'])) {
+            $this->isGatewayServiceProvided = true;
+            
+            $parsedUrl = parse_url($options['gatewayService']['url']);
+            if (!isset($parsedUrl['scheme'])) {
+                $parsedUrl = parse_url('https://' . $options['gatewayService']['url']);
             }
-            // $parsedUrl = parse_url('https://' . $options['VWOGatewayService']['url']);
-            // $this->settingsFileUrl = $parsedUrl['host'];
-            // $this->settingsFilePort = isset($parsedUrl['port']) ? intval($parsedUrl['port']) : null;
+            $this->hostname = $parsedUrl['host'];
+            $this->protocol = isset($parsedUrl['scheme']) ? $parsedUrl['scheme'] : 'https';
+            $this->port = isset($parsedUrl['port']) ? intval($parsedUrl['port']) : null;
         } else {
-            $this->settingsFileUrl = Constants::HOST_NAME;
-            $this->settingsFilePort = null;
+            $this->hostname = Constants::HOST_NAME;
+            $this->port = null;
         }
+
+        self::$instance = $this;
+        LogManager::instance()->debug('Settings Manager initialized');
     }
 
-    // Method to fetch settings and cache in storage
-    private function fetchSettingsAndCacheInStorage($update = false) {
+    public static function instance(): SettingsService {
+        return self::$instance;
+    }
+
+    private function fetchSettingsAndCacheInStorage() {
         try {
             $settings = $this->fetchSettings();
             LogManager::instance()->info('Settings fetched successfully');
             return $settings;
         } catch (Exception $e) {
             LogManager::instance()->error("Settings could not be fetched: " . $e->getMessage());
-            throw $e;
+            return null;
         }
     }
 
-    // Method to fetch settings
     public function fetchSettings() {
         if (!$this->sdkKey || !$this->accountId) {
             LogManager::instance()->error('sdkKey is required for fetching account settings. Aborting!');
@@ -109,14 +103,14 @@ class SettingsManager implements ISettingsManager {
 
         try {
             $request = new RequestModel(
-                $this->settingsFileUrl,
+                $this->hostname,
                 'GET',
                 Constants::SETTINGS_ENDPOINT,
                 $options,
                 null,
                 null,
-                $this->settingsFileProtocol,
-                $this->settingsFilePort
+                $this->protocol,
+                $this->port
             );
             $request->setTimeout($this->networkTimeout);
 
@@ -137,5 +131,3 @@ class SettingsManager implements ISettingsManager {
         }
     }
 }
-
-?>

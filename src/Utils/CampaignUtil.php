@@ -19,67 +19,52 @@
 namespace vwo\Utils;
 
 use vwo\Constants\Constants;
-use vwo\Models\CampaignModel;
-use vwo\Models\VariationModel;
 use vwo\Enums\CampaignTypeEnum;
+use vwo\Models\CampaignModel;
+use vwo\Models\FeatureModel;
+use vwo\Models\VariationModel;
 use vwo\Models\SettingsModel;
 use vwo\Packages\Logger\Core\LogManager;
 
 class CampaignUtil
 {
-
+    /**
+     * Sets the variation allocation for a given campaign based on its type.
+     * If the campaign type is ROLLOUT or PERSONALIZE, it handles the campaign using `handleRolloutCampaign`.
+     * Otherwise, it assigns range values to each variation in the campaign.
+     * @param CampaignModel $campaign The campaign for which to set the variation allocation.
+     */
     public static function setVariationAllocation($campaign)
     {
         if ($campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE) {
-            // Handle special logic for rollout or personalize campaigns
             self::handleRolloutCampaign($campaign);
         } else {
-            $stepFactor = 0;
-            $numberOfVariations = count($campaign->getVariations());
-            for ($i = 0, $currentAllocation = 0; $i < $numberOfVariations; $i++) {
-                $variation = $campaign->getVariations()[$i];
-
+            $currentAllocation = 0;
+            foreach ($campaign->getVariations() as $variation) {
                 $stepFactor = self::assignRangeValues($variation, $currentAllocation);
                 $currentAllocation += $stepFactor;
-                LogManager::instance()->debug(
-                    "VARIATION_RANGE_ALLOCATION: Variation:{$variation->getKey()} of Campaign:{$campaign->getKey()} having weight:{$variation->getWeight()} got bucketing range: ( {$variation->getStartRangeVariation()} - {$variation->getEndRangeVariation()} )"
+
+                LogManager::instance()->info(
+                    sprintf(
+                        "VARIATION_RANGE_ALLOCATION: Variation:%s of Campaign:%s having weight:%s got bucketing range: ( %s - %s )",
+                        $variation->getKey(),
+                        $campaign->getKey(),
+                        $variation->getWeight(),
+                        $variation->getStartRangeVariation(),
+                        $variation->getEndRangeVariation()
+                    )
                 );
             }
         }
     }
 
-    private static function handleRolloutCampaign(CampaignModel $campaign)
-    {
-        // Set start and end ranges for all variations in the campaign
-        $variations = $campaign->getVariations();
-        foreach ($variations as $variation) {
-            $endRange = $variation->getWeight() * 100;
-            $variation->setStartRange(1);
-            $variation->setEndRange($endRange);
-            LogManager::instance()->debug(
-                "VARIATION_RANGE_ALLOCATION: Variation:{$variation->getKey()} of Campaign:{$campaign->getKey()} got bucketing range: ( 1 - {$endRange} )"
-            );
-        }
-    }
-
-
-    private static function copyVariableData(array $variationVariable, array $featureVariable)
-    {
-        // Create a featureVariableMap
-        $featureVariableMap = [];
-        foreach ($featureVariable as $variable) {
-            $featureVariableMap[$variable->getId()] = $variable;
-        }
-        foreach ($variationVariable as $variable) {
-            $featureVariable = $featureVariableMap[$variable->getId()] ?? null;
-            if ($featureVariable) {
-                $variable->setKey($featureVariable->getKey());
-                $variable->setType($featureVariable->getType());
-            }
-        }
-    }
-
-    public static function assignRangeValues(VariationModel $data, int $currentAllocation)
+    /**
+     * Assigns start and end range values to a variation based on its weight.
+     * @param VariationModel $data The variation model to assign range values.
+     * @param int $currentAllocation The current allocation value before this variation.
+     * @return int The step factor calculated from the variation's weight.
+     */
+    public static function assignRangeValues($data, $currentAllocation)
     {
         $dataWeight = $data->getWeight();
         $stepFactor = self::getVariationBucketRange($dataWeight);
@@ -94,61 +79,60 @@ class CampaignUtil
         return $stepFactor;
     }
 
-    private static function getVariationBucketRange(&$variationWeight)
-    {
-        if (!$variationWeight || $variationWeight === 0) {
-            return 0;
-        }
-
-        $startRange = ceil($variationWeight * 100);
-
-        return min($startRange, Constants::MAX_TRAFFIC_VALUE);
-    }
-
-    public static function scaleVariationWeights(&$variations)
+    /**
+     * Scales the weights of variations to sum up to 100%.
+     * @param array $variations The list of variations to scale.
+     */
+    public static function scaleVariationWeights($variations)
     {
         $totalWeight = array_reduce($variations, function ($acc, $variation) {
-            return $acc + $variation['weight'];
+            return $acc + $variation->getWeight();
         }, 0);
 
         if (!$totalWeight) {
-            $weight = 100 / count($variations);
-            foreach ($variations as &$variation) {
-                $variation['weight'] = $weight;
+            $equalWeight = 100 / count($variations);
+            foreach ($variations as $variation) {
+                $variation->setWeight($equalWeight);
             }
         } else {
-            foreach ($variations as &$variation) {
-                $variation['weight'] = ($variation['weight'] / $totalWeight) * 100;
+            foreach ($variations as $variation) {
+                $variation->setWeight(($variation->getWeight() / $totalWeight) * 100);
             }
         }
     }
 
+    /**
+     * Generates a bucketing seed based on user ID, campaign, and optional group ID.
+     * @param string $userId The user ID.
+     * @param CampaignModel $campaign The campaign object.
+     * @param int|null $groupId The optional group ID.
+     * @return string The bucketing seed.
+     */
     public static function getBucketingSeed($userId, $campaign, $groupId = null)
     {
         if ($groupId) {
             return "{$groupId}_{$userId}";
         }
-        return "{$campaign->id}_{$userId}";
+        return "{$campaign->getId()}_{$userId}";
     }
 
-    public static function getCampaignVariation($settings, $campaignKey, $variationId)
+    /**
+     * Retrieves a variation by its ID within a specific campaign identified by its key.
+     * @param SettingsModel $settings The settings model containing all campaigns.
+     * @param string $campaignKey The key of the campaign.
+     * @param int $variationId The ID of the variation to retrieve.
+     * @return VariationModel|null The found variation model or null if not found.
+     */
+    public static function getVariationFromCampaignKey($settings, $campaignKey, $variationId)
     {
-        $campaign = null;
-        foreach ($settings->getCampaigns() as $campaignItem) {
-            if ($campaignItem->getKey() === $campaignKey) {
-                $campaign = $campaignItem;
-                break;
-            }
-        }
+        $campaign = array_values(array_filter($settings->getCampaigns(), function ($campaign) use ($campaignKey) {
+            return $campaign->getKey() === $campaignKey;
+        }))[0] ?? null;
 
         if ($campaign) {
-            $variation = null;
-            foreach ($campaign->getVariations() as $variationItem) {
-                if ($variationItem->getId() === $variationId) {
-                    $variation = $variationItem;
-                    break;
-                }
-            }
+            $variation = array_values(array_filter($campaign->getVariations(), function ($variation) use ($variationId) {
+                return $variation->getId() === $variationId;
+            }))[0] ?? null;
 
             if ($variation) {
                 return (new VariationModel())->modelFromDictionary($variation);
@@ -157,82 +141,79 @@ class CampaignUtil
         return null;
     }
 
-    public static function getRolloutVariation($settings, string $rolloutKey, $variationId)
-    {
-        $rolloutCampaign = null;
-        foreach ($settings->getCampaigns() as $campaign) {
-            if ($campaign->getKey() === $rolloutKey) {
-                $rolloutCampaign = $campaign;
-                break;
-            }
-        }
-
-        if ($rolloutCampaign) {
-            $variation = null;
-            foreach ($rolloutCampaign->getVariations() as $var) {
-                if ($var->getId() === $variationId) {
-                    $variation = $var;
-                    break;
-                }
-            }
-
-            if ($variation) {
-                return (new VariationModel())->modelFromDictionary($variation);
-            }
-        }
-        return null;
-    }
-
-    public static function setCampaignAllocation(array &$campaigns)
+    /**
+     * Sets the allocation ranges for a list of campaigns.
+     * @param array $campaigns The list of campaigns to set allocations for.
+     */
+    public static function setCampaignAllocation($campaigns)
     {
         $stepFactor = 0;
-        $currentAllocation = 0;
-
-        foreach ($campaigns as &$campaign) {
+        for ($i = 0, $currentAllocation = 0; $i < count($campaigns); $i++) {
+            $campaign = $campaigns[$i];
             $stepFactor = self::assignRangeValuesMEG($campaign, $currentAllocation);
             $currentAllocation += $stepFactor;
         }
     }
 
-    public static function isPartOfGroup($settings, $campaignId)
+    /**
+     * Determines if a campaign is part of a group.
+     * @param SettingsModel $settings The settings model containing group associations.
+     * @param int $campaignId The ID of the campaign to check.
+     * @param int|null $variationId The optional variation ID.
+     * @return array An object containing the group ID and name if the campaign is part of a group, otherwise an empty object.
+     */
+    public static function getGroupDetailsIfCampaignPartOfIt($settings, $campaignId, $variationId = null)
     {
-        // Check if campaignGroups property exists and the campaignId exists within it
-        if (!empty($settings->getCampaignGroups()) && !empty($settings->getCampaignGroups()->{$campaignId})) {
-            $groupId = $settings->getCampaignGroups()->{$campaignId};
+        $campaignToCheck = $campaignId;
 
-            // Ensure groupId is used correctly to access settings->groups
-            if (isset($settings->getGroups()->{$groupId})) {
-                $group = $settings->getGroups()->{$groupId};
+        if ($variationId !== null) {
+            $campaignToCheck = "{$campaignId}_{$variationId}";
+        }
 
-                // Ensure $group is an object and contains the 'name' property
-                if (is_object($group) && isset($group->name)) {
-                    return [
-                        'groupId' => $groupId,
-                        'groupName' => $group->name
-                    ];
-                }
-            }
+        // Convert stdClass to array
+        $campaignGroups = (array) $settings->getCampaignGroups();
+
+        if ($campaignGroups && isset($campaignGroups[$campaignToCheck])) {
+            $groupDetails = $settings->getGroups();
+            $groupId = $campaignGroups[$campaignToCheck];
+            $groupName = $groupDetails->{$groupId}->name; // Accessing as an object property
+    
+            return [
+                'groupId' => $groupId,
+                'groupName' => $groupName,
+            ];
         }
         return [];
     }
 
-    public static function findGroupsFeaturePartOf($settings, string $featureKey)
+    /**
+     * Finds all groups associated with a feature specified by its key.
+     * @param SettingsModel $settings The settings model containing all features and groups.
+     * @param string $featureKey The key of the feature to find groups for.
+     * @return array An array of groups associated with the feature.
+     */
+    public static function findGroupsFeaturePartOf($settings, $featureKey)
     {
-        $campaignIds = [];
-        foreach ($settings->features as $feature) {
-            if ($feature->key === $featureKey) {
-                foreach ($feature->rules as $rule) {
-                    if (!in_array($rule->campaignId, $campaignIds)) {
-                        $campaignIds[] = $rule->campaignId;
+        $ruleArray = [];
+
+        foreach ($settings->getFeatures() as $feature) {
+            if ($feature->getKey() === $featureKey) {
+                foreach ($feature->getRules() as $rule) {
+                    if (!in_array($rule, $ruleArray)) {
+                        $ruleArray[] = $rule;
                     }
                 }
             }
         }
 
         $groups = [];
-        foreach ($campaignIds as $campaignId) {
-            $group = self::isPartOfGroup($settings, $campaignId);
-            if (!empty($group['groupId'])) {
+        foreach ($ruleArray as $rule) {
+            $group = self::getGroupDetailsIfCampaignPartOfIt(
+                $settings,
+                $rule->getCampaignId(),
+                $rule->getType() === CampaignTypeEnum::PERSONALIZE ? $rule->getVariationId() : null
+            );
+            if (!empty($group)) {
                 $groupIndex = array_search($group['groupId'], array_column($groups, 'groupId'));
                 if ($groupIndex === false) {
                     $groups[] = $group;
@@ -242,26 +223,53 @@ class CampaignUtil
         return $groups;
     }
 
+    /**
+     * Retrieves campaigns by a specific group ID.
+     * @param SettingsModel $settings The settings model containing all groups.
+     * @param int $groupId The ID of the group.
+     * @return array An array of campaigns associated with the specified group ID.
+     */
     public static function getCampaignsByGroupId($settings, $groupId)
     {
-        $groups = $settings->getGroups();
-
-        // Check if the group exists in the object
-        if (isset($groups->{$groupId})) {
-            return $groups->{$groupId}->campaigns;
+        $campaignGroups = (array)$settings->getGroups();
+        $group = $campaignGroups[$groupId] ?? null;
+        if ($group) {
+            return $group->campaigns;
         } else {
-            return []; // Return an empty array if the group ID is not found
+            return [];
         }
     }
 
-    public static function getFeatureKeysFromCampaignIds($settings, $campaignIds)
+    /**
+     * Retrieves feature keys from a list of campaign IDs.
+     * @param SettingsModel $settings The settings model containing all features.
+     * @param array $campaignIdWithVariation An array of campaign IDs and variation IDs in the format campaignId_variationId.
+     * @return array An array of feature keys associated with the provided campaign IDs.
+     */
+    public static function getFeatureKeysFromCampaignIds($settings, $campaignIdWithVariation)
     {
         $featureKeys = [];
-        foreach ($campaignIds as $campaignId) {
+
+        foreach ($campaignIdWithVariation as $campaign) {
+            // Split the key with '_' to separate campaignId and variationId
+            list($campaignId, $variationId) = array_pad(explode('_', $campaign), 2, null);
+
             foreach ($settings->getFeatures() as $feature) {
+                if(in_array($feature->getKey(), $featureKeys)){
+                    continue;
+                }
                 foreach ($feature->getRules() as $rule) {
-                    if ($rule->getCampaignId() === $campaignId) {
-                        $featureKeys[] = $feature->getKey();
+                    if ($rule->getCampaignId() == $campaignId) {
+                        // Check if variationId is provided and matches the rule's variationId
+                        if ($variationId !== null) {
+                            // Add feature key if variationId matches
+                            if ($rule->getVariationId() == $variationId) {
+                                $featureKeys[] = $feature->getKey();
+                            }
+                        } else {
+                            // Add feature key if no variationId is provided
+                            $featureKeys[] = $feature->getKey();
+                        }
                     }
                 }
             }
@@ -269,7 +277,13 @@ class CampaignUtil
         return $featureKeys;
     }
 
-    public static function getCampaignIdsFromFeatureKey(SettingsModel $settings, string $featureKey)
+    /**
+     * Retrieves campaign IDs from a specific feature key.
+     * @param SettingsModel $settings The settings model containing all features.
+     * @param string $featureKey The key of the feature.
+     * @return array An array of campaign IDs associated with the specified feature key.
+     */
+    public static function getCampaignIdsFromFeatureKey($settings, $featureKey)
     {
         $campaignIds = [];
         foreach ($settings->getFeatures() as $feature) {
@@ -281,10 +295,17 @@ class CampaignUtil
         }
         return $campaignIds;
     }
-    private static function assignRangeValuesMEG(object &$data, int $currentAllocation)
+
+    /**
+     * Assigns range values to a campaign based on its weight.
+     * @param mixed $data The campaign data containing weight.
+     * @param int $currentAllocation The current allocation value before this campaign.
+     * @return int The step factor calculated from the campaign's weight.
+     */
+    public static function assignRangeValuesMEG($data, $currentAllocation)
     {
-        $weight = $data->getWeight(); // Store the result of getWeight() in a variable
-        $stepFactor = self::getVariationBucketRange($weight); // Pass the variable to the method
+        $dataWeight = $data->getWeight();
+        $stepFactor = self::getVariationBucketRange($dataWeight);
 
         if ($stepFactor) {
             $data->setStartRange($currentAllocation + 1);
@@ -296,16 +317,57 @@ class CampaignUtil
         return $stepFactor;
     }
 
+    /**
+     * Retrieves the rule type using a campaign ID from a specific feature.
+     * @param FeatureModel $feature The feature containing rules.
+     * @param int $campaignId The campaign ID to find the rule type for.
+     * @return string The rule type if found, otherwise an empty string.
+     */
     public static function getRuleTypeUsingCampaignIdFromFeature($feature, $campaignId)
     {
-        $ruleType = '';
+        $rule = array_values(array_filter($feature->getRules(), function ($rule) use ($campaignId) {
+            return $rule->getCampaignId() === $campaignId;
+        }))[0] ?? null;
 
-        foreach ($feature->getRules() as $rule) {
-            if ($rule->getCampaignId() === $campaignId) {
-                $ruleType = $rule->getType();
-                break;
-            }
+        return $rule ? $rule->getType() : '';
+    }
+
+    /**
+     * Calculates the bucket range for a variation based on its weight.
+     * @param int $variationWeight The weight of the variation.
+     * @return int The calculated bucket range.
+     */
+    private static function getVariationBucketRange($variationWeight)
+    {
+        if (!$variationWeight || $variationWeight === 0) {
+            return 0;
         }
-        return $ruleType;
+
+        $startRange = ceil($variationWeight * 100);
+
+        return min($startRange, Constants::MAX_TRAFFIC_VALUE);
+    }
+
+    /**
+     * Handles the rollout campaign by setting start and end ranges for all variations.
+     * @param CampaignModel $campaign The campaign to handle.
+     */
+    private static function handleRolloutCampaign($campaign)
+    {
+        foreach ($campaign->getVariations() as $variation) {
+            $endRange = $variation->getWeight() * 100;
+
+            $variation->setStartRange(1);
+            $variation->setEndRange($endRange);
+
+            LogManager::instance()->info(
+                sprintf(
+                    "VARIATION_RANGE_ALLOCATION: Variation:%s of Campaign:%s got bucketing range: ( 1 - %s )",
+                    $variation->getKey(),
+                    $campaign->getKey(),
+                    $endRange
+                )
+            );
+        }
     }
 }

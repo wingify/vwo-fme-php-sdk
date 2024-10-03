@@ -28,7 +28,7 @@ class Constants {
     const HTTPS_PROTOCOL = self::HTTPS . '://';
     const BASE_URL = 'dev.visualwebsiteoptimizer.com';
 
-    const PLATFORM = 'server';
+    const PLATFORM = 'platform';
 
     const MAX_TRAFFIC_PERCENT = 100;
     const MAX_TRAFFIC_VALUE = 10000;
@@ -39,12 +39,13 @@ class Constants {
     const DEFAULT_REQUEST_TIME_INTERVAL = 600; // 10 * 60(secs) = 600 secs i.e. 10 minutes
     const DEFAULT_EVENTS_PER_REQUEST = 100;
     const SDK_NAME = 'vwo-fme-php-sdk';
-    const SDK_VERSION = '1.0.0';
+    const SDK_VERSION = '1.3.0';
     const AP = 'server';
 
     const SETTINGS = 'settings';
     const SETTINGS_EXPIRY = 10000000;
     const SETTINGS_TIMEOUT = 50000;
+    const API_VERSION = '1';
 
     const HOST_NAME = self::BASE_URL; // Use BASE_URL defined above
     const SETTINGS_ENDPOINT = '/server-side/v2-settings';

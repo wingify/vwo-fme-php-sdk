@@ -23,12 +23,14 @@ class RuleModel {
     private $variationId;
     private $campaignId;
     private $type;
+    private $ruleKey;
 
     public function modelFromDictionary($rule) {
         $this->type = isset($rule->type) ? $rule->type : null;
         $this->status = isset($rule->status) ? $rule->status : null;
         $this->variationId = isset($rule->variationId) ? $rule->variationId : null;
         $this->campaignId = isset($rule->campaignId) ? $rule->campaignId : null;
+        $this->ruleKey = isset($rule->ruleKey) ? $rule->ruleKey : null;
         return $this;
     }
 
@@ -48,6 +50,10 @@ class RuleModel {
         return $this->type;
     }
 
+    public function getRuleKey() {
+        return $this->ruleKey;
+    }
+
     public function setCampaignId($campaignId) {
         $this->campaignId = $campaignId;
     }
@@ -63,6 +69,11 @@ class RuleModel {
     public function setType($type) {
         $this->type = $type;
     }
+
+    public function setRuleKey($ruleKey) {
+        $this->ruleKey = $ruleKey;
+    }
+
 }
 
 ?>

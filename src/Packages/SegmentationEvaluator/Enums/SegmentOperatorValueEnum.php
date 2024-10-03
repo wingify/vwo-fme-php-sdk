@@ -29,6 +29,7 @@ class SegmentOperatorValueEnum {
     const CITY = 'city';
     const OPERATING_SYSTEM = 'os';
     const DEVICE_TYPE = 'device_type';
+    const DEVICE = 'device';
     const BROWSER_AGENT = 'browser_string';
     const UA = 'ua';
     const FEATURE_ID = 'featureId';

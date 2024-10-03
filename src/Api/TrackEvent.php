@@ -18,74 +18,89 @@
 
 namespace vwo\Api;
 
-// Include necessary utilities (replace with your actual file paths)
-use vwo\Utils\NetworkUtil as NetworkUtil;
-use vwo\Utils\FunctionUtil as FunctionUtil;
 use vwo\Enums\ApiEnum;
+use vwo\Enums\ErrorLogMessagesEnum;
 use vwo\Models\SettingsModel;
+use vwo\Models\User\ContextModel;
 use vwo\Packages\Logger\Core\LogManager;
-use vwo\Services\HooksManager as HooksManager;
-
+use vwo\Services\HooksService;
+use vwo\Utils\FunctionUtil as FunctionUtil;
+use vwo\Utils\NetworkUtil as NetworkUtil;
+use vwo\Utils\LogMessageUtil as LogMessageUtil;
 
 // Interface for tracking functionality
 interface ITrack
 {
-    public function track( $settings, $eventName, $eventProperties, $context, $hookManager);
+    /**
+     * Tracks an event with given properties and context.
+     * @param SettingsModel $settings Configuration settings.
+     * @param string $eventName Name of the event to track.
+     * @param ContextModel $context Contextual information like user details.
+     * @param array $eventProperties Properties associated with the event.
+     * @param HooksService $hooksService Manager for handling hooks and callbacks.
+     * @return array Returns an array indicating the success or failure of the event tracking.
+     */
+    public function track(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties, HooksService $hooksService): array;
 }
 
 class TrackEvent implements ITrack
 {
-    public function track( $settings, $eventName, $eventProperties, $context, $hookManager)
+    /**
+     * Implementation of the track method to handle event tracking.
+     * Checks if the event exists, creates an impression, and executes hooks.
+     * @param SettingsModel $settings Configuration settings.
+     * @param string $eventName Name of the event to track.
+     * @param ContextModel $context Contextual information like user details.
+     * @param array $eventProperties Properties associated with the event.
+     * @param HooksService $hooksService Manager for handling hooks and callbacks.
+     * @return array Returns an array indicating the success or failure of the event tracking.
+     */
+    public function track(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties, HooksService $hooksService): array
     {
-        if (FunctionUtil::eventExists($eventName, $settings)) {
-            // Create impression for track
-            $this->createImpressionForTrack($settings, $eventName, $context['user'], $eventProperties);
+        if (FunctionUtil::doesEventBelongToAnyFeature($eventName, $settings)) {
+            // Create an impression for the track event
+            $this->createImpressionForTrack($settings, $eventName, $context, $eventProperties);
 
-            // Integration callback for track
-            $hookManager->set([
-                'eventName' => $eventName,
-                'api' => ApiEnum::TRACK,
-            ]);
-            $hookManager->execute($hookManager->get());
+            // Set and execute integration callback for the track event
+            $hooksService->set(['eventName' => $eventName, 'api' => ApiEnum::TRACK]);
+            $hooksService->execute($hooksService->get());
 
             return [$eventName => true];
         }
 
+        // Log an error if the event does not exist
         LogManager::instance()->error("Event '$eventName' not found in any of the features");
+
+
         return [$eventName => false];
     }
 
-    private function createImpressionForTrack( $settings,  $eventName,  $user,  $eventProperties)
+    /**
+     * Creates an impression for a track event and sends it via a POST API request.
+     * @param SettingsModel $settings Configuration settings.
+     * @param string $eventName Name of the event to track.
+     * @param ContextModel $context Contextual information like user details.
+     * @param array $eventProperties Properties associated with the event.
+     */
+    private function createImpressionForTrack(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties): void
     {
         $networkUtil = new NetworkUtil();
 
-        if(isset($user['userAgent'])){
-            $userAgent = $user['userAgent'];
-        } else {
-            $userAgent = '';
-        }
+        // Get base properties for the event
+        $properties = $networkUtil->getEventsBaseProperties($settings, $eventName, $context->getUserAgent(), $context->getIpAddress());
 
-        if(isset($user['ipAddress'])){
-            $userIpAddress = $user['ipAddress'];
-        } else {
-            $userIpAddress = '';
-        }
-
-        $properties = $networkUtil->getEventsBaseProperties(
-            $settings,
-            $eventName,
-            $userAgent,
-            $userIpAddress
-        );
+        // Prepare the payload for the track goal
         $payload = $networkUtil->getTrackGoalPayloadData(
             $settings,
-            $user['id'],
+            $context->getId(),
             $eventName,
             $eventProperties,
-            $userAgent,
-            $userIpAddress
+            $context->getUserAgent(),
+            $context->getIpAddress()
         );
 
+        // Send the prepared payload via POST API request
         $networkUtil->sendPostApiRequest($properties, $payload);
     }
 }
+?>

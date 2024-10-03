@@ -16,18 +16,35 @@
  * limitations under the License.
  */
 
-namespace vwo\Enums;
+namespace vwo\Models\User;
 
-class UrlEnum {
-    const BASE_URL = 'dev.visualwebsiteoptimizer.com';
-    const SETTINGS_URL = '/server-side/settings';
-    const WEBHOOK_SETTINGS_URL = '/server-side/pull';
-    const TRACK_USER = '/server-side/track-user';
-    const TRACK_GOAL = '/server-side/track-goal';
-    const PUSH = '/server-side/push';
-    const BATCH_EVENTS = '/server-side/batch-events';
-    const EVENTS = '/events/t';
-    const ATTRIBUTE_CHECK = '/check-attribute';
-    const GET_USER_DATA = '/get-user-details';
+class ContextVWOModel
+{
+    private $location = [];
+    private $userAgent = [];
+
+    public function modelFromDictionary($context)
+    {
+        if (isset($context->location)) {
+            $this->location = $context->location;
+        }
+
+        if (isset($context->userAgent)) {
+            $this->userAgent = $context->userAgent;
+        }
+
+        return $this;
+    }
+
+    public function getLocation()
+    {
+        return $this->location;
+    }
+
+    public function getUaInfo()
+    {
+        return $this->userAgent;
+    }
 }
+
 ?>

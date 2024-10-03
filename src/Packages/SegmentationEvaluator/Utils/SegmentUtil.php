@@ -20,25 +20,43 @@ namespace vwo\Utils;
 
 use vwo\Utils\DataTypeUtil as DataTypeUtil;
 
+/**
+ * Extracts the first key-value pair from the provided object.
+ * @param array $obj - The object from which to extract the key-value pair.
+ * @return array|null An array containing the first key and value, or null if the input is not an object.
+ */
 function getKeyValue($obj): ?array {
+    // Check if the input is a valid object using isObject utility function
     if (!DataTypeUtil::isObject($obj)) {
         return null;
     }
 
+    // Extract the first key from the object
     $key = array_key_first($obj);
+    // Retrieve the value associated with the first key
     $value = $obj[$key];
+    // Return an array containing the key and value
     return [
         'key' => $key,
         'value' => $value
     ];
 }
 
+/**
+ * Matches a string against a regular expression and returns the match result.
+ * @param string $string - The string to match against the regex.
+ * @param string $regex - The regex pattern as a string.
+ * @return array|null The results of the regex match, or null if an error occurs.
+ */
 function matchWithRegex($string, $regex): ?array {
     try {
+        // Attempt to match the string with the regex
         preg_match('/' . $regex . '/', $string, $matches);
         return $matches;
-    } catch (Exception $err) {
+    } catch (\Exception $err) {
+        // Return null if an error occurs during regex matching
         return null;
     }
 }
+
 ?>

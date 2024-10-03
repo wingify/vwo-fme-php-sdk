@@ -18,12 +18,14 @@
 
 namespace vwo\Packages\SegmentationEvaluator\Evaluators;
 
-use vwo\Utils\VWOGatewayServiceUtil;
+use vwo\Utils\GatewayServiceUtil;
 use vwo\Enums\UrlEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandRegexEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandValueEnum;
+use vwo\Packages\Logger\Core\LogManager;
 
 class SegmentOperandEvaluator {
+
     public function evaluateCustomVariableDSL($dslOperandValue, $properties): bool {
         $keyValue = SegmentEvaluator::getKeyValue($dslOperandValue);
         $operandKey = $keyValue['key'];
@@ -35,7 +37,7 @@ class SegmentOperandEvaluator {
             if (is_array($properties)) {
                 $properties = (object) $properties;
             }
-        
+
             if (!property_exists($properties, $operandKey)) {
                 return false;
             }
@@ -44,7 +46,7 @@ class SegmentOperandEvaluator {
         if (preg_match(SegmentOperandRegexEnum::IN_LIST, $operand)) {
             preg_match(SegmentOperandRegexEnum::IN_LIST, $operand, $matches);
             if (!$matches || count($matches) < 2) {
-                echo "Invalid 'inList' operand format";
+                LogManager::instance()->error('Invalid inList operand format');
                 return false;
             }
 
@@ -58,13 +60,13 @@ class SegmentOperandEvaluator {
             ];
 
             try {
-                $res = VWOGatewayServiceUtil::getFromVWOGatewayService($queryParamsObj, UrlEnum::ATTRIBUTE_CHECK);
+                $res = GatewayServiceUtil::getFromGatewayService($queryParamsObj, UrlEnum::ATTRIBUTE_CHECK);
                 if (!$res || $res === null || $res === 'false') {
                     return false;
                 }
                 return $res;
             } catch (\Exception $error) {
-                echo "Error while fetching data:", $error->getMessage();
+                LogManager::instance()->error('Error while fetching data:'. $error->getMessage());
                 return false;
             }
         } else {
@@ -90,11 +92,11 @@ class SegmentOperandEvaluator {
 
     public function evaluateUserAgentDSL($dslOperandValue, $context): bool {
         $operand = $dslOperandValue;
-        if (!isset($context->userAgent) || $context->userAgent === null) {
-            echo 'To Evaluate UserAgent segmentation, please provide userAgent in context';
+        if (!$context->getUserAgent() || $context->getUserAgent() === null) {
+            LogManager::instance()->info('To evaluate UserAgent segmentation, please provide userAgent in context');
             return false;
         }
-        $tagValue = urldecode($context->userAgent);
+        $tagValue = urldecode($context->getUserAgent());
         $operandTypeAndValue = $this->preProcessOperandValue($operand);
         $processedValues = $this->processValues($operandTypeAndValue->operandValue, $tagValue);
         $tagValue = $processedValues->tagValue;
@@ -133,6 +135,18 @@ class SegmentOperandEvaluator {
         } elseif (preg_match(SegmentOperandRegexEnum::REGEX_MATCH, $operand)) {
             $operandType = SegmentOperandValueEnum::REGEX_VALUE;
             $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::REGEX_MATCH);
+        } elseif (preg_match(SegmentOperandRegexEnum::GREATER_THAN, $operand)) {
+            $operandType = SegmentOperandValueEnum::GREATER_THAN_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::GREATER_THAN);
+        } elseif (preg_match(SegmentOperandRegexEnum::GREATER_THAN_EQUAL_TO, $operand)) {
+            $operandType = SegmentOperandValueEnum::GREATER_THAN_EQUAL_TO_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::GREATER_THAN_EQUAL_TO);
+        } elseif (preg_match(SegmentOperandRegexEnum::LESS_THAN, $operand)) {
+            $operandType = SegmentOperandValueEnum::LESS_THAN_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::LESS_THAN);
+        } elseif (preg_match(SegmentOperandRegexEnum::LESS_THAN_EQUAL_TO, $operand)) {
+            $operandType = SegmentOperandValueEnum::LESS_THAN_EQUAL_TO_VALUE;
+            $operandValue = $this->extractOperandValue($operand, SegmentOperandRegexEnum::LESS_THAN_EQUAL_TO);
         } else {
             $operandType = SegmentOperandValueEnum::EQUAL_VALUE;
             $operandValue = $operand;
@@ -149,8 +163,8 @@ class SegmentOperandEvaluator {
     }
 
     public function processValues($operandValue, $tagValue) {
-        $processedOperandValue = floatval($operandValue);
-        $processedTagValue = floatval($tagValue);
+        $processedOperandValue = ($operandValue);
+        $processedTagValue = ($tagValue);
         if (!$processedOperandValue || !$processedTagValue) {
             return (object)[
                 'operandValue' => $operandValue,
@@ -198,6 +212,26 @@ class SegmentOperandEvaluator {
             case SegmentOperandValueEnum::EQUAL_VALUE:
                 $result = $tagValue === $operandValue;
                 break;
+            case SegmentOperandValueEnum::GREATER_THAN_VALUE:
+                $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
+                    return $opValue < $tValue;
+                });
+                break;
+            case SegmentOperandValueEnum::GREATER_THAN_EQUAL_TO_VALUE:
+                $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
+                    return $opValue <= $tValue;
+                });
+                break;
+            case SegmentOperandValueEnum::LESS_THAN_VALUE:
+                $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
+                    return $opValue > $tValue;
+                });
+                break;
+            case SegmentOperandValueEnum::LESS_THAN_EQUAL_TO_VALUE:
+                $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
+                    return $opValue >= $tValue;
+                });
+                break;
             default:
                 $result = false;
                 break;
@@ -205,4 +239,18 @@ class SegmentOperandEvaluator {
 
         return $result;
     }
+
+    // Function for numeric comparison
+    private function isValidNumericComparison($operandValue, $tagValue, callable $comparison) {
+        if ($tagValue !== null && is_numeric($operandValue) && is_numeric($tagValue)) {
+            try {
+                return $comparison(floatval($operandValue), floatval($tagValue));
+            } catch (\Exception $e) {
+                return false;
+            }
+        }
+        return false;
+    }
 }
+
+?>

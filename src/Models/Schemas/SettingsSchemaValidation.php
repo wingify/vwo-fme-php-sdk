@@ -18,99 +18,113 @@
 
 namespace vwo\Models\Schemas;
 
-
 class SettingsSchema {
-    public $campaignGoalSchema;
-    public $variableObjectSchema;
-    public $campaignVariationSchema;
-    public $campaignObjectSchema;
-    public $settingsFileSchema;
-    public $campaignGroupSchema;
-    public $featureSchema;
+    private $campaignMetricSchema;
+    private $variableObjectSchema;
+    private $campaignVariationSchema;
+    private $campaignObjectSchema;
+    private $settingsSchema;
+    private $featureSchema;
+    private $ruleSchema;
 
     public function __construct() {
         $this->initializeSchemas();
     }
 
     private function initializeSchemas(): void {
-        $this->campaignGoalSchema = [
+        $this->campaignMetricSchema = [
             'id' => ['type' => ['number', 'string']],
-            'key' => ['type' => 'string'],
-            'type' => ['type' => 'string']
+            'type' => ['type' => 'string'],
+            'identifier' => ['type' => 'string'],
+            'mca' => ['type' => ['number', 'string'], 'optional' => true],
+            'hasProps' => ['type' => 'boolean', 'optional' => true],
+            'revenueProp' => ['type' => 'string', 'optional' => true],
         ];
 
         $this->variableObjectSchema = [
             'id' => ['type' => ['number', 'string']],
             'type' => ['type' => 'string'],
             'key' => ['type' => 'string'],
-            'value' => ['type' => ['number', 'string', 'boolean']]
+            'value' => ['type' => ['number', 'string', 'boolean', 'array']],
         ];
 
         $this->campaignVariationSchema = [
             'id' => ['type' => ['number', 'string']],
-            'key' => ['type' => 'string'],
+            'name' => ['type' => 'string'],
             'weight' => ['type' => ['number', 'string']],
             'segments' => ['type' => 'array', 'optional' => true],
             'variables' => ['type' => 'array', 'schema' => $this->variableObjectSchema, 'optional' => true],
             'startRangeVariation' => ['type' => 'number', 'optional' => true],
-            'endRangeVariation' => ['type' => 'number', 'optional' => true]
+            'endRangeVariation' => ['type' => 'number', 'optional' => true],
         ];
 
         $this->campaignObjectSchema = [
             'id' => ['type' => ['number', 'string']],
             'type' => ['type' => 'string'],
             'key' => ['type' => 'string'],
-            'featureId' => ['type' => 'number', 'optional' => true],
-            'featureKey' => ['type' => 'string', 'optional' => true],
-            'percentTraffic' => ['type' => 'number'],
-            'goals' => ['type' => 'array', 'schema' => $this->campaignGoalSchema],
+            'percentTraffic' => ['type' => 'number', 'optional' => true],
+            'status' => ['type' => 'string'],
             'variations' => ['type' => 'array', 'schema' => $this->campaignVariationSchema],
-            'variables' => ['type' => 'array', 'schema' => $this->variableObjectSchema, 'optional' => true],
             'segments' => ['type' => 'array'],
             'isForcedVariationEnabled' => ['type' => 'boolean', 'optional' => true],
-            'priority' => ['type' => 'number'],
-            'autoActivate' => ['type' => 'boolean'],
-            'autoTrack' => ['type' => 'boolean']
+            'isAlwaysCheckSegment' => ['type' => 'boolean', 'optional' => true],
+            'name' => ['type' => 'string'],
+        ];
+
+        $this->ruleSchema = [
+            'type' => ['type' => 'string'],
+            'ruleKey' => ['type' => 'string'],
+            'campaignId' => ['type' => 'number'],
+            'variationId' => ['type' => 'number', 'optional' => true],
         ];
 
         $this->featureSchema = [
             'id' => ['type' => ['number', 'string']],
             'key' => ['type' => 'string'],
+            'status' => ['type' => 'string'],
+            'name' => ['type' => 'string'],
+            'type' => ['type' => 'string'],
+            'metrics' => ['type' => 'array', 'schema' => $this->campaignMetricSchema],
+            'impactCampaign' => ['type' => 'array', 'optional' => true],
+            'rules' => ['type' => 'array', 'schema' => $this->ruleSchema, 'optional' => true],
             'variables' => ['type' => 'array', 'schema' => $this->variableObjectSchema, 'optional' => true],
-            'campaigns' => ['type' => 'array', 'schema' => $this->campaignGroupSchema]
         ];
 
-        $this->settingsFileSchema = [
+        $this->settingsSchema = [
             'sdkKey' => ['type' => 'string', 'optional' => true],
             'version' => ['type' => ['number', 'string']],
             'accountId' => ['type' => ['number', 'string']],
-            'features' => ['type' => 'array', 'schema' => $this->featureSchema, 'optional' => true]
-        ];
-
-        $this->campaignGroupSchema = [
-            'id' => ['type' => 'number'],
-            'campaigns' => ['type' => 'array', 'schema' => ['type' => 'number']]
+            'features' => ['type' => 'array', 'schema' => $this->featureSchema, 'optional' => true],
+            'campaigns' => ['type' => 'array', 'schema' => $this->campaignObjectSchema],
+            'groups' => ['type' => 'array', 'optional' => true],
+            'campaignGroups' => ['type' => 'array', 'optional' => true],
+            'collectionPrefix' => ['type' => 'string', 'optional' => true],
         ];
     }
 
     public function isSettingsValid($settings): bool {
-        return $this->validate($settings, $this->settingsFileSchema);
+        if (!$settings) {
+            return false;
+        }
+
+        return $this->validate($settings, $this->settingsSchema);
     }
 
     private function validate($data, $schema): bool {
         foreach ($schema as $key => $rules) {
-            if (!isset($data[$key])) {
+            $value = $data[$key] ?? null;
+
+            if ($value === null) {
                 if (isset($rules['optional']) && $rules['optional']) {
                     continue;
                 }
                 return false;
             }
 
-            $value = $data[$key];
             $type = gettype($value);
 
             if (is_array($rules['type'])) {
-                if (!in_array($type, $rules['type'])) {
+                if (!in_array($type, $rules['type'], true)) {
                     return false;
                 }
             } else {
@@ -130,6 +144,4 @@ class SettingsSchema {
         return true;
     }
 }
-
-
 ?>

@@ -18,10 +18,19 @@
 
 namespace vwo\Packages\SegmentationEvaluator;
 
-// Import or define necessary classes like SettingsModel and dynamic
+// Import or define necessary classes like SettingsModel
 use vwo\Models\SettingsModel;
 
 interface Segmentation {
-    public function isSegmentationValid($dsl, $properties, $settings); // Adjust the return type according to your implementation
+    /**
+     * Validates if the segmentation defined by the DSL is applicable given the properties and settings.
+     *
+     * @param array $dsl - The domain-specific language defining segmentation rules.
+     * @param array $properties - The properties of the entity to be segmented.
+     * @param SettingsModel $settings - The settings model containing configuration details.
+     * @return bool - True if the segmentation is valid, otherwise false.
+     */
+    public function isSegmentationValid($dsl, $properties, $settings): bool;
 }
+
 ?>

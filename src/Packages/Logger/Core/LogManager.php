@@ -81,12 +81,11 @@ class LogManager extends Logger implements ILogManager {
             $this->addTransports($transports);
         } elseif (isset($this->config['transport']) && is_array($this->config['transport'])) {
             $this->addTransport($this->config['transport']);
-        } elseif (isset($this->config['defaultTransport'])) {
-            // default
+        } else {
             $this->addTransport([
                 'level' => $this->config['level'],
                 'logHandler' => function ($message, $level) {
-                    echo $message.PHP_EOL;
+                    file_put_contents("php://stdout", $message . PHP_EOL);
                 }
             ]);
         }

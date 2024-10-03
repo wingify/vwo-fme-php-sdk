@@ -27,39 +27,73 @@ class VWO
     private static $vwoBuilder;
     private static $instance;
 
+    /**
+     * Constructor for the VWO class.
+     * Initializes a new instance of VWO with the provided options.
+     *
+     * @param array $options Configuration options for the VWO instance.
+     * @return void
+     */
     public function __construct($options = [])
     {
         // The constructor should not return anything
         self::setInstance($options);
     }
 
+    /**
+     * Sets the singleton instance of VWO.
+     * Configures and builds the VWO instance using the provided options.
+     *
+     * @param array $options Configuration options for setting up VWO.
+     * @return VWO|null The configured VWO instance.
+     */
     private static function setInstance($options)
     {
         self::$vwoBuilder = isset($options['vwoBuilder']) ? $options['vwoBuilder'] : new VWOBuilder($options);
 
         self::$instance = self::$vwoBuilder
             ->setLogger()
-            ->setSettingsManager()
+            ->setSettingsService()
             ->setStorage()
             ->setNetworkManager()
             ->setSegmentation()
             ->initBatching()
             ->initPolling();
 
-        
-        // Fetch settings and build VWO instance
-        $settings = self::$vwoBuilder->getSettings();
+
+        if (isset($options['settingsFile'])) {
+            // Use the provided settings file
+            $settingsObject = json_decode($options['settingsFile']);
+            self::$vwoBuilder->setSettings($settingsObject);
+            $settings = new SettingsModel($settingsObject);
+        } else {
+            // Fetch settings and build VWO instance
+            $settings = self::$vwoBuilder->getSettings();
+        }
+
         if ($settings) {
             self::$instance = self::$vwoBuilder->build($settings);
         }
+
         return self::$instance;
     }
 
+    /**
+     * Gets the singleton instance of VWO.
+     *
+     * @return VWO|null The singleton instance of VWO.
+     */
     public static function instance()
     {
         return self::$instance;
     }
 
+    /**
+     * Initializes a new instance of VWO with the provided options.
+     *
+     * @param array $options Configuration options for the VWO instance.
+     * @return VWO|null The initialized VWO instance.
+     */
     public static function init($options = [])
     {
         $apiName = 'init';
@@ -82,7 +116,7 @@ class VWO
         } catch (\Throwable $error) {            
             $msg = sprintf('API - %s failed to execute. Trace: %s. ', $apiName, $error->getMessage());
             $logMessage = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $msg);
-            echo $logMessage;
+            file_put_contents("php://stdout", $logMessage . PHP_EOL);
         }
     }
 }

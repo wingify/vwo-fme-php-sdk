@@ -18,22 +18,24 @@
 
 namespace vwo\Decorators;
 
-use vwo\Models\FeatureModel;
 use vwo\Packages\Logger\Core\LogManager;
 use vwo\Services\StorageService;
 use vwo\Enums\StorageEnum;
+use vwo\Models\FeatureModel;
+use vwo\Models\VariationModel;
+use vwo\Models\User\ContextModel;
 
 interface IStorageDecorator
 {
-    public function getFeatureFromStorage($featureKey, $user, $storageService);
+    public function getFeatureFromStorage($featureKey, $context, $storageService);
     public function setDataInStorage($data, $storageService);
 }
 
 class StorageDecorator implements IStorageDecorator
 {
-    public function getFeatureFromStorage($featureKey, $user, $storageService)
+    public function getFeatureFromStorage($featureKey, $context, $storageService)
     {
-        $campaignMap = $storageService->getDataInStorage($featureKey, $user);
+        $campaignMap = $storageService->getDataInStorage($featureKey, $context);
 
         switch ($campaignMap) {
             case StorageEnum::STORAGE_UNDEFINED:
@@ -45,8 +47,9 @@ class StorageDecorator implements IStorageDecorator
             case StorageEnum::VARIATION_NOT_FOUND:
                 return null;
             case StorageEnum::WHITELISTED_VARIATION:
-                // Handle whitelisting logic here
                 return null;
+            case StorageEnum::INCORRECT_DATA:
+                return StorageEnum::INCORRECT_DATA;
             default:
                 return $campaignMap;
         }
@@ -54,37 +57,38 @@ class StorageDecorator implements IStorageDecorator
 
     public function setDataInStorage($data, $storageService)
     {
-        $requiredFields = ['featureKey', 'user'];
+        $featureKey = $data['featureKey'] ?? null;
+        $context = $data['context'] ?? null;
+        $rolloutId = $data['rolloutId'] ?? null;
+        $rolloutKey = $data['rolloutKey'] ?? null;
+        $rolloutVariationId = $data['rolloutVariationId'] ?? null;
+        $experimentId = $data['experimentId'] ?? null;
+        $experimentKey = $data['experimentKey'] ?? null;
+        $experimentVariationId = $data['experimentVariationId'] ?? null;
 
-        if (array_diff_key(array_flip($requiredFields), $data)) {
-            LogManager::instance()->error("Missing required fields for storage: " . implode(', ', array_diff($requiredFields, array_keys($data))));
-            return false;
-        }
-
-        // Extract data
-        extract($data);
-
-        $validationErrors = [];
         if (!$featureKey) {
-            $validationErrors[] = "Feature key is not valid.";
-        }
-        if (!isset($user['id'])) {
-            $validationErrors[] = "User ID is not valid.";
-        }
-        if ((isset($rolloutKey) && !isset($experimentKey) && !isset($rolloutVariationId)) ||
-            (isset($experimentKey) && !isset($experimentVariationId))) {
-            $validationErrors[] = "Invalid variation data for rules.";
-        }
-
-        if ($validationErrors) {
-            LogManager::instance()->error(implode(', ', $validationErrors));
+            LogManager::instance()->error("Error storing data: featureKey is invalid.");
             return false;
         }
 
-        // Assuming user ID is stored in a property named "id"
+        if ($context->getId() == null) {
+            LogManager::instance()->error("Error storing data: Context or Context.id is invalid.");
+            return false;
+        }
+
+        if ($rolloutKey && !$experimentKey && !$rolloutVariationId) {
+            LogManager::instance()->error("Error storing data: Variation (rolloutKey, experimentKey or rolloutVariationId) is invalid.");
+            return false;
+        }
+
+        if ($experimentKey && !$experimentVariationId) {
+            LogManager::instance()->error("Error storing data: Variation (experimentKey or experimentVariationId) is invalid.");
+            return false;
+        }
+
         $storageService->setDataInStorage([
             'featureKey' => $featureKey,
-            'user' => $user['id'],
+            'userId' => $context->getId(),
             'rolloutId' => isset($rolloutId) ? $rolloutId : null,
             'rolloutKey' => isset($rolloutKey) ? $rolloutKey : null,
             'rolloutVariationId' => isset($rolloutVariationId) ? $rolloutVariationId : null,

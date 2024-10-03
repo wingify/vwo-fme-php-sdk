@@ -24,19 +24,19 @@ use vwo\Packages\Logger\Core\LogManager;
 class UrlService
 {
     private static $collectionPrefix;
-    private static $VWOGatewayServiceUrl;
+    private static $gatewayServiceUrl;
     private static $port;
-    private static $VWOGatewayServiceProtocol = 'https';
+    private static $gatewayServiceProtocol = 'https';
 
     public static function init(array $options = []): void
     {
         self::$collectionPrefix = $options['collectionPrefix'] ?? null;
-        self::$VWOGatewayServiceUrl = $options['VWOGatewayServiceUrl'] ?? null;
+        self::$gatewayServiceUrl = $options['gatewayServiceUrl'] ?? null;
 
-        if (self::$VWOGatewayServiceUrl !== null) {
+        if (self::$gatewayServiceUrl !== null) {
             try {
                 $parsedUrl = null;
-                $url = self::$VWOGatewayServiceUrl ?? '';
+                $url = self::$gatewayServiceUrl ?? '';
 
                 if (stripos($url, 'http://') === 0 || stripos($url, 'https://') === 0) {
                     $parsedUrl = parse_url($url);
@@ -44,8 +44,8 @@ class UrlService
                     $parsedUrl = parse_url('http://' . $url);
                 }
 
-                self::$VWOGatewayServiceUrl = $parsedUrl['host'] ?? '';
-                self::$VWOGatewayServiceProtocol = $parsedUrl['scheme'] ?? 'https';
+                self::$gatewayServiceUrl = $parsedUrl['host'] ?? '';
+                self::$gatewayServiceProtocol = $parsedUrl['scheme'] ?? 'https';
                 self::$port = $parsedUrl['port'] ?? null;
 
             } catch (\Exception $e) {
@@ -58,8 +58,8 @@ class UrlService
     {
         $baseUrl = UrlEnum::BASE_URL; // Assuming you have defined the base URL elsewhere
 
-        if (self::$VWOGatewayServiceUrl !== null) {
-            return self::$VWOGatewayServiceUrl;
+        if (self::$gatewayServiceUrl !== null) {
+            return self::$gatewayServiceUrl;
         }
 
         if (self::$collectionPrefix !== null) {
@@ -78,7 +78,7 @@ class UrlService
      * Returns the web service protocol
      */
     public static function getProtocol() {
-        return self::$VWOGatewayServiceProtocol;
+        return self::$gatewayServiceProtocol;
     }
 }
 

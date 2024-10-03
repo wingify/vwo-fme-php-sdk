@@ -22,7 +22,6 @@ use vwo\Models\MetricModel;
 use vwo\Models\CampaignModel;
 use vwo\Models\RuleModel;
 use vwo\Models\ImpactCapmaignModel;
-use vwo\Utils\FunctionUtil;
 
 class FeatureModel
 {
@@ -34,6 +33,7 @@ class FeatureModel
     private $rules = [];
     private $impactCampaign = null;
     private $rulesLinkedCampaign = [];
+    private $isGatewayServiceRequired = false;
 
     public function modelFromDictionary($feature)
     {
@@ -41,6 +41,7 @@ class FeatureModel
         $this->key = isset($feature->key) ? $feature->key : null;
         $this->name = isset($feature->name) ? $feature->name : null;
         $this->type = isset($feature->type) ? $feature->type : null;
+        $this->isGatewayServiceRequired = isset($feature->isGatewayServiceRequired) ?  $feature->isGatewayServiceRequired : false;
 
         if (isset($feature->impactCampaign)) {
             $this->impactCampaign = (new ImpactCapmaignModel())->modelFromDictionary($feature->impactCampaign);
@@ -123,6 +124,16 @@ class FeatureModel
     public function getRules()
     {
         return $this->rules;
+    }
+
+    public function getIsGatewayServiceRequired()
+    {
+        return $this->isGatewayServiceRequired;
+    }
+
+    public function setIsGatewayServiceRequired($isGatewayServiceRequired)
+    {
+        $this->isGatewayServiceRequired = $isGatewayServiceRequired;
     }
 }
 ?>

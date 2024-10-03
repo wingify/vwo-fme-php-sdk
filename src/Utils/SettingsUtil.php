@@ -19,12 +19,32 @@
 namespace vwo\Utils;
 
 use vwo\Models\SettingsModel;
+use vwo\Utils\CampaignUtil;
+use vwo\Utils\FunctionUtil;
+use vwo\Utils\GatewayServiceUtil;
 
 class SettingsUtil {
+    
     public static function processSettings($settings) {
         $parsedSettings = new SettingsModel($settings);
 
         return $parsedSettings;
+    }
+    
+    public static function setSettingsAndAddCampaignsToRules($settings, $vwoClientInstance) {
+        $vwoClientInstance->settings = new SettingsModel($settings);
+        $vwoClientInstance->originalSettings = $settings;
+
+        // Optimize loop by avoiding multiple calls to `getCampaigns()`
+        $campaigns = $vwoClientInstance->settings->getCampaigns();
+
+        foreach ($campaigns as $index => $campaign) {
+            CampaignUtil::setVariationAllocation($campaign);
+            $campaigns[$index] = $campaign;
+        }
+
+        FunctionUtil::addLinkedCampaignsToSettings($vwoClientInstance->settings);
+        GatewayServiceUtil::addIsGatewayServiceRequiredFlag($vwoClientInstance->settings);
     }
 }
 ?>

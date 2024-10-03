@@ -23,11 +23,13 @@ class GetFlagResultUtil
 {
     private $isEnabled;
     private $variables;
+    private $ruleStatus;
 
-    public function __construct($isEnabled, $variables)
+    public function __construct($isEnabled, $variables, $ruleStatus)
     {
         $this->isEnabled = $isEnabled;
         $this->variables = $variables;
+        $this->ruleStatus = $ruleStatus;
     }
 
     public function isEnabled()
@@ -37,7 +39,13 @@ class GetFlagResultUtil
 
     public function getVariables()
     {
-        return $this->variables;
+        $variablesArray = [];
+        if (is_array($this->variables)) {
+            foreach ($this->variables as $variable) {
+                $variablesArray[$variable->getKey()] = $variable->getValue();
+            }
+        }
+        return $variablesArray;
     }
 
     public function getVariable($key, $defaultValue)
@@ -50,5 +58,10 @@ class GetFlagResultUtil
             }
         }
         return $defaultValue;
+    }
+
+    public function getRuleStatus()
+    {
+        return $this->ruleStatus;
     }
 }

@@ -19,18 +19,19 @@
 namespace vwo;
 
 use vwo\Utils\GetFlagResultUtil;
-use vwo\Models\SettingsModel;
 use vwo\Services\UrlService;
 use vwo\Utils\CampaignUtil;
 use vwo\Packages\Storage\Storage;
 use vwo\Utils\FunctionUtil;
 use vwo\Packages\Logger\Core\LogManager;
-use vwo\Services\HooksManager;
+use vwo\Services\HooksService;
 use vwo\Utils\DataTypeUtil;
-use vwo\Api\GetFlag;
-use vwo\Enums\LogMessages\DebugLogMessageEnum;
 use vwo\Api\TrackEvent;
+use vwo\Api\GetFlag;
 use vwo\Api\SetAttribute;
+use vwo\Models\SettingsModel;
+use vwo\Models\User\ContextModel;
+use vwo\Utils\SettingsUtil;
 
 interface IVWOClient {
     public function getFlag(string $featureKey, $context);
@@ -39,48 +40,47 @@ interface IVWOClient {
 }
 
 class VWOClient implements IVWOClient {
-    private $settings;
+    public $settings;
     private $storage;
     private $options;
 
     public function __construct(SettingsModel $settings, array $options) {
+        $this->options = $options;
         $this->settings = $settings;
         $this->storage = new Storage();
-        $this->initialize($options);
-        $this->options = $options;
+        $this->initialize($options, $settings);
     }
 
-    private function initialize(array $options) {
+    private function initialize(array $options, $settings) {
         $collectionPrefix = $this->settings->getCollectionPrefix();
-        $VWOGatewayServiceUrl = $options['VWOGatewayService']['url'] ?? null;
-        UrlService::init(compact('collectionPrefix', 'VWOGatewayServiceUrl'));
+        $gatewayServiceUrl = $options['gatewayService']['url'] ?? null;
+        UrlService::init(compact('collectionPrefix', 'gatewayServiceUrl'));
 
         foreach ($this->settings->getCampaigns() as $campaign) {
             CampaignUtil::setVariationAllocation($campaign);
         }
-        FunctionUtil::addLinkedCampaignsToSettings($this->settings);
+        SettingsUtil::setSettingsAndAddCampaignsToRules($settings, $this);
         LogManager::instance()->info('VWO Client initialized');
     }
 
-    public function getFlag($featureKey, $context) {
+    public function getFlag($featureKey = null, $context = null) {
         $apiName = 'getFlag';
 
         $defaultReturnValue = new GetFlagResultUtil(
             false,
-            [] // No variables
+            [], // No variables
+            []
         );
-    
 
         try {
-            $hookManager = new HooksManager($this->options);
+            $hookManager = new HooksService($this->options);
 
-            LogManager::instance()->debug(sprintf(DebugLogMessageEnum::API_CALLED, $apiName));
+            LogManager::instance()->debug("API Called: $apiName");
 
-            if (!DataTypeUtil::isString($featureKey)) {
+            if (!DataTypeUtil::isString($featureKey) || $featureKey == null) {
                 LogManager::instance()->error(
-                    sprintf('featureKey passed to %s API is not of valid type. Got %s', $apiName, gettype($featureKey))
-                );
-                throw new \TypeError('TypeError: variableSpecifier should be a string');
+                    sprintf('FeatureKey passed to %s API is not of valid type.', $apiName));
+                throw new \TypeError('TypeError: variableSpecifier should be a valid string');
             }
 
             if (!$this->settings) {
@@ -88,77 +88,86 @@ class VWOClient implements IVWOClient {
                 throw new \Error('Invalid Settings');
             }
 
-            if (!isset($context['id']) || $context['id'] === null || $context['id'] === '') {
-                LogManager::instance()->error('Context should be an object and must contain a mandatory key - id, which is User ID');
+            if (!isset($context['id']) || empty($context['id'])) {
+                LogManager::instance()->error('Context must contain a valid user ID.');
                 throw new \Error('TypeError: Invalid context');
             }
 
-            // Wrap the context in a 'user' key if it's not already
-            $context = ['user' => $context];
+            $contextModel = new ContextModel();
+            $contextModel->modelFromDictionary($context);
 
-            return (new GetFlag())->get($featureKey, $this->settings, $context, $hookManager);
+            return (new GetFlag())->get($featureKey, $this->settings, $contextModel, $hookManager);
         } catch (\Throwable $error) {
-            LogManager::instance()->error(sprintf('API - %s failed to execute. Trace: %s', $apiName, $error->getMessage()));
+            LogManager::instance()->error("API - $apiName failed to execute. Error: " . $error->getMessage());
             return $defaultReturnValue;
         }
     }
 
-    public function trackEvent($eventName, $context, $eventProperties = [])
-    {
+    public function trackEvent($eventName = null, $context = null, $eventProperties = []) {
         $apiName = 'trackEvent';
-        try {
-            $hookManager = new HooksManager($this->options);
 
-            LogManager::instance()->debug(sprintf(DebugLogMessageEnum::API_CALLED, $apiName));
+        try {
+            $hookManager = new HooksService($this->options);
+
+            LogManager::instance()->debug("API Called: $apiName");
 
             if (!DataTypeUtil::isString($eventName)) {
-                LogManager::instance()->debug(sprintf('eventName passed to track API is not of valid type. Got %s', gettype($eventName)));
-                throw new \TypeError('TypeError: eventName should be a string');
+                LogManager::instance()->error("Event name passed to $apiName API is not a valid string.");
+                throw new \TypeError('TypeError: eventName should be a valid string');
             }
+
             if (!DataTypeUtil::isArray($eventProperties)) {
-                LogManager::instance()->debug(sprintf('EventProperties passed to track API is not of valid type. Got %s', gettype($eventProperties)));
+                LogManager::instance()->error("Event properties passed to $apiName API are not valid.");
                 throw new \TypeError('TypeError: eventProperties should be an array');
             }
 
             if (!$this->settings) {
-                LogManager::instance()->debug(sprintf('settings are not valid. Got %s', gettype($this->settings)));
+                LogManager::instance()->error('Invalid settings detected.');
                 throw new \Error('Invalid Settings');
             }
 
-            if (!isset($context['id']) || $context['id'] === null || $context['id'] === '') {
-                LogManager::instance()->error('Context should be an object and must contain a mandatory key - id, which is User ID');
+            if (!isset($context['id']) || empty($context['id'])) {
+                LogManager::instance()->error('Context must contain a valid user ID.');
                 throw new \Error('TypeError: Invalid context');
             }
 
-            // Wrap the context in a 'user' key 
-            $context = ['user' => $context];
+            $contextModel = new ContextModel();
+            $contextModel->modelFromDictionary($context);
 
-            return (new TrackEvent())->track($this->settings, $eventName, $eventProperties, $context, $hookManager);
+            return (new TrackEvent())->track($this->settings, $eventName, $contextModel, $eventProperties, $hookManager);
         } catch (\Throwable $error) {
-            LogManager::instance()->error(sprintf('API - %s failed to execute. Trace: %s', $apiName, $error->getMessage()));
+            LogManager::instance()->error("API - $apiName failed to execute. Error: " . $error->getMessage());
             return [$eventName => false];
         }
     }
 
-    public function setAttribute($attributeKey, $attributeValue, $context)
-    {
+    public function setAttribute($attributeKey = null, $attributeValue = null, $context = null) {
         $apiName = 'setAttribute';
-        try {
-            LogManager::instance()->debug(sprintf(DebugLogMessageEnum::API_CALLED, $apiName));
 
-            if (!DataTypeUtil::isString($attributeKey) || !DataTypeUtil::isString($attributeValue) || !DataTypeUtil::isString($context['id'] ?? null)) {
-                LogManager::instance()->error('Paramters passed to setAttribute API are not valid. Please check');
-                return;
+        try {
+            LogManager::instance()->debug("API Called: $apiName");
+
+            if (!DataTypeUtil::isString($attributeKey)) {
+                LogManager::instance()->error("Attribute key passed to $apiName API is not valid.");
+                throw new \TypeError('TypeError: attributeKey should be a valid string');
             }
 
-            if (!isset($context['id']) || $context['id'] === null || $context['id'] === '') {
-                LogManager::instance()->error('Context should be an object and must contain a mandatory key - id, which is User ID');
+            if (!DataTypeUtil::isString($attributeValue) && !DataTypeUtil::isNumber($attributeValue) && !DataTypeUtil::isBoolean($attributeValue)) {
+                LogManager::instance()->error("Attribute value passed to $apiName API is not valid.");
+                throw new \TypeError('TypeError: attributeValue should be a valid string, number, or boolean');
+            }
+
+            if (!isset($context['id']) || empty($context['id'])) {
+                LogManager::instance()->error('Context must contain a valid user ID.');
                 throw new \Error('TypeError: Invalid context');
             }
 
-            (new SetAttribute())->setAttribute($this->settings, $attributeKey, $attributeValue, $context);
+            $contextModel = new ContextModel();
+            $contextModel->modelFromDictionary($context);
+
+            (new SetAttribute())->setAttribute($this->settings, $attributeKey, $attributeValue, $contextModel);
         } catch (\Throwable $error) {
-            LogManager::instance()->error(sprintf('API - %s failed to execute. Trace: %s', $apiName, $error->getMessage()));
+            LogManager::instance()->error("API - $apiName failed to execute. Error: " . $error->getMessage());
         }
     }
 }
