@@ -89,10 +89,10 @@ class SegmentEvaluator implements Segmentation
 
                 if ($key === SegmentOperatorValueEnum::FEATURE_ID) {
                     $featureIdObject = $dsl->$key;
-                    
+
                     $featureIdKey = array_key_first(get_object_vars($featureIdObject));
                     $featureIdValue = $featureIdObject->$featureIdKey;
-                
+
                     if (in_array($featureIdValue, ['on', 'off'])) {
                         $features = $this->settings->getFeatures();
                         $feature = null;
@@ -138,19 +138,19 @@ class SegmentEvaluator implements Segmentation
         $locationMap = [];
         foreach ($dslNodes as $dsl) {
             if (isset($dsl->{SegmentOperatorValueEnum::COUNTRY}) || isset($dsl->{SegmentOperatorValueEnum::REGION}) || isset($dsl->{SegmentOperatorValueEnum::CITY})) {
-                $this->addLocationValuesToMap($dsl, $locationMap); 
+                $this->addLocationValuesToMap($dsl, $locationMap);
                 if (count($locationMap) === count($dslNodes)) {
                     return $this->checkLocationPreSegmentation($locationMap);
                 }
                 continue;
-            } 
+            }
             if (!$this->isSegmentationValid($dsl, $customVariables)) {
                 return false;
             }
-        }  
+        }
         return true;
     }
-    
+
     public function addLocationValuesToMap($dsl, &$locationMap): void
     {
         if (isset($dsl->{SegmentOperatorValueEnum::COUNTRY})) {
@@ -162,12 +162,12 @@ class SegmentEvaluator implements Segmentation
         if (isset($dsl->{SegmentOperatorValueEnum::CITY})) {
             $locationMap[SegmentOperatorValueEnum::CITY] = $dsl->{SegmentOperatorValueEnum::CITY};
         }
-    }    
+    }
 
     public function checkLocationPreSegmentation($locationMap): bool
     {
         $ipAddress = $this->context->getIpAddress(); // Use the getter method
-    
+
         if (empty($ipAddress)) {
             LogManager::instance()->info('To evaluate location pre-segmentation, please pass ipAddress in the context object');
             return false;
@@ -176,19 +176,19 @@ class SegmentEvaluator implements Segmentation
         if (empty($this->context->getVwo()) || empty($this->context->getVwo()->getLocation())) {
             return false;
         }
-        
+
         return $this->valuesMatch($locationMap, $this->context->getVwo()->getLocation());
     }
-    
+
     public function checkUserAgentParser($uaParserMap): bool
     {
         $userAgent = $this->context->getUserAgent(); // Use the getter method
-    
+
         if (empty($userAgent)) {
             LogManager::instance()->info('To evaluate user agent related segments, please pass userAgent in the context object');
             return false;
-        }  
-        
+        }
+
         if (empty($this->context->getVwo()) || empty($this->context->getVwo()->getUaInfo())) {
             return false;
         }

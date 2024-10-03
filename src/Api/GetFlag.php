@@ -138,7 +138,7 @@ class GetFlag
         // Evaluate Rollout Rules
         $rollOutRules = FunctionUtil::getSpecificRulesBasedOnType($feature, CampaignTypeEnum::ROLLOUT);
         if (count($rollOutRules) > 0 && !$isEnabled) {
-            $megGroupWinnerCampaigns = []; 
+            $megGroupWinnerCampaigns = [];
             foreach ($rollOutRules as $rule) {
                 $evaluateRuleResult = $ruleEvaluationUtil->evaluateRule(
                     $settings,
@@ -157,7 +157,10 @@ class GetFlag
                         'rolloutKey' => $rule->getKey(),
                         'rolloutVariationId' => $rule->getVariations()[0]->getId()
                     ];
+                    $ruleStatus[$rule->getRuleKey()] = "Passed";
                     break;
+                } else {
+                    $ruleStatus[$rule->getRuleKey()] = "Failed";
                 }
             }
 
@@ -191,7 +194,7 @@ class GetFlag
             $experimentRules = FunctionUtil::getAllExperimentRules($feature);
             $experimentRulesToEvaluate = [];
 
-            $megGroupWinnerCampaigns = []; 
+            $megGroupWinnerCampaigns = [];
             foreach ($experimentRules as $rule) {
                 $evaluateRuleResult = $ruleEvaluationUtil->evaluateRule(
                     $settings,
@@ -217,7 +220,10 @@ class GetFlag
                             'experimentVariationId' => $evaluateRuleResult['whitelistedObject']['variationId'],
                         ]);
                     }
+                    $ruleStatus[$rule->getRuleKey()] = "Passed";
                     break;
+                } else {
+                    $ruleStatus[$rule->getRuleKey()] = "Failed";
                 }
             }
 

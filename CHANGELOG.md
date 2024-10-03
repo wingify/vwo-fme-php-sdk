@@ -63,15 +63,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Redesigned models to use private properties instead of public properties.
     - Implemented object notation with getter and setter functions for all models.
 
-<<<<<<< HEAD
 - **Unit and E2E Testing**
-=======
-- **Unit and E2E Testing**
->>>>>>> origin/feat/personalize-meg
 
-    - Set up Test framework using `Jest`
     - Wrote unit and E2E tests to ensure nothing breaks while pushing new code
-    - Ensure criticla components are working properly on every build
+    - Ensure critical components are working properly on every build
 
 
 [1.0.0] - 2024-06-11

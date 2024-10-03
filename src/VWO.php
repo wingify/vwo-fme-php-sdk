@@ -70,7 +70,6 @@ class VWO
             // Fetch settings and build VWO instance
             $settings = self::$vwoBuilder->getSettings();
         }
-
         if ($settings) {
             self::$instance = self::$vwoBuilder->build($settings);
         }
@@ -113,7 +112,7 @@ class VWO
             $instance = new VWO($options);
 
             return self::$instance;
-        } catch (\Throwable $error) {            
+        } catch (\Throwable $error) {
             $msg = sprintf('API - %s failed to execute. Trace: %s. ', $apiName, $error->getMessage());
             $logMessage = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $msg);
             file_put_contents("php://stdout", $logMessage . PHP_EOL);
