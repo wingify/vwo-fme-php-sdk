@@ -33,13 +33,13 @@ $getFlag = $vwoClient->getFlag('feature_key', $userContext);
 $isFlagEnabled = $getFlag['isEnabled'];
 
 // get variable
-$variableValue = $getFlag->getVariable('stringVar', 'default-value');
+$variableValue = $getFlag->getVariable('variable_key', 'default-value');
 
 // track event
-$trackRes = $vwoClient->trackEvent('event-name', $userContext);
+$trackRes = $vwoClient->trackEvent('event_name', $userContext);
 
 // set Attribute
-$setAttribute = $vwoClient->setAttribute('attribute-name', 'attribute-value', $userContext);
+$setAttribute = $vwoClient->setAttribute('attribute_key', 'attribute_value', $userContext);
 ```
 
 ## Changelog
