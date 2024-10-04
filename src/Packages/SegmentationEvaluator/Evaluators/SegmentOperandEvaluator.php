@@ -180,37 +180,43 @@ class SegmentOperandEvaluator {
     public function extractResult($operandType, $operandValue, $tagValue) {
         $result = false;
 
+        $normalizedOperandValue = is_numeric($operandValue) ? rtrim(rtrim($operandValue, '0'), '.') : $operandValue;
+        $normalizedTagValue = is_numeric($tagValue) ? rtrim(rtrim($tagValue, '0'), '.') : $tagValue;
+    
         switch ($operandType) {
             case SegmentOperandValueEnum::LOWER_VALUE:
                 if ($tagValue !== null) {
-                    $result = strtolower($operandValue) === strtolower($tagValue);
+                    $result = strtolower($normalizedOperandValue) === strtolower($normalizedTagValue);
                 }
                 break;
             case SegmentOperandValueEnum::STARTING_ENDING_STAR_VALUE:
                 if ($tagValue !== null) {
-                    $result = strpos($tagValue, $operandValue) !== false;
+                    $result = strpos($normalizedTagValue, $normalizedOperandValue) !== false;
                 }
                 break;
             case SegmentOperandValueEnum::STARTING_STAR_VALUE:
                 if ($tagValue !== null) {
-                    $result = substr($tagValue, -strlen($operandValue)) === $operandValue;
+                    $result = substr($normalizedTagValue, -strlen($normalizedOperandValue)) === $normalizedOperandValue;
                 }
                 break;
             case SegmentOperandValueEnum::ENDING_STAR_VALUE:
                 if ($tagValue !== null) {
-                    $result = substr($tagValue, 0, strlen($operandValue)) === $operandValue;
+                    $result = substr($normalizedTagValue, 0, strlen($normalizedOperandValue)) === $normalizedOperandValue;
                 }
                 break;
             case SegmentOperandValueEnum::REGEX_VALUE:
-                // Check if operandValue is a valid regex pattern
                 if (@preg_match('/' . $operandValue . '/', '') === false) {
                     $result = false;
                 } else {
                     $result = preg_match('/' . $operandValue . '/', $tagValue);
                 }
-                break;
+                break; 
             case SegmentOperandValueEnum::EQUAL_VALUE:
-                $result = $tagValue === $operandValue;
+                if (is_numeric($operandValue) && is_numeric($tagValue)) {
+                    $result = (float)$operandValue === (float)$tagValue;
+                } else {
+                    $result = $normalizedOperandValue === $normalizedTagValue;
+                }
                 break;
             case SegmentOperandValueEnum::GREATER_THAN_VALUE:
                 $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
@@ -226,17 +232,17 @@ class SegmentOperandEvaluator {
                 $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
                     return $opValue > $tValue;
                 });
-                break;
+                break;  
             case SegmentOperandValueEnum::LESS_THAN_EQUAL_TO_VALUE:
                 $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
                     return $opValue >= $tValue;
                 });
-                break;
+                break;   
             default:
                 $result = false;
                 break;
         }
-
+    
         return $result;
     }
 
