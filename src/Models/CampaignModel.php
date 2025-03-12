@@ -41,6 +41,7 @@ class CampaignModel
     private $campaignId;
     private $weight;
     private $ruleKey;
+    private $salt;
 
     public function copy($campaignModel)
     {
@@ -93,6 +94,7 @@ class CampaignModel
         $this->key = isset($campaign->key) ? $campaign->key : null;
         $this->type = isset($campaign->type) ? $campaign->type : null;
         $this->ruleKey = isset($campaign->ruleKey) ? $campaign->ruleKey : null;
+        $this->salt = isset($campaign->salt) ? $campaign->salt : null;
     }
 
     public function getId()
@@ -173,6 +175,10 @@ class CampaignModel
     public function getRuleKey() {
         return $this->ruleKey;
     }
+
+    public function getSalt() {
+        return $this->salt;
+    }
     
     public function setId($id)
     {
@@ -247,5 +253,9 @@ class CampaignModel
     public function setRuleKey($ruleKey) 
     {    
         $this->ruleKey = $ruleKey;
+    }
+    public function setSalt($salt) 
+    {
+        $this->salt = $salt;
     }
 }

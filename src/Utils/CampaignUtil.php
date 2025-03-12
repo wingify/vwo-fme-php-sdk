@@ -113,7 +113,17 @@ class CampaignUtil
         if ($groupId) {
             return "{$groupId}_{$userId}";
         }
-        return "{$campaign->getId()}_{$userId}";
+        // Determine if the campaign is of type ROLLOUT or PERSONALIZE
+        $isRolloutOrPersonalize = $campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE;
+    
+        // Get the salt based on the campaign type
+        $salt = $isRolloutOrPersonalize ? $campaign->getVariations()[0]->getSalt() : $campaign->getSalt();
+    
+        if (!empty($salt)) {
+            return "{$salt}_{$userId}";
+        } else {
+            return "{$campaign->getId()}_{$userId}";
+        }
     }
 
     /**

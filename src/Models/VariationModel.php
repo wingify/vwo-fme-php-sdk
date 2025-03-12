@@ -40,6 +40,7 @@ class VariationModel
     private $variationId;
     private $campaignId;
     private $ruleKey;
+    private $salt;
 
     public function modelFromDictionary($variation)
     {
@@ -59,7 +60,7 @@ class VariationModel
         $this->variationId = isset($variation->variationId) ? $variation->variationId : null;
         $this->campaignId = isset($variation->campaignId) ? $variation->campaignId : null;
         $this->ruleKey = isset($variation->ruleKey) ? $variation->ruleKey : null;
-        
+        $this->salt = isset($variation->salt) ? $variation->salt : null;
 
         if (isset($variation->variables)) {
             foreach ($variation->variables as $variable) {
@@ -126,6 +127,10 @@ class VariationModel
 
     public function setRuleKey($ruleKey) {
         $this->ruleKey = $ruleKey;
+    }
+
+    public function setSalt($salt) {
+        $this->salt = $salt;
     }
 
     public function getId() {
@@ -198,5 +203,9 @@ class VariationModel
 
     public function getRuleKey() {
         return $this->ruleKey;
+    }
+
+    public function getSalt() {
+        return $this->salt;
     }
 }

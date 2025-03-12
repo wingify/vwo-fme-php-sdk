@@ -43,14 +43,25 @@ class CampaignDecisionService implements ICampaignDecisionService {
         if (!$campaign || !$userId) {
             return false;
         }
-        
-        $trafficAllocation = ($campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE)
+    
+        // Check if the campaign is of type ROLLOUT or PERSONALIZE
+        $isRolloutOrPersonalize = $campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE;
+    
+        // Get the salt based on the campaign type
+        $salt = $isRolloutOrPersonalize ? $campaign->getVariations()[0]->getSalt() : $campaign->getSalt();
+    
+        // Get the traffic allocation based on the campaign type
+        $trafficAllocation = $isRolloutOrPersonalize
             ? $campaign->getVariations()[0]->getWeight()
             : $campaign->getTraffic();
-        
-        $valueAssignedToUser = (new DecisionMaker())->getBucketValueForUser("{$campaign->getId()}_{$userId}");
-        $isUserPart = $valueAssignedToUser !== 0 && $valueAssignedToUser <= $trafficAllocation;
-        
+    
+        // Build the bucket key
+        $bucketKey = !empty($salt) ? "{$salt}_{$userId}" : "{$campaign->getId()}_{$userId}";
+        // Get the bucket value for the user
+        $valueAssignedToUser = (new DecisionMaker())->getBucketValueForUser($bucketKey);
+        // Check if the user is part of the campaign
+        $isUserPart = $valueAssignedToUser !== 0 && $valueAssignedToUser <= $trafficAllocation; 
+
         $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
 
         LogManager::instance()->debug("User:{$userId} part of campaign {$campaignKey} ? " . ($isUserPart ? 'true' : 'false'));
@@ -81,14 +92,20 @@ class CampaignDecisionService implements ICampaignDecisionService {
         }
         $multiplier = $campaign->getTraffic() ? 1 : null;
         $percentTraffic = $campaign->getTraffic();
-        $hashValue = (new DecisionMaker())->generateHashValue("{$campaign->getId()}_{$accountId}_{$userId}");
+        // Get salt
+        $salt = $campaign->getSalt();
+        // Get bucket key
+        $bucketKey = !empty($salt) ? "{$salt}_{$accountId}_{$userId}" : "{$campaign->getId()}_{$accountId}_{$userId}";
+        // Generate hash value
+        $hashValue = (new DecisionMaker())->generateHashValue($bucketKey);
+        // Generate bucket value
         $bucketValue = (new DecisionMaker())->generateBucketValue($hashValue, Constants::MAX_TRAFFIC_VALUE, $multiplier);
         
         $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
 
         LogManager::instance()->debug("user:{$userId} for campaign:{$campaignKey} having percenttraffic:{$percentTraffic} got bucketValue as {$bucketValue} and hashvalue:{$hashValue}");
-        $variaitons = $campaign->getVariations();
-        return $this->getVariation( $variaitons, $bucketValue);
+        $variations = $campaign->getVariations();
+        return $this->getVariation($variations, $bucketValue);
     }
 
     public function getPreSegmentationDecision($campaign, $context) {
