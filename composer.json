@@ -12,7 +12,7 @@
     }],
     "description": "VWO server side sdk",
     "require": {
-        "ramsey/uuid": "^4.2",
+        "ramsey/uuid": "^4.0",
         "guzzlehttp/guzzle": "^7.8",
         "lastguest/murmurhash": "^2.1.1",
         "vwo/vwo-fme-sdk-e2e-test-settings-n-cases": "^1.2.4"
