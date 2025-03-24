@@ -31,6 +31,7 @@ use vwo\Packages\NetworkLayer\Models\RequestModel;
 use vwo\Utils\ComposerUtil;
 use Exception;
 use vwo\Services\SettingsService;
+use vwo\Services\UrlService;
 
 class NetworkUtil {
   public function getBasePropertiesForBulk($accountId, $userId) {
@@ -113,7 +114,7 @@ class NetworkUtil {
             $properties['visitor_ip'] = $ipAddress;
         }
 
-        $properties['url'] = Constants::HTTPS_PROTOCOL . UrlUtil::getBaseUrl() . UrlEnum::EVENTS;
+        $properties['url'] = Constants::HTTPS_PROTOCOL . UrlService::getBaseUrl() . UrlEnum::EVENTS;
         return $properties;
     }
 
@@ -225,7 +226,7 @@ class NetworkUtil {
         }
 
         $request = new RequestModel(
-            UrlUtil::getBaseUrl(),
+            UrlService::getBaseUrl(),
             'POST',
             UrlEnum::EVENTS,
             $properties,
@@ -248,7 +249,7 @@ class NetworkUtil {
   public function sendGetApiRequest($properties, $endpoint) {
         NetworkManager::Instance()->attachClient();
         $request = new RequestModel(
-            UrlUtil::getBaseUrl(),
+            UrlService::getBaseUrl(),
             'Get',
             $endpoint,
             $properties,
