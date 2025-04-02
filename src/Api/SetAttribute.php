@@ -32,7 +32,7 @@ interface ISetAttribute
      * @param mixed $attributeValue The value of the attribute.
      * @param ContextModel $context Context containing user information.
      */
-    public function setAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context): void;
+    public function setAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context);
 }
 
 class SetAttribute implements ISetAttribute
@@ -44,7 +44,7 @@ class SetAttribute implements ISetAttribute
      * @param mixed $attributeValue The value of the attribute.
      * @param ContextModel $context Context containing user information.
      */
-    public function setAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context): void
+    public function setAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context)
     {
         $this->createImpressionForAttribute($settings, $attributeKey, $attributeValue, $context);
     }
@@ -56,7 +56,7 @@ class SetAttribute implements ISetAttribute
      * @param mixed $attributeValue The value of the attribute.
      * @param ContextModel $context Context containing user information.
      */
-    private function createImpressionForAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context): void
+    private function createImpressionForAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context)
     {
         $networkUtil = new NetworkUtil();
 

@@ -34,7 +34,7 @@ class HooksService {
      * 
      * @param array $properties The properties to be passed to the callback.
      */
-    public function execute(array $properties): void {
+    public function execute(array $properties) {
         if ($this->isCallBackFunction) {
             call_user_func($this->callback, $properties);
         }
@@ -45,7 +45,7 @@ class HooksService {
      * 
      * @param array $properties The properties to store.
      */
-    public function set(array $properties): void {
+    public function set(array $properties) {
         if ($this->isCallBackFunction) {
             $this->decision = $properties;
         }

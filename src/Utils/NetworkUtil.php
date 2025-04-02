@@ -255,7 +255,7 @@ class NetworkUtil {
             null,
             null,
             SettingsService::instance()->protocol,
-            SettingsService::instance()->port,
+            SettingsService::instance()->port
         );
         try {
             $response = NetworkManager::Instance()->get($request);

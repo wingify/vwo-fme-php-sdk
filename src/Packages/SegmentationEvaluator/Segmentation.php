@@ -30,7 +30,7 @@ interface Segmentation {
      * @param SettingsModel $settings - The settings model containing configuration details.
      * @return bool - True if the segmentation is valid, otherwise false.
      */
-    public function isSegmentationValid($dsl, $properties, $settings): bool;
+    public function isSegmentationValid($dsl, $properties, $settings);
 }
 
 ?>

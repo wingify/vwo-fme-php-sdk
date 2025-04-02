@@ -26,7 +26,7 @@ use vwo\Packages\Logger\Core\LogManager;
 
 class SegmentOperandEvaluator {
 
-    public function evaluateCustomVariableDSL($dslOperandValue, $properties): bool {
+    public function evaluateCustomVariableDSL($dslOperandValue, $properties) {
         $keyValue = SegmentEvaluator::getKeyValue($dslOperandValue);
         $operandKey = $keyValue['key'];
         $operand = $keyValue['value'];
@@ -79,8 +79,8 @@ class SegmentOperandEvaluator {
         }
     }
 
-    public function evaluateUserDSL($dslOperandValue, $properties): bool {
-        $properties = (array)($properties);
+    public function evaluateUserDSL($dslOperandValue, $properties) {
+        $properties = json_decode(json_encode($properties),true);
         $users = explode(',', $dslOperandValue);
         foreach ($users as $user) {
             if (trim($user) === $properties['_vwoUserId']) {
@@ -90,7 +90,7 @@ class SegmentOperandEvaluator {
         return false;
     }
 
-    public function evaluateUserAgentDSL($dslOperandValue, $context): bool {
+    public function evaluateUserAgentDSL($dslOperandValue, $context) {
         $operand = $dslOperandValue;
         if (!$context->getUserAgent() || $context->getUserAgent() === null) {
             LogManager::instance()->info('To evaluate UserAgent segmentation, please provide userAgent in context');

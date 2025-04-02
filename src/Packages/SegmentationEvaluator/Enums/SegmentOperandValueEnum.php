@@ -19,16 +19,16 @@
 namespace vwo\Packages\SegmentationEvaluator\Enums;
 
 class SegmentOperandValueEnum {
-    public const LOWER_VALUE = 1;
-    public const STARTING_ENDING_STAR_VALUE = 2;
-    public const STARTING_STAR_VALUE = 3;
-    public const ENDING_STAR_VALUE = 4;
-    public const REGEX_VALUE = 5;
-    public const EQUAL_VALUE = 6;
-    public const GREATER_THAN_VALUE = 7;
-    public const GREATER_THAN_EQUAL_TO_VALUE = 8;
-    public const LESS_THAN_VALUE = 9;
-    public const LESS_THAN_EQUAL_TO_VALUE = 10;
+    const LOWER_VALUE = 1;
+    const STARTING_ENDING_STAR_VALUE = 2;
+    const STARTING_STAR_VALUE = 3;
+    const ENDING_STAR_VALUE = 4;
+    const REGEX_VALUE = 5;
+    const EQUAL_VALUE = 6;
+    const GREATER_THAN_VALUE = 7;
+    const GREATER_THAN_EQUAL_TO_VALUE = 8;
+    const LESS_THAN_VALUE = 9;
+    const LESS_THAN_EQUAL_TO_VALUE = 10;
 }
 
 ?>

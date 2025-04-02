@@ -24,19 +24,19 @@ class ResponseModel {
     private $headers;
     private $data;
 
-    public function setStatusCode($statusCode): void {
+    public function setStatusCode($statusCode) {
         $this->statusCode = $statusCode;
     }
 
-    public function setHeaders($headers): void {
+    public function setHeaders($headers) {
         $this->headers = $headers;
     }
 
-    public function setData($data): void {
+    public function setData($data) {
         $this->data = $data;
     }
 
-    public function setError($error): void {
+    public function setError($error) {
         $this->error = $error;
     }
 

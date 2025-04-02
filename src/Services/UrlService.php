@@ -28,7 +28,7 @@ class UrlService
     private static $port;
     private static $gatewayServiceProtocol = 'https';
 
-    public static function init(array $options = []): void
+    public static function init(array $options = [])
     {
         self::$collectionPrefix = $options['collectionPrefix'] ?? null;
         self::$gatewayServiceUrl = $options['gatewayServiceUrl'] ?? null;

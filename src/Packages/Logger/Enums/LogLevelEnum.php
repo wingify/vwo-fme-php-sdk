@@ -19,11 +19,11 @@
 namespace vwo\Packages\Logger\Enums; // Replace YourNamespace with your actual namespace
 
 class LogLevelEnum {
-    public const TRACE = 'trace';
-    public const DEBUG = 'debug';
-    public const INFO = 'info';
-    public const WARN = 'warn';
-    public const ERROR = 'error';
+    const TRACE = 'trace';
+    const DEBUG = 'debug';
+    const INFO = 'info';
+    const WARN = 'warn';
+    const ERROR = 'error';
 }
 
 ?>

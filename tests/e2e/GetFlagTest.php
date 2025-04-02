@@ -25,7 +25,7 @@ class GetFlagTest extends TestCase
     protected $testsData;
     protected $getFlagTests;
 
-    protected function setUp(): void
+    protected function setUp()
     {
         // Initialize data
         $data = SettingsAndTestCases::get();
