@@ -31,7 +31,7 @@ class SettingsSchema {
         $this->initializeSchemas();
     }
 
-    private function initializeSchemas(): void {
+    private function initializeSchemas() {
         $this->campaignMetricSchema = [
             'id' => ['type' => ['number', 'string']],
             'type' => ['type' => 'string'],
@@ -102,7 +102,7 @@ class SettingsSchema {
         ];
     }
 
-    public function isSettingsValid($settings): bool {
+    public function isSettingsValid($settings) {
         if (!$settings) {
             return false;
         }
@@ -110,7 +110,7 @@ class SettingsSchema {
         return $this->validate($settings, $this->settingsSchema);
     }
 
-    private function validate($data, $schema): bool {
+    private function validate($data, $schema) {
         foreach ($schema as $key => $rules) {
             $value = $data[$key] ?? null;
 

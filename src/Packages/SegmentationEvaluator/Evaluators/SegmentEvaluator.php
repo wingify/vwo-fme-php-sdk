@@ -41,7 +41,7 @@ class SegmentEvaluator implements Segmentation
         $this->feature = $feature;
     }
 
-    public function isSegmentationValid($dsl, $properties): bool
+    public function isSegmentationValid($dsl, $properties)
     {
         $keyValue = $this->getKeyValue($dsl);
         $operator = $keyValue['key'];
@@ -65,7 +65,7 @@ class SegmentEvaluator implements Segmentation
         }
     }
 
-    public function some($dslNodes, $customVariables): bool
+    public function some($dslNodes, $customVariables)
     {
         $uaParserMap = [];
         $keyCount = 0;
@@ -133,7 +133,7 @@ class SegmentEvaluator implements Segmentation
         return false;
     }
 
-    public function every($dslNodes, $customVariables): bool
+    public function every($dslNodes, $customVariables)
     {
         $locationMap = [];
         foreach ($dslNodes as $dsl) {
@@ -151,7 +151,7 @@ class SegmentEvaluator implements Segmentation
         return true;
     }
 
-    public function addLocationValuesToMap($dsl, &$locationMap): void
+    public function addLocationValuesToMap($dsl, &$locationMap)
     {
         if (isset($dsl->{SegmentOperatorValueEnum::COUNTRY})) {
             $locationMap[SegmentOperatorValueEnum::COUNTRY] = $dsl->{SegmentOperatorValueEnum::COUNTRY};
@@ -164,7 +164,7 @@ class SegmentEvaluator implements Segmentation
         }
     }
 
-    public function checkLocationPreSegmentation($locationMap): bool
+    public function checkLocationPreSegmentation($locationMap)
     {
         $ipAddress = $this->context->getIpAddress(); // Use the getter method
 
@@ -180,7 +180,7 @@ class SegmentEvaluator implements Segmentation
         return $this->valuesMatch($locationMap, $this->context->getVwo()->getLocation());
     }
 
-    public function checkUserAgentParser($uaParserMap): bool
+    public function checkUserAgentParser($uaParserMap)
     {
         $userAgent = $this->context->getUserAgent(); // Use the getter method
 
@@ -203,7 +203,7 @@ class SegmentEvaluator implements Segmentation
         return is_array($storedData) && count($storedData) > 0;
     }
 
-    public function checkValuePresent($expectedMap, $actualMap): bool
+    public function checkValuePresent($expectedMap, $actualMap)
     {
         foreach ($actualMap as $key => $value) {
             if (array_key_exists($key, $expectedMap)) {
@@ -232,7 +232,7 @@ class SegmentEvaluator implements Segmentation
         return true;
     }
 
-    public function valuesMatch($expectedLocationMap, $userLocation): bool
+    public function valuesMatch($expectedLocationMap, $userLocation)
     {
         foreach ($expectedLocationMap as $key => $value) {
             if (isset($userLocation->$key)) {

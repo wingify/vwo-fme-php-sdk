@@ -82,7 +82,7 @@ class TrackEvent implements ITrack
      * @param ContextModel $context Contextual information like user details.
      * @param array $eventProperties Properties associated with the event.
      */
-    private function createImpressionForTrack(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties): void
+    private function createImpressionForTrack(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties)
     {
         $networkUtil = new NetworkUtil();
 

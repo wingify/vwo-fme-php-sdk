@@ -25,7 +25,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is an object, false otherwise.
      */
-    public static function isObject($val): bool {
+    public static function isObject($val) {
         //return gettype($val) === 'object' && !self::isArray($val) && !self::isFunction($val) && !self::isRegex($val) && !self::isPromise($val) && !self::isDate($val);
         return is_array($val) || is_object($val);
     }
@@ -35,7 +35,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is an array, false otherwise.
      */
-    public static function isArray($val): bool {
+    public static function isArray($val) {
         return gettype($val) === 'array';
     }
 
@@ -44,7 +44,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is null, false otherwise.
      */
-    public static function isNull($val): bool {
+    public static function isNull($val) {
         return gettype($val) === 'NULL';
     }
 
@@ -53,7 +53,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is undefined, false otherwise.
      */
-    public static function isUndefined($val): bool {
+    public static function isUndefined($val) {
         return gettype($val) === 'undefined';
     }
 
@@ -62,7 +62,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is defined, false otherwise.
      */
-    public static function isDefined($val): bool {
+    public static function isDefined($val) {
         return !self::isUndefined($val) && !self::isNull($val);
     }
 
@@ -71,7 +71,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is a number, false otherwise.
      */
-    public static function isNumber($val): bool {
+    public static function isNumber($val) {
         return gettype($val) === 'double' || gettype($val) === 'integer';
     }
 
@@ -80,7 +80,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is a string, false otherwise.
      */
-    public static function isString($val): bool {
+    public static function isString($val) {
         return gettype($val) === 'string';
     }
 
@@ -89,7 +89,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is a boolean, false otherwise.
      */
-    public static function isBoolean($val): bool {
+    public static function isBoolean($val) {
         return gettype($val) === 'boolean';
     }
 
@@ -98,7 +98,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is NaN, false otherwise.
      */
-    public static function isNaN($val): bool {
+    public static function isNaN($val) {
         return is_nan($val);
     }
 
@@ -107,7 +107,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is a Date object, false otherwise.
      */
-    public static function isDate($val): bool {
+    public static function isDate($val) {
         return gettype($val) === 'object' && get_class($val) === 'DateTime';
     }
 
@@ -116,7 +116,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is a function, false otherwise.
      */
-    public static function isFunction($val): bool {
+    public static function isFunction($val) {
         return gettype($val) === 'object' && ($val instanceof \Closure);
     }
 
@@ -125,7 +125,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is a regular expression, false otherwise.
      */
-    public static function isRegex($val): bool {
+    public static function isRegex($val) {
         return gettype($val) === 'object' && get_class($val) === 'Regex';
     }
 
@@ -134,7 +134,7 @@ class DataTypeUtil {
      * @param mixed $val The value to check.
      * @return bool True if the value is a Promise, false otherwise.
      */
-    public static function isPromise($val): bool {
+    public static function isPromise($val) {
         return gettype($val) === 'object' && method_exists($val, 'then');
     }
 

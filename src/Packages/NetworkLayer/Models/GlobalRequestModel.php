@@ -33,7 +33,7 @@ class GlobalRequestModel {
         $this->headers = $headers;
     }
 
-    public function setQuery($query): void {
+    public function setQuery($query) {
         $this->query = $query;
     }
 
@@ -41,7 +41,7 @@ class GlobalRequestModel {
         return $this->query;
     }
 
-    public function setBody($body): void {
+    public function setBody($body) {
         $this->body = $body;
     }
 
@@ -49,7 +49,7 @@ class GlobalRequestModel {
         return $this->body;
     }
 
-    public function setBaseUrl($url): void {
+    public function setBaseUrl($url) {
         $this->url = $url;
     }
 
@@ -57,7 +57,7 @@ class GlobalRequestModel {
         return $this->url;
     }
 
-    public function setTimeout($timeout): void {
+    public function setTimeout($timeout) {
         $this->timeout = $timeout;
     }
 
@@ -65,7 +65,7 @@ class GlobalRequestModel {
         return $this->timeout;
     }
 
-    public function setHeaders($headers): void {
+    public function setHeaders($headers) {
         $this->headers = $headers;
     }
 
@@ -73,7 +73,7 @@ class GlobalRequestModel {
         return $this->headers;
     }
 
-    public function setDevelopmentMode($isDevelopmentMode): void {
+    public function setDevelopmentMode($isDevelopmentMode) {
         $this->isDevelopmentMode = $isDevelopmentMode;
     }
 

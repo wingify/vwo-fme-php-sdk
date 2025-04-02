@@ -19,11 +19,11 @@
 namespace vwo\Packages\Logger\Core;
 
 abstract class Logger {
-    abstract public function trace($message): void;
-    abstract public function debug($message): void;
-    abstract public function info($message): void;
-    abstract public function warn($message): void;
-    abstract public function error($message): void;
+    abstract public function trace($message);
+    abstract public function debug($message);
+    abstract public function info($message);
+    abstract public function warn($message);
+    abstract public function error($message);
 }
 
 ?>

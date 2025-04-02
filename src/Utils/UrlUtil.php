@@ -34,7 +34,7 @@ class UrlUtil
      * @param array $options Optional prefix for URL collections.
      * @return void
      */
-    public static function init(array $options = []): void
+    public static function init(array $options = [])
     {
         if (isset($options['collectionPrefix']) && DataTypeUtil::isString($options['collectionPrefix'])) {
             self::$collectionPrefix = $options['collectionPrefix'];
