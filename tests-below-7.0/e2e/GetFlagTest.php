@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+
 namespace vwo;
 
 use PHPUnit\Framework\TestCase;
@@ -25,7 +26,7 @@ class GetFlagTest extends TestCase
     protected $testsData;
     protected $getFlagTests;
 
-    protected function setUp():void
+    protected function setUp()
     {
         // Initialize data
         $data = SettingsAndTestCases::get();
