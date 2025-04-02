@@ -39,12 +39,12 @@ jobs:
       if: matrix.php-versions == '7.0'
       run: |
         mkdir -p build/logs
-        composer run-script test -- --tests-dir=tests-below-7.0
+        ./vendor/bin/phpunit ./tests-below-7.0
     - name: Run tests for PHP versions >= 7.4
       if: matrix.php-versions == '7.4' || matrix.php-versions == '8.0' || matrix.php-versions == '8.1' || matrix.php-versions == '8.2' || matrix.php-versions == '8.3'
       run: |
         mkdir -p build/logs
-        composer run-script test -- --tests-dir=tests
+        ./vendor/bin/phpunit ./tests
     - name: Notification
       if: always()
       id: slack
