@@ -196,14 +196,17 @@ class NetworkUtil {
         return $properties;
     }
 
-  public function getAttributePayloadData($settings, $userId, $eventName, $attributeKey, $attributeValue, $visitorUserAgent = '', $ipAddress = '' ) {
+  public function getAttributePayloadData($settings, $userId, $eventName, $attributes, $visitorUserAgent = '', $ipAddress = '') {
         $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
         $properties['d']['event']['props']['isCustomEvent'] = true;
         $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settings->getSdkKey();
-        $properties['d']['visitor']['props'][$attributeKey] = $attributeValue;
-
+        // Iterate over the attributes map and append to the visitor properties
+        foreach ($attributes as $key => $value) {
+            $properties['d']['visitor']['props'][$key] = $value;
+        }
+    
         LogManager::instance()->debug(
-            "IMPRESSION_FOR_EVENT_ARCH_SYNC_VISITOR_PROP: Impression built for {$eventName} event for Account ID:{$settings->getAccountId()}, User ID:{$userId}"
+            "IMPRESSION_FOR_SYNC_VISITOR_PROP: Impression built for {$eventName} event for Account ID: {$settings->getAccountId()}, User ID: {$userId}"
         );
 
         return $properties;

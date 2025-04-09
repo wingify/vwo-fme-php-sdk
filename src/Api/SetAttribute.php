@@ -26,37 +26,34 @@ use vwo\Utils\NetworkUtil;
 interface ISetAttribute
 {
     /**
-     * Sets an attribute for a user.
+     * Sets multiple attributes for a user.
      * @param SettingsModel $settings Configuration settings.
-     * @param string $attributeKey The key of the attribute to set.
-     * @param mixed $attributeValue The value of the attribute.
+     * @param array $attributes Key-value map of attributes.
      * @param ContextModel $context Context containing user information.
      */
-    public function setAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context): void;
+    public function setAttribute(SettingsModel $settings, array $attributes, ContextModel $context): void;
 }
 
 class SetAttribute implements ISetAttribute
 {
     /**
-     * Implementation of setAttribute to create an impression for a user attribute.
+     * Implementation of setAttribute to create an impression for multiple user attributes.
      * @param SettingsModel $settings Configuration settings.
-     * @param string $attributeKey The key of the attribute to set.
-     * @param mixed $attributeValue The value of the attribute.
+     * @param array $attributes Key-value map of attributes.
      * @param ContextModel $context Context containing user information.
      */
-    public function setAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context): void
+    public function setAttribute(SettingsModel $settings, array $attributes, ContextModel $context): void
     {
-        $this->createImpressionForAttribute($settings, $attributeKey, $attributeValue, $context);
+        $this->createImpressionForAttributes($settings, $attributes, $context);
     }
 
     /**
-     * Creates an impression for a user attribute and sends it to the server.
+     * Creates an impression for multiple user attributes and sends it to the server.
      * @param SettingsModel $settings Configuration settings.
-     * @param string $attributeKey The key of the attribute.
-     * @param mixed $attributeValue The value of the attribute.
+     * @param array $attributes Key-value map of attributes.
      * @param ContextModel $context Context containing user information.
      */
-    private function createImpressionForAttribute(SettingsModel $settings, string $attributeKey, $attributeValue, ContextModel $context): void
+    private function createImpressionForAttributes(SettingsModel $settings, array $attributes, ContextModel $context): void
     {
         $networkUtil = new NetworkUtil();
 
@@ -68,13 +65,12 @@ class SetAttribute implements ISetAttribute
             $context->getIpAddress()
         );
 
-        // Construct payload data for the attribute
+        // Construct payload data for multiple attributes
         $payload = $networkUtil->getAttributePayloadData(
             $settings,
             $context->getId(),
             EventEnum::VWO_SYNC_VISITOR_PROP,
-            $attributeKey,
-            $attributeValue,
+            $attributes,
             $context->getUserAgent(),
             $context->getIpAddress()
         );
@@ -83,4 +79,3 @@ class SetAttribute implements ISetAttribute
         $networkUtil->sendPostApiRequest($properties, $payload);
     }
 }
-?>

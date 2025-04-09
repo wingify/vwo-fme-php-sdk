@@ -45,7 +45,10 @@ $variableValue = $getFlag->getVariable('variable_key', 'default-value');
 $trackRes = $vwoClient->trackEvent('event_name', $userContext);
 
 // set Attribute
-$setAttribute = $vwoClient->setAttribute('attribute_key', 'attribute_value', $userContext);
+$attributes = [
+  'attribute_key' => 'attribute_value'
+];
+$setAttribute = $vwoClient->setAttribute($attributes, $userContext);
 ```
 
 ## Advanced Configuration Options
@@ -149,6 +152,15 @@ Example usage:
 
 ```php
 $vwoClient->setAttribute('attribute_name', 'attribute_value', $userContext);
+```
+
+Or
+
+```php
+$attributes = [
+  'attribute_name' => 'attribute_value'
+];
+$vwoClient->setAttribute($attributes, $userContext);
 ```
 
 See [Pushing Attributes](https://developers.vwo.com/v2/docs/fme-php-attributes#usage) documentation for additional information.

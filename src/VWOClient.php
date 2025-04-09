@@ -36,7 +36,7 @@ use vwo\Utils\SettingsUtil;
 interface IVWOClient {
     public function getFlag(string $featureKey, $context);
     public function trackEvent(string $eventName, $context, array $eventProperties);
-    public function setAttribute(string $attributeKey, string $attributeValue, $context);
+    public function setAttribute($attributesOrAttributeValue, $attributeValueOrContext, $context);
 }
 
 class VWOClient implements IVWOClient {
@@ -141,31 +141,81 @@ class VWOClient implements IVWOClient {
         }
     }
 
-    public function setAttribute($attributeKey = null, $attributeValue = null, $context = null) {
+    public function setAttribute($attributesOrAttributeValue = null , $attributeValueOrContext = null, $context = null) {
         $apiName = 'setAttribute';
 
         try {
             LogManager::instance()->debug("API Called: $apiName");
 
-            if (!DataTypeUtil::isString($attributeKey)) {
-                LogManager::instance()->error("Attribute key passed to $apiName API is not valid.");
-                throw new \TypeError('TypeError: attributeKey should be a valid string');
-            }
+            if (DataTypeUtil::isString($attributesOrAttributeValue)) {
+                // Validate attributeKey is a string
+                if (!DataTypeUtil::isString($attributesOrAttributeValue)) {
+                    LogManager::instance()->error("Attribute key passed to $apiName API is not valid.");
+                    throw new \TypeError('TypeError: attributeKey should be a valid string');
+                }
 
-            if (!DataTypeUtil::isString($attributeValue) && !DataTypeUtil::isNumber($attributeValue) && !DataTypeUtil::isBoolean($attributeValue)) {
-                LogManager::instance()->error("Attribute value passed to $apiName API is not valid.");
+                // Validate attributeValue (the second argument) is valid
+                if (!DataTypeUtil::isString($attributeValueOrContext) && 
+                    !DataTypeUtil::isNumber($attributeValueOrContext) && 
+                    !DataTypeUtil::isBoolean($attributeValueOrContext)) {
+                    LogManager::instance()->error("Attribute value passed to $apiName API is not valid.");
                 throw new \TypeError('TypeError: attributeValue should be a valid string, number, or boolean');
+                }
+    
+                // Ensure context is valid
+                if (!isset($context['id']) || empty($context['id'])) {
+                    LogManager::instance()->error('Context must contain a valid user ID.');
+                    throw new \Error('TypeError: Invalid context');
+                }
+    
+                $contextModel = new ContextModel();
+                $contextModel->modelFromDictionary($context);
+    
+                // Create the attributes map from key-value
+                $attributes = [$attributesOrAttributeValue => $attributeValueOrContext];
+                (new SetAttribute())->setAttribute($this->settings, $attributes, $contextModel);
+    
+            } else {
+                // Case where attributeKey is an array (multiple attributes)
+                $attributes = $attributesOrAttributeValue;
+    
+                // Validate attributes is an array
+                if (!DataTypeUtil::isArray($attributes)) {
+                    LogManager::instance()->error("Attributes passed to $apiName API is not valid.");
+                    throw new \TypeError('TypeError: attributes should be an array');
+                }
+
+                // Validate attributes is not empty
+                if (empty($attributes)) {
+                    LogManager::instance()->error("Key 'attributesMap' passed to setAttribute API is not of valid type. Got type: null or empty array, should be: a non-empty array.");
+                    throw new \TypeError('TypeError: attributes should be a non-empty array');
+                }
+                    
+                // Validate that each attribute value is of a supported type (string, number, or boolean)
+                foreach ($attributes as $key => $value) {
+                    if (!is_string($key)) {
+                        LogManager::instance()->error("Attribute key in attributesMap is not valid. Got type: '" . gettype($key) . "', should be: string.");
+                        throw new \TypeError("TypeError: attribute key '$key' should only be a string");
+                    }
+
+                    if (!DataTypeUtil::isString($value) && !DataTypeUtil::isNumber($value) && !DataTypeUtil::isBoolean($value)) {
+                        LogManager::instance()->error("Attribute value for key '$key' is not valid.");
+                        throw new \TypeError("TypeError: attributeValue for key '$key' should be a valid string, number, or boolean");
+                    }
+                }
+                $context = $attributeValueOrContext;
+                // Ensure context is valid
+                if (!isset($context['id']) || empty($context['id'])) {
+                    LogManager::instance()->error('Context must contain a valid user ID.');
+                    throw new \Error('TypeError: Invalid context');
+                }
+                
+                $contextModel = new ContextModel();
+                $contextModel->modelFromDictionary($context);
+    
+                // Proceed with setting the attributes if validation is successful
+                (new SetAttribute())->setAttribute($this->settings, $attributes, $contextModel);
             }
-
-            if (!isset($context['id']) || empty($context['id'])) {
-                LogManager::instance()->error('Context must contain a valid user ID.');
-                throw new \Error('TypeError: Invalid context');
-            }
-
-            $contextModel = new ContextModel();
-            $contextModel->modelFromDictionary($context);
-
-            (new SetAttribute())->setAttribute($this->settings, $attributeKey, $attributeValue, $contextModel);
         } catch (\Throwable $error) {
             LogManager::instance()->error("API - $apiName failed to execute. Error: " . $error->getMessage());
         }

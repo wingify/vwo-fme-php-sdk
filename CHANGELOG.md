@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2024-04-09
+
+### Added
+
+- Support for `Map` in `setAttribute` method to send multiple attributes data.
+
 ## [1.5.0] - 2025-03-24
 
 ### Fixed
@@ -17,14 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added the support for using salt for bucketing if provided in the rule configuration.
 
-[1.3.1] - 2024-10-04
+
+## [1.3.1] - 2024-10-04
 
 ### Fixed
 
 - Improved Pre-segmentation result comparison logic to handle numeric values more accurately by trimming trailing zeroes and decimal points across various operand types
 
 
-[1.3.0] - 2024-10-03
+## [1.3.0] - 2024-10-03
 
 ### Added
 
@@ -52,13 +59,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Code refactoring** - source code is refactored to have error-handling, model-driven code, and inline documentation.
 
-[1.2.5] - 2024-07-29
+## [1.2.5] - 2024-07-29
 
 ### Fixed
 
 - Removed unnecessary vendor/autoload from `UuidUtil.php`
 
-[1.2.1] - 2024-07-17
+## [1.2.1] - 2024-07-17
 
 ### Added
 
@@ -66,14 +73,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for gt,gte,lt,lte in Custom Variable pre-segmentation
 
 
-[1.1.1] - 2024-07-04
+## [1.1.1] - 2024-07-04
 
 ### Changed
 
 - **Testing** - PHPUnit version changed to support in lower php versions
 
 
-[1.1.0] - 2024-07-02
+## [1.1.0] - 2024-07-02
 
 ### Changed
 
@@ -88,7 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Ensure critical components are working properly on every build
 
 
-[1.0.0] - 2024-06-11
+## [1.0.0] - 2024-06-11
 
 ### Added
 
