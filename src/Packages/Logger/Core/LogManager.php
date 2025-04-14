@@ -24,14 +24,14 @@ use vwo\Packages\Logger\Core\LogTransportManager;
 use vwo\Packages\Logger\Core\Logger;
 
 interface ILogManager {
-    public function handleTransports(): void;
-    public function addTransport($transport): void;
-    public function addTransports($transports): void;
-    public function trace($message): void;
-    public function debug($message): void;
-    public function info($message): void;
-    public function warn($message): void;
-    public function error($message): void;
+    public function handleTransports();
+    public function addTransport($transport);
+    public function addTransports($transports);
+    public function trace($message);
+    public function debug($message);
+    public function info($message);
+    public function warn($message);
+    public function error($message);
 }
 
 class LogManager extends Logger implements ILogManager {
@@ -74,7 +74,7 @@ class LogManager extends Logger implements ILogManager {
         return self::$instance;
     }
 
-    public function handleTransports(): void {
+    public function handleTransports() {
         $transports = $this->config['transports'] ?? null;
 
         if ($transports && count($transports)) {
@@ -91,33 +91,33 @@ class LogManager extends Logger implements ILogManager {
         }
     }
 
-    public function addTransport($transport): void {
+    public function addTransport($transport) {
         $this->transportManager->addTransport($transport);
     }
 
-    public function addTransports($transports): void {
+    public function addTransports($transports) {
         foreach ($transports as $transport) {
             $this->addTransport($transport);
         }
     }
 
-    public function trace($message): void {
+    public function trace($message) {
         $this->transportManager->log(LogLevelEnum::TRACE, $message);
     }
 
-    public function debug($message): void {
+    public function debug($message) {
         $this->transportManager->log(LogLevelEnum::DEBUG, $message);
     }
 
-    public function info($message): void {
+    public function info($message) {
         $this->transportManager->log(LogLevelEnum::INFO, $message);
     }
 
-    public function warn($message): void {
+    public function warn($message) {
         $this->transportManager->log(LogLevelEnum::WARN, $message);
     }
 
-    public function error($message): void {
+    public function error($message) {
         $this->transportManager->log(LogLevelEnum::ERROR, $message);
     }
 }

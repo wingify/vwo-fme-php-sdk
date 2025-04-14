@@ -9,7 +9,7 @@ The **VWO Feature Management and Experimentation SDK** (VWO FME Php SDK) enables
 
 ## Requirements
 
-- **PHP 7.4 or later**
+- **PHP 7.0 and onwards**
 
 ## Installation
 

@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         operating-system: [ubuntu-latest]
-        php-versions: [ '7.4', '8.0', '8.1', '8.2', '8.3' ]
+        php-versions: [ '7.0', '7.4', '8.0', '8.1', '8.2', '8.3' ]
     name: PHP ${{ matrix.php-versions }} Test on ${{ matrix.operating-system }}
     steps:
     - name: Checkout
@@ -35,10 +35,16 @@ jobs:
         restore-keys: ${{ runner.os }}-composer-
     - name: Install dependencies
       run: composer install
-    - name: Run scripts
+    - name: Run tests for PHP version 7.0
+      if: matrix.php-versions == '7.0'
       run: |
         mkdir -p build/logs
-        composer run-script test
+        ./vendor/bin/phpunit ./tests-7.0
+    - name: Run tests for PHP versions >= 7.4
+      if: matrix.php-versions == '7.4' || matrix.php-versions == '8.0' || matrix.php-versions == '8.1' || matrix.php-versions == '8.2' || matrix.php-versions == '8.3'
+      run: |
+        mkdir -p build/logs
+        ./vendor/bin/phpunit ./tests
     - name: Notification
       if: always()
       id: slack

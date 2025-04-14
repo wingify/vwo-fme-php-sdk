@@ -39,7 +39,8 @@ class Constants {
     const DEFAULT_REQUEST_TIME_INTERVAL = 600; // 10 * 60(secs) = 600 secs i.e. 10 minutes
     const DEFAULT_EVENTS_PER_REQUEST = 100;
     const SDK_NAME = 'vwo-fme-php-sdk';
-    const SDK_VERSION = '1.6.0';
+
+    const SDK_VERSION = '1.7.0';
     const AP = 'server';
 
     const SETTINGS = 'settings';

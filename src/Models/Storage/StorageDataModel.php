@@ -84,42 +84,42 @@ class StorageDataModel
         return $this->experimentVariationId;
     }
 
-    public function setFeatureKey(string $featureKey): void
+    public function setFeatureKey(string $featureKey)
     {
         $this->featureKey = $featureKey;
     }
 
-    public function setContext(ContextModel $context): void
+    public function setContext(ContextModel $context)
     {
         $this->context = $context;
     }
 
-    public function setRolloutId(int $rolloutId): void
+    public function setRolloutId(int $rolloutId)
     {
         $this->rolloutId = $rolloutId;
     }
 
-    public function setRolloutKey(string $rolloutKey): void
+    public function setRolloutKey(string $rolloutKey)
     {
         $this->rolloutKey = $rolloutKey;
     }
 
-    public function setRolloutVariationId(int $rolloutVariationId): void
+    public function setRolloutVariationId(int $rolloutVariationId)
     {
         $this->rolloutVariationId = $rolloutVariationId;
     }
 
-    public function setExperimentId(int $experimentId): void
+    public function setExperimentId(int $experimentId)
     {
         $this->experimentId = $experimentId;
     }
 
-    public function setExperimentKey(string $experimentKey): void
+    public function setExperimentKey(string $experimentKey)
     {
         $this->experimentKey = $experimentKey;
     }
 
-    public function setExperimentVariationId(int $experimentVariationId): void
+    public function setExperimentVariationId(int $experimentVariationId)
     {
         $this->experimentVariationId = $experimentVariationId;
     }

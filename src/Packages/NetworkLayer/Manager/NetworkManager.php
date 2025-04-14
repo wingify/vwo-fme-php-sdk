@@ -29,7 +29,7 @@ class NetworkManager {
     private $client;
     private static $instance;
 
-    public function attachClient($client = null): void {
+    public function attachClient($client = null) {
         $this->client = $client ?: new NetworkClient();
         $this->config = new GlobalRequestModel(null, null, null, null);
     }
@@ -39,7 +39,7 @@ class NetworkManager {
         return self::$instance;
     }
 
-    public function setConfig($config): void {
+    public function setConfig($config) {
         $this->config = $config;
     }
 

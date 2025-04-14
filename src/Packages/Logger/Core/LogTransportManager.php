@@ -25,8 +25,8 @@ use Ramsey\Uuid\Uuid;
 
 
 interface IlogTransport {
-    public function addTransport($transport): void;
-    public function shouldLog($transportLevel, $configLevel): bool;
+    public function addTransport($transport);
+    public function shouldLog($transportLevel, $configLevel);
 }
 
 class LogTransportManager extends Logger implements IlogTransport {
@@ -38,11 +38,11 @@ class LogTransportManager extends Logger implements IlogTransport {
         $this->config = $config;
     }
 
-    public function addTransport($transport): void {
+    public function addTransport($transport) {
         $this->transports[] = $transport;
     }
 
-    public function shouldLog($transportLevel, $configLevel): bool {
+    public function shouldLog($transportLevel, $configLevel) {
         $transportLevel = $transportLevel ?: $configLevel ?: $this->config['level'];
 
         $logLevelNumberEnum = [
@@ -59,27 +59,27 @@ class LogTransportManager extends Logger implements IlogTransport {
         return $targetLevel >= $desiredLevel;
     }
 
-    public function trace($message): void {
+    public function trace($message) {
         $this->log(LogLevelEnum::TRACE, $message);
     }
 
-    public function debug($message): void {
+    public function debug($message) {
         $this->log(LogLevelEnum::DEBUG, $message);
     }
 
-    public function info($message): void {
+    public function info($message) {
         $this->log(LogLevelEnum::INFO, $message);
     }
 
-    public function warn($message): void {
+    public function warn($message) {
         $this->log(LogLevelEnum::WARN, $message);
     }
 
-    public function error($message): void {
+    public function error($message) {
         $this->log(LogLevelEnum::ERROR, $message);
     }
 
-    public function log($level, $message): void {
+    public function log($level, $message) {
         foreach ($this->transports as $transport) {
             $logMessageBuilder = new LogMessageBuilder($this->config, $transport);
             $formattedMessage = $logMessageBuilder->formatMessage($level, $message);

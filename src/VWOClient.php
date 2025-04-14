@@ -35,8 +35,10 @@ use vwo\Utils\SettingsUtil;
 
 interface IVWOClient {
     public function getFlag(string $featureKey, $context);
-    public function trackEvent(string $eventName, $context, array $eventProperties);
+
+    public function trackEvent(string $eventName, $context, $eventProperties);
     public function setAttribute($attributesOrAttributeValue, $attributeValueOrContext, $context);
+
 }
 
 class VWOClient implements IVWOClient {
@@ -63,7 +65,7 @@ class VWOClient implements IVWOClient {
         LogManager::instance()->info('VWO Client initialized');
     }
 
-    public function getFlag($featureKey = null, $context = null) {
+    public function getFlag(string $featureKey, $context) {
         $apiName = 'getFlag';
 
         $defaultReturnValue = new GetFlagResultUtil(
@@ -103,7 +105,7 @@ class VWOClient implements IVWOClient {
         }
     }
 
-    public function trackEvent($eventName = null, $context = null, $eventProperties = []) {
+    public function trackEvent(string $eventName, $context, $eventProperties = []) {
         $apiName = 'trackEvent';
 
         try {
@@ -141,7 +143,9 @@ class VWOClient implements IVWOClient {
         }
     }
 
-    public function setAttribute($attributesOrAttributeValue = null , $attributeValueOrContext = null, $context = null) {
+
+    public function setAttribute($attributesOrAttributeValue = null, $attributeValueOrContext = null, $context = null) {
+
         $apiName = 'setAttribute';
 
         try {
