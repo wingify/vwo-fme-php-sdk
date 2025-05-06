@@ -353,6 +353,7 @@ $options = [
 ];
 
 $vwoClient = VWO::init($options);
+```
 
 ### Version History
 
