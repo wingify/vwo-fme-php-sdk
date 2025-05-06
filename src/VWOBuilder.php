@@ -228,12 +228,12 @@ class VWOBuilder implements IVWOBuilder
             sleep($pollingInterval);
             $thisReference = $this; // Store $this in a variable accessible to the anonymous functions
             try {
-                $latestSettingsFile = $this->getSettings(true);
-                $lastSettingsFile = json_encode($thisReference->originalSettings);
-                $stringifiedLatestSettingsFile = json_encode($latestSettingsFile);
-                if ($stringifiedLatestSettingsFile !== $lastSettingsFile) {
-                    $thisReference->originalSettings = $latestSettingsFile;
-                    $clonedSettings = FunctionUtil::cloneObject($latestSettingsFile);
+                $latestSettings = $this->getSettings(true);
+                $lastSettings = json_encode($thisReference->originalSettings);
+                $stringifiedLatestSettings = json_encode($latestSettings);
+                if ($stringifiedLatestSettings !== $lastSettings) {
+                    $thisReference->originalSettings = $latestSettings;
+                    $clonedSettings = FunctionUtil::cloneObject($latestSettings);
                     $thisReference->settings = SettingsUtil::processSettings($clonedSettings);
                     LogManager::instance()->info('Settings file updated');
                     SettingsUtil::setSettingsAndAddCampaignsToRules($clonedSettings, $this->vwoInstance);

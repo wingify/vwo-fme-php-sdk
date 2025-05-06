@@ -61,9 +61,9 @@ class VWO
             ->initPolling();
 
 
-        if (isset($options['settingsFile'])) {
+        if (isset($options['settings'])) {
             // Use the provided settings file
-            $settingsObject = json_decode($options['settingsFile']);
+            $settingsObject = json_decode($options['settings']);
             self::$vwoBuilder->setSettings($settingsObject);
             $settings = new SettingsModel($settingsObject);
         } else {

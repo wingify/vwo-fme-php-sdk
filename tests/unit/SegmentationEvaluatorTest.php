@@ -24,14 +24,14 @@ use vwo\Packages\SegmentationEvaluator\Evaluators\SegmentEvaluator;
 class SegmentationEvaluatorTest extends TestCase
 {
     protected $testsData;
-    protected $settingsFile;
+    protected $settings;
 
     protected function setUp(): void
     {
         // Initialize data
         $data = SettingsAndTestCases::get();
         $this->testsData = $data['SEGMENTATION_TESTS'];
-        $this->settingsFile = $data['BASIC_ROLLOUT_SETTINGS'];
+        $this->settings = $data['BASIC_ROLLOUT_SETTINGS'];
     }
 
     public function testAndOperator()
@@ -47,7 +47,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
 
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -67,7 +67,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
 
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -87,7 +87,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
 
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -110,7 +110,7 @@ class SegmentationEvaluatorTest extends TestCase
                 
                 $segmentEvaluator = new SegmentEvaluator();
 
-                $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+                $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
 
                 $this->assertEquals($expectation, $preSegmentationResult);
                 
@@ -131,7 +131,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
 
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -151,7 +151,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
 
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -171,7 +171,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
 
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -191,7 +191,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
 
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -211,7 +211,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
 
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -231,7 +231,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
             $this->assertEquals($expectation, $preSegmentationResult);
             
         }
@@ -250,7 +250,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
     
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
     
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -270,7 +270,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
     
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
     
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -290,7 +290,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
     
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
     
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -306,7 +306,7 @@ class SegmentationEvaluatorTest extends TestCase
             $expectation = $value->expectation;          
             $customVariables = $value->customVariables;          
             $segmentEvaluator = new SegmentEvaluator();  
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
              
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -323,7 +323,7 @@ class SegmentationEvaluatorTest extends TestCase
             $customVariables = $value->customVariables;        
             $segmentEvaluator = new SegmentEvaluator();  
 
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
     
             $this->assertEquals($expectation, $preSegmentationResult);
             
@@ -343,7 +343,7 @@ class SegmentationEvaluatorTest extends TestCase
             
             $segmentEvaluator = new SegmentEvaluator();
     
-            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settingsFile);
+            $preSegmentationResult = $segmentEvaluator->isSegmentationValid($dsl, $customVariables, $this->settings);
     
             $this->assertEquals($expectation, $preSegmentationResult);
             

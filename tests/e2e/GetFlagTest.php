@@ -73,8 +73,8 @@ class GetFlagTest extends TestCase
 
         $vwoBuilder = new VWOBuilder($vwoOptions);
         $vwoBuilder->setLogger();
-        $settingsFile = $this->testsData[$testData['settings']];
-        $vwoBuilder->setSettings($settingsFile);
+        $settings = $this->testsData[$testData['settings']];
+        $vwoBuilder->setSettings($settings);
 
         $options = [
             'sdkKey' => 'sdk-key',

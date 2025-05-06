@@ -63,6 +63,7 @@ To customize the SDK further, additional parameters can be passed to the `init()
 | `gatewayService`             | An object representing configuration for integrating VWO Gateway Service.                                                                                   | No           | array     | see [Gateway](#gateway) section |
 | `storage`                    | Custom storage connector for persisting user decisions and campaign data.                                                                                   | No           | array     | See [Storage](#storage) section |
 | `logger`                     | Toggle log levels for more insights or for debugging purposes. You can also customize your own transport in order to have better control over log messages. | No           | array     | See [Logger](#logger) section   |
+| `Integrations`         | Callback function for integrating with third-party analytics services.                                              | No           | object      | See [Integrations](#integrations) section |
 
 Refer to the [official VWO documentation](https://developers.vwo.com/v2/docs/fme-php-install) for additional parameter details.
 
@@ -333,6 +334,25 @@ $vwoClient3 = VWO::init([
   ]
 ]);
 ```
+
+### Integrations
+VWO FME SDKs provide seamless integration with third-party tools like analytics platforms, monitoring services, customer data platforms (CDPs), and messaging systems. This is achieved through a simple yet powerful callback mechanism that receives VWO-specific properties and can forward them to any third-party tool of your choice.
+
+```php
+function callback($properties) {
+    // properties will contain all the required VWO specific information
+    echo json_encode($properties);
+}
+
+$options = [
+    'sdkKey' => '32-alpha-numeric-sdk-key', // SDK Key
+    'accountId' => '12345', // VWO Account ID
+    'integrations' => [
+        'callback' => 'callback'
+    ]
+];
+
+$vwoClient = VWO::init($options);
 
 ### Version History
 
