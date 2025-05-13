@@ -58,7 +58,8 @@ class VWO
             ->setNetworkManager()
             ->setSegmentation()
             ->initBatching()
-            ->initPolling();
+            ->initPolling()
+            ->initUsageStats();
 
 
         if (isset($options['settings'])) {

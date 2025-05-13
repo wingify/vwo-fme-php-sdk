@@ -32,7 +32,7 @@ use vwo\Utils\ComposerUtil;
 use Exception;
 use vwo\Services\SettingsService;
 use vwo\Services\UrlService;
-
+use vwo\Utils\UsageStatsUtil;
 class NetworkUtil {
   public function getBasePropertiesForBulk($accountId, $userId) {
         $path = [
@@ -169,6 +169,7 @@ class NetworkUtil {
         $properties['d']['event']['props']['id'] = $campaignId;
         $properties['d']['event']['props']['variation'] = $variationId;
         $properties['d']['event']['props']['isFirst'] = 1;
+        $properties['d']['event']['props']['vwoMeta'] = UsageStatsUtil::getInstance()->getUsageStats();
 
         LogManager::instance()->debug(
             "IMPRESSION_FOR_EVENT_ARCH_TRACK_USER: Impression built for vwo_variationShown event for Account ID:{$settings->getAccountId()}, User ID:{$userId}, and Campaign ID:{$campaignId}"
