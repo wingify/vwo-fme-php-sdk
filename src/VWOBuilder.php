@@ -29,6 +29,7 @@ use vwo\Utils\FunctionUtil;
 use vwo\Utils\SettingsUtil;
 use vwo\Models\SettingsModel;
 use vwo\Services\SettingsService;
+use vwo\Utils\UsageStatsUtil;
 
 interface IVWOBuilder
 {
@@ -249,4 +250,18 @@ class VWOBuilder implements IVWOBuilder
         $this->vwoInstance = new VWOClient($this->settings, $this->options);
         return $this->vwoInstance;
     }
+
+    /**
+     * Initializes usage statistics for the SDK.
+     * @return {this} The instance of this builder.
+     */
+    public function initUsageStats()
+    {
+        if (isset($this->options['isUsageStatsDisabled']) && $this->options['isUsageStatsDisabled']) {
+            return $this;
+        }
+        UsageStatsUtil::getInstance()->setUsageStats($this->options);
+        return $this;
+    }
+
 }

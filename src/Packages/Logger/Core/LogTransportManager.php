@@ -22,7 +22,7 @@ use vwo\Packages\Logger\Enums\LogLevelEnum;
 use vwo\Packages\Logger\LogMessageBuilder;
 
 use Ramsey\Uuid\Uuid;
-
+use vwo\Enums\LogLevelNumberEnum;
 
 interface IlogTransport {
     public function addTransport($transport);
@@ -45,16 +45,8 @@ class LogTransportManager extends Logger implements IlogTransport {
     public function shouldLog($transportLevel, $configLevel) {
         $transportLevel = $transportLevel ?: $configLevel ?: $this->config['level'];
 
-        $logLevelNumberEnum = [
-            'TRACE' => 0,
-            'DEBUG' => 1,
-            'INFO' => 2,
-            'WARN' => 3,
-            'ERROR' => 4
-        ];
-
-        $targetLevel = $logLevelNumberEnum[strtoupper($transportLevel)];
-        $desiredLevel = $logLevelNumberEnum[strtoupper($configLevel ?: $this->config['level'])];
+        $targetLevel = LogLevelNumberEnum::fromString($transportLevel);
+        $desiredLevel = LogLevelNumberEnum::fromString($configLevel ?: $this->config['level']);
 
         return $targetLevel >= $desiredLevel;
     }
