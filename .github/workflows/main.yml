@@ -44,7 +44,11 @@ jobs:
       if: matrix.php-versions == '7.4' || matrix.php-versions == '8.0' || matrix.php-versions == '8.1' || matrix.php-versions == '8.2' || matrix.php-versions == '8.3'
       run: |
         mkdir -p build/logs
-        ./vendor/bin/phpunit ./tests
+        ./vendor/bin/phpunit --coverage-clover coverage.xml ./tests
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     - name: Notification
       if: always()
       id: slack
