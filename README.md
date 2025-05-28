@@ -1,7 +1,10 @@
 # VWO Feature Management and Experimentation SDK for PHP
 
-[![Latest Stable Version](https://img.shields.io/packagist/v/vwo/vwo-fme-php-sdk.svg)](https://packagist.org/packages/vwo/vwo-fme-php-sdk) [![CI](https://github.com/wingify/vwo-fme-php-sdk/workflows/CI/badge.svg?branch=master)](https://github.com/wingify/vwo-fme-php-sdk/actions?query=workflow%3ACI)
- [![Coverage Status](https://coveralls.io/repos/github/wingify/vwo-fme-php-sdk/badge.svg?branch=master)](https://coveralls.io/github/wingify/vwo-fme-php-sdk?branch=master)[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
+[![Latest Stable Version](https://img.shields.io/packagist/v/vwo/vwo-fme-php-sdk.svg?style=for-the-badge)](https://packagist.org/packages/vwo/vwo-fme-php-sdk)
+[![License](https://img.shields.io/github/license/wingify/vwo-fme-node-sdk?style=for-the-badge&color=blue)](http://www.apache.org/licenses/LICENSE-2.0)
+
+[![CI](https://img.shields.io/github/actions/workflow/status/wingify/vwo-fme-php-sdk/main.yml?style=for-the-badge&logo=github)](https://github.com/wingify/vwo-fme-php-sdk/actions?query=workflow%3ACI)
+[![codecov](https://img.shields.io/codecov/c/github/wingify/vwo-fme-php-sdk?token=813UYYMWGM&style=for-the-badge&logo=codecov)](https://codecov.io/gh/wingify/vwo-fme-php-sdk)
 
 ## Overview
 
