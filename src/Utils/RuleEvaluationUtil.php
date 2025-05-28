@@ -44,7 +44,7 @@ class RuleEvaluationUtil
      * @param array $decision - The decision object that will be updated based on the evaluation.
      * @return array An array containing the result of the pre-segmentation and the whitelisted object, if any.
      */
-    public static function evaluateRule($settings, $feature, $campaign, $context, &$evaluatedFeatureMap, &$megGroupWinnerCampaigns, $storageService, &$decision)
+    public static function evaluateRule($settings, $feature, $campaign, $context, &$evaluatedFeatureMap, &$megGroupWinnerCampaigns, $storageService, &$decision, $isDebuggerUsed = false)
     {
         // Perform whitelisting and pre-segmentation checks
         list($preSegmentationResult, $whitelistedObject) = DecisionUtil::checkWhitelistingAndPreSeg(
@@ -68,7 +68,10 @@ class RuleEvaluationUtil
             ]);
 
             // Send an impression for the variation shown
-            ImpressionUtil::createAndSendImpressionForVariationShown($settings, $campaign->getId(), $whitelistedObject['variation']->getId(), $context);
+            // if settings passed in init options is true, then we don't need to send an impression
+            if (!$isDebuggerUsed) {
+                ImpressionUtil::createAndSendImpressionForVariationShown($settings, $campaign->getId(), $whitelistedObject['variation']->getId(), $context);
+            }
         }
 
         // Return the results of the evaluation

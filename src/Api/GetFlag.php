@@ -44,7 +44,8 @@ class GetFlag
         string $featureKey,
         SettingsModel $settings,
         ContextModel $context,
-        HooksService $hooksService
+        HooksService $hooksService,
+        bool $isDebuggerUsed = false
     ) {
         $ruleEvaluationUtil = new RuleEvaluationUtil();
         $isEnabled = false;
@@ -55,6 +56,7 @@ class GetFlag
         $passedRulesInformation = [];
         $evaluatedFeatureMap = [];
         $storageService = new StorageService();
+        $ruleStatus = [];
 
         // Get feature object from feature key
         $feature = FunctionUtil::getFeatureFromKey($settings, $featureKey);
@@ -89,7 +91,7 @@ class GetFlag
                         $storedData['experimentKey']
                     ));
 
-                    return new GetFlagResultUtil(true, $variation->getVariables(), []);
+                    return new GetFlagResultUtil(true, $variation->getVariables(), $ruleStatus);
                 }
             }
         } elseif (isset($storedData['rolloutKey'], $storedData['rolloutId'])) {
@@ -130,7 +132,7 @@ class GetFlag
                 $featureKey
             ));
 
-            return new GetFlagResultUtil(false, [], []);
+            return new GetFlagResultUtil(false, [], $ruleStatus);
         }
 
         SegmentationManager::instance()->setContextualData($settings, $feature, $context);
@@ -148,7 +150,8 @@ class GetFlag
                     $evaluatedFeatureMap,
                     $megGroupWinnerCampaigns,
                     $storageService,
-                    $decision
+                    $decision,
+                    $isDebuggerUsed
                 );
 
                 if ($evaluateRuleResult['preSegmentationResult']) {
@@ -176,12 +179,14 @@ class GetFlag
 
                     $this->updateIntegrationsDecisionObject($passedRolloutCampaign, $variation, $passedRulesInformation, $decision);
 
-                    ImpressionUtil::createAndSendImpressionForVariationShown(
-                        $settings,
-                        $passedRolloutCampaign->getId(),
-                        $variation->getId(),
-                        $context
-                    );
+                    if (!$isDebuggerUsed) {
+                        ImpressionUtil::createAndSendImpressionForVariationShown(
+                            $settings,
+                            $passedRolloutCampaign->getId(),
+                            $variation->getId(),
+                            $context
+                        );
+                    }
                 }
             }
         } else if (count($rollOutRules) === 0) {
@@ -204,7 +209,8 @@ class GetFlag
                     $evaluatedFeatureMap,
                     $megGroupWinnerCampaigns,
                     $storageService,
-                    $decision
+                    $decision,
+                    $isDebuggerUsed
                 );
 
                 if ($evaluateRuleResult['preSegmentationResult']) {
@@ -238,12 +244,14 @@ class GetFlag
 
                     $this->updateIntegrationsDecisionObject($campaign, $variation, $passedRulesInformation, $decision);
 
-                    ImpressionUtil::createAndSendImpressionForVariationShown(
-                        $settings,
-                        $campaign->getId(),
-                        $variation->getId(),
-                        $context
-                    );
+                    if (!$isDebuggerUsed) {
+                        ImpressionUtil::createAndSendImpressionForVariationShown(
+                            $settings,
+                            $campaign->getId(),
+                            $variation->getId(),
+                            $context
+                        );
+                    }
                 }
             }
         }
@@ -273,12 +281,14 @@ class GetFlag
                 $context->getId()
             ));
 
-            ImpressionUtil::createAndSendImpressionForVariationShown(
-                $settings,
-                $feature->getImpactCampaign()->getCampaignId(),
-                $isEnabled ? 2 : 1,
-                $context
-            );
+            if (!$isDebuggerUsed) {
+                ImpressionUtil::createAndSendImpressionForVariationShown(
+                    $settings,
+                    $feature->getImpactCampaign()->getCampaignId(),
+                    $isEnabled ? 2 : 1,
+                    $context
+                );
+            }
         }
 
         $variablesForEvaluatedFlag = [];
@@ -289,7 +299,7 @@ class GetFlag
             $variablesForEvaluatedFlag = $rolloutVariationToReturn->getVariables();
         }
 
-        return new GetFlagResultUtil($isEnabled, $variablesForEvaluatedFlag, []);
+        return new GetFlagResultUtil($isEnabled, $variablesForEvaluatedFlag, $ruleStatus);
     }
 
     private function updateIntegrationsDecisionObject(CampaignModel $campaign, VariationModel $variation, array &$passedRulesInformation, array &$decision)

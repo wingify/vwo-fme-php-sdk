@@ -31,7 +31,7 @@ interface ISetAttribute
      * @param array $attributes Key-value map of attributes.
      * @param ContextModel $context Context containing user information.
      */
-    public function setAttribute(SettingsModel $settings, array $attributes, ContextModel $context);
+    public function setAttribute(SettingsModel $settings, array $attributes, ContextModel $context, bool $isDebuggerUsed = false);
 }
 
 class SetAttribute implements ISetAttribute
@@ -42,9 +42,11 @@ class SetAttribute implements ISetAttribute
      * @param array $attributes Key-value map of attributes.
      * @param ContextModel $context Context containing user information.
      */
-    public function setAttribute(SettingsModel $settings, array $attributes, ContextModel $context)
+    public function setAttribute(SettingsModel $settings, array $attributes, ContextModel $context, bool $isDebuggerUsed = false)
     {
-        $this->createImpressionForAttributes($settings, $attributes, $context);
+        if (!$isDebuggerUsed) {
+            $this->createImpressionForAttributes($settings, $attributes, $context);
+        }
     }
 
     /**

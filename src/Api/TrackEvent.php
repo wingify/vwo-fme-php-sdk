@@ -40,7 +40,7 @@ interface ITrack
      * @param HooksService $hooksService Manager for handling hooks and callbacks.
      * @return array Returns an array indicating the success or failure of the event tracking.
      */
-    public function track(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties, HooksService $hooksService): array;
+    public function track(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties, HooksService $hooksService, bool $isDebuggerUsed = false): array;
 }
 
 class TrackEvent implements ITrack
@@ -55,11 +55,14 @@ class TrackEvent implements ITrack
      * @param HooksService $hooksService Manager for handling hooks and callbacks.
      * @return array Returns an array indicating the success or failure of the event tracking.
      */
-    public function track(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties, HooksService $hooksService): array
+    public function track(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties, HooksService $hooksService, bool $isDebuggerUsed = false): array
     {
         if (FunctionUtil::doesEventBelongToAnyFeature($eventName, $settings)) {
             // Create an impression for the track event
-            $this->createImpressionForTrack($settings, $eventName, $context, $eventProperties);
+            // if settings passed in init options is true, then we don't need to send an impression
+            if (!$isDebuggerUsed) {
+                $this->createImpressionForTrack($settings, $eventName, $context, $eventProperties);
+            }
 
             // Set and execute integration callback for the track event
             $hooksService->set(['eventName' => $eventName, 'api' => ApiEnum::TRACK]);

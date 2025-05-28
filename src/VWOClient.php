@@ -74,6 +74,10 @@ class VWOClient implements IVWOClient {
             []
         );
 
+        //check if isDebuggerUsed is set in options
+        $isDebuggerUsed = isset($this->options['isDebuggerUsed']);
+
+
         try {
             $hookManager = new HooksService($this->options);
 
@@ -98,7 +102,7 @@ class VWOClient implements IVWOClient {
             $contextModel = new ContextModel();
             $contextModel->modelFromDictionary($context);
 
-            return (new GetFlag())->get($featureKey, $this->settings, $contextModel, $hookManager);
+            return (new GetFlag())->get($featureKey, $this->settings, $contextModel, $hookManager, $isDebuggerUsed);
         } catch (\Throwable $error) {
             LogManager::instance()->error("API - $apiName failed to execute. Error: " . $error->getMessage());
             return $defaultReturnValue;
@@ -107,6 +111,8 @@ class VWOClient implements IVWOClient {
 
     public function trackEvent(string $eventName, $context, $eventProperties = []) {
         $apiName = 'trackEvent';
+        //check if isDebuggerUsed is set in options
+        $isDebuggerUsed = isset($this->options['isDebuggerUsed']);
 
         try {
             $hookManager = new HooksService($this->options);
@@ -136,7 +142,7 @@ class VWOClient implements IVWOClient {
             $contextModel = new ContextModel();
             $contextModel->modelFromDictionary($context);
 
-            return (new TrackEvent())->track($this->settings, $eventName, $contextModel, $eventProperties, $hookManager);
+            return (new TrackEvent())->track($this->settings, $eventName, $contextModel, $eventProperties, $hookManager, $isDebuggerUsed);
         } catch (\Throwable $error) {
             LogManager::instance()->error("API - $apiName failed to execute. Error: " . $error->getMessage());
             return [$eventName => false];
@@ -147,7 +153,8 @@ class VWOClient implements IVWOClient {
     public function setAttribute($attributesOrAttributeValue = null, $attributeValueOrContext = null, $context = null) {
 
         $apiName = 'setAttribute';
-
+        $isDebuggerUsed = isset($this->options['isDebuggerUsed']);
+        
         try {
             LogManager::instance()->debug("API Called: $apiName");
 
@@ -177,7 +184,7 @@ class VWOClient implements IVWOClient {
     
                 // Create the attributes map from key-value
                 $attributes = [$attributesOrAttributeValue => $attributeValueOrContext];
-                (new SetAttribute())->setAttribute($this->settings, $attributes, $contextModel);
+                (new SetAttribute())->setAttribute($this->settings, $attributes, $contextModel, $isDebuggerUsed);
     
             } else {
                 // Case where attributeKey is an array (multiple attributes)
@@ -218,7 +225,7 @@ class VWOClient implements IVWOClient {
                 $contextModel->modelFromDictionary($context);
     
                 // Proceed with setting the attributes if validation is successful
-                (new SetAttribute())->setAttribute($this->settings, $attributes, $contextModel);
+                (new SetAttribute())->setAttribute($this->settings, $attributes, $contextModel, $isDebuggerUsed);
             }
         } catch (\Throwable $error) {
             LogManager::instance()->error("API - $apiName failed to execute. Error: " . $error->getMessage());
