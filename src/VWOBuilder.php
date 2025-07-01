@@ -66,8 +66,14 @@ class VWOBuilder implements IVWOBuilder
 
     public function setNetworkManager()
     {
-        $networkInstance = NetworkManager::instance();
-        $networkInstance->attachClient($this->options['network']['client'] ?? null);
+        $networkOptions = [
+            'isGatewayUrlNotSecure' => isset($this->options['gatewayService']['isGatewayUrlNotSecure']) 
+                ? $this->options['gatewayService']['isGatewayUrlNotSecure'] 
+                : false,
+        ];
+
+        $networkInstance = NetworkManager::instance($networkOptions);
+        $networkInstance->attachClient($this->options['network']['client'] ?? null, $networkOptions);
         $networkInstance->getConfig()->setDevelopmentMode($this->options['isDevelopmentMode'] ?? null);
         return $this;
     }

@@ -20,18 +20,181 @@ namespace vwo\Packages\NetworkLayer\Client;
 
 use vwo\Packages\NetworkLayer\Models\ResponseModel;
 use vwo\Packages\NetworkLayer\Models\RequestModel;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
 
 class NetworkClient implements NetworkClientInterface
 {
     const HTTPS = 'HTTPS';
+    const DEFAULT_TIMEOUT = 5; // seconds
+    private $isGatewayUrlNotSecure = false; // Flag to store the value
 
-    private $client;
+    // Constructor to accept options and store the flag
+    public function __construct($options = []) {
+        if (isset($options['isGatewayUrlNotSecure'])) {
+            $this->isGatewayUrlNotSecure = $options['isGatewayUrlNotSecure'];
+        }
+    }
 
-    public function __construct()
+    private function shouldUseCurl($networkOptions)
     {
-        $this->client = new Client();
+        return $this->isGatewayUrlNotSecure;
+    }
+
+    private function makeCurlRequest($url, $method, $headers, $body = null, $timeout = 5)
+    {
+        $ch = curl_init();
+        
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+        ]);
+
+        if (!isset($headers['Content-Type'])) {
+            $headers['Content-Type'] = 'application/json';
+        }
+
+        // Set headers
+        if (!empty($headers)) {
+            $curlHeaders = [];
+
+            foreach ($headers as $key => $value) {
+               $curlHeaders[] = "$key: $value"; 
+            }
+        }
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $curlHeaders);
+
+        // Set body for POST requests
+        if ($method === 'POST' && $body) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        }
+
+        $response = curl_exec($ch);
+
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        
+        curl_close($ch);
+
+        if ($error) {
+            throw new \Exception("cURL error: $error");
+        }
+
+        return $response;
+    }
+
+    private function createSocketConnection($url, $timeout)
+    {
+        $parsedUrl = parse_url($url);
+        $host = $parsedUrl['host'];
+        $port = isset($parsedUrl['port']) ? $parsedUrl['port'] : 443;
+        $path = isset($parsedUrl['path']) ? $parsedUrl['path'] : '/';
+        $query = isset($parsedUrl['query']) ? '?' . $parsedUrl['query'] : '';
+
+        // For HTTPS, we need to use ssl:// prefix
+        $socket = fsockopen(
+            "ssl://{$host}",
+            $port,
+            $errno,
+            $errstr,
+            $timeout
+        );
+
+        if (!$socket) {
+            throw new \Exception("Failed to connect: $errstr ($errno)");
+        }
+
+        // Set socket timeout
+        stream_set_timeout($socket, $timeout);
+        return $socket;
+    }
+
+    private function sendRequest($socket, $method, $path, $headers, $body = null, $originalUrl = null)
+    {
+        if($method == "POST") {
+            stream_set_blocking($socket, false);
+        }
+        $request = "$method $path HTTP/1.1\r\n";
+        
+        // Get host from the original URL, not from the path
+        $host = '';
+        if ($originalUrl) {
+            $parsedUrl = parse_url($originalUrl);
+            $host = $parsedUrl['host'];
+            if (isset($parsedUrl['port']) && $parsedUrl['port'] != 443) {
+                $host .= ':' . $parsedUrl['port'];
+            }
+        }
+        $request .= "Host: $host\r\n";
+        
+        if (!isset($headers['Content-Type'])) {
+            $headers['Content-Type'] = 'application/json';
+        }
+        
+        //only for non empty headers
+        if (!empty($headers)) {
+            foreach ($headers as $key => $value) {
+                $request .= "$key: $value\r\n";
+            }
+        }
+        
+        if ($body) {
+            $request .= "Content-Length: " . strlen($body) . "\r\n";
+            $request .= "\r\n";
+            $request .= $body;
+        } else {
+            $request .= "\r\n";
+        }
+        $request .= 'Connection: close'. "\r\n\r\n";
+
+        fwrite($socket, $request);
+    }
+
+    private function readResponse($socket)
+    {
+        $headers = '';
+        $body = '';
+        $contentLength = 0;
+        $isReadingHeaders = true;
+
+        // Read headers first
+        while ($isReadingHeaders && !feof($socket)) {
+            $line = fgets($socket, 1024);
+            if ($line === false) {
+                break;
+            }
+            
+            $headers .= $line;
+            // Check for Content-Length header
+            if (stripos($line, 'Content-Length:') === 0) {
+                $contentLength = (int)trim(substr($line, 16));
+            }
+            
+            // End of headers
+            if ($line === "\r\n") {
+                $isReadingHeaders = false;
+            }
+        }
+
+        // Read body if we have content length
+        if ($contentLength > 0) {
+            $bytesRead = 0;
+            while ($bytesRead < $contentLength && !feof($socket)) {
+                $chunk = fread($socket, min(1024, $contentLength - $bytesRead));
+                if ($chunk === false) {
+                    break;
+                }
+                $body .= $chunk;
+                $bytesRead += strlen($chunk);
+            }
+        }
+
+        return [
+            'headers' => $headers,
+            'body' => $body
+        ];
     }
 
     public function GET($request)
@@ -40,31 +203,37 @@ class NetworkClient implements NetworkClientInterface
         $responseModel = new ResponseModel();
 
         try {
-            $response = $this->client->request('GET', $networkOptions['url'], [
-                'headers' => $networkOptions['headers'],
-                'timeout' => $networkOptions['timeout'] / 1000 // Convert milliseconds to seconds
-            ]);
-
-            $contentType = $response->getHeaderLine('content-type');
-            $rawData = (string) $response->getBody();
-
-            if (!preg_match('/^application\/json/', $contentType)) {
-                $error = "Invalid content-type.\nExpected application/json but received $contentType";
-                $responseModel->setError($error);
-                return $responseModel;
+            // Check if we should use cURL instead of socket
+            if ($this->shouldUseCurl($networkOptions)) {
+                $rawResponse = $this->makeCurlRequest(
+                    $networkOptions['url'],
+                    'GET',
+                    $networkOptions['headers'],
+                    null,
+                    $networkOptions['timeout'] / 1000
+                );
             } else {
-                $parsedData = json_decode($rawData, false);
-                $responseModel->setStatusCode($response->getStatusCode());
+                // Use socket connection (existing logic)
+                $socket = $this->createSocketConnection(
+                    $networkOptions['url'],
+                    $networkOptions['timeout'] / 1000
+                );
 
-                if ($response->getStatusCode() !== 200) {
-                    $error = "Request failed for fetching account settings. Got Status Code: {$response->getStatusCode()} and message: $rawData";
-                    $responseModel->setError($error);
-                } else {
-                    $responseModel->setData($parsedData);
-                }
+                $parsedUrl = parse_url($networkOptions['url']);
+                $path = $parsedUrl['path'] . (isset($parsedUrl['query']) ? '?' . $parsedUrl['query'] : '');
+                
+                $this->sendRequest($socket, 'GET', $path, $networkOptions['headers'], null, $networkOptions['url']);
+                $rawResponse = $this->readResponse($socket)['body'];
+                
+                fclose($socket);
             }
-        } catch (RequestException $e) {
-            $responseModel->setError($e->getMessage());
+
+            $parsedData = json_decode($rawResponse, false);
+            if ($parsedData === null && json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception("Failed to parse JSON response: " . json_last_error_msg());
+            }
+
+            $responseModel->setData($parsedData);
         } catch (\Exception $e) {
             $responseModel->setError($e->getMessage());
         }
@@ -78,31 +247,46 @@ class NetworkClient implements NetworkClientInterface
         $responseModel = new ResponseModel();
 
         try {
-            $response = $this->client->request('POST', $networkOptions['url'], [
-                'headers' => $networkOptions['headers'],
-                'json' => json_decode($networkOptions['body'], true),
-                'timeout' => $networkOptions['timeout'] / 1000 // Convert milliseconds to seconds
-            ]);
-
-            $rawData = (string) $response->getBody();
-
-            if ($response->getStatusCode() === 200) {
-                $responseModel->setData($request->getBody());
-            } elseif ($response->getStatusCode() === 413) {
-                $parsedData = json_decode($rawData, true);
-                $responseModel->setError($parsedData['error']);
-                $responseModel->setData($request->getBody());
+            // Check if we should use cURL instead of socket
+            if ($this->shouldUseCurl($networkOptions)) {
+                $rawResponse = $this->makeCurlRequest(
+                    $networkOptions['url'],
+                    'POST',
+                    $networkOptions['headers'],
+                    $networkOptions['body'],
+                    $networkOptions['timeout'] / 1000
+                );
+                
+                $parsedData = json_decode($rawResponse, false);
+                if ($parsedData === null && json_last_error() !== JSON_ERROR_NONE) {
+                    throw new \Exception("Failed to parse JSON response: " . json_last_error_msg());
+                }
+                
+                $responseModel->setData($parsedData);
             } else {
-                $parsedData = json_decode($rawData, true);
-                $responseModel->setError($parsedData['message']);
-                $responseModel->setData($request->getBody());
+                // Use socket connection (existing logic)
+                $socket = $this->createSocketConnection(
+                    $networkOptions['url'],
+                    $networkOptions['timeout'] / 1000
+                );
+
+                $parsedUrl = parse_url($networkOptions['url']);
+                $path = $parsedUrl['path'] . (isset($parsedUrl['query']) ? '?' . $parsedUrl['query'] : '');
+
+                $this->sendRequest($socket, 'POST', $path, $networkOptions['headers'], $networkOptions['body'], $networkOptions['url']);
+                $rawResponse = $this->readResponse($socket);
+                fclose($socket);
+                
+                $parsedData = json_decode($rawResponse['body'], false);
+                if ($parsedData === null && json_last_error() !== JSON_ERROR_NONE) {
+                    throw new \Exception("Failed to parse JSON response: " . json_last_error_msg());
+                }
+                
+                $responseModel->setData($parsedData);
             }
-        } catch (RequestException $e) {
-            $responseModel->setError($e->getMessage());
-            $responseModel->setData($request->getBody());
+
         } catch (\Exception $e) {
             $responseModel->setError($e->getMessage());
-            $responseModel->setData($request->getBody());
         }
 
         return $responseModel;

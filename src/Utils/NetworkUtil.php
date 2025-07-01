@@ -214,7 +214,6 @@ class NetworkUtil {
     }
 
   public function sendPostApiRequest($properties, $payload) {
-        NetworkManager::Instance()->attachClient();
 
         $headers = [];
 
@@ -251,7 +250,6 @@ class NetworkUtil {
 
 
   public function sendGetApiRequest($properties, $endpoint) {
-        NetworkManager::Instance()->attachClient();
         $request = new RequestModel(
             UrlService::getBaseUrl(),
             'Get',

@@ -28,15 +28,33 @@ class NetworkManager {
     private $config;
     private $client;
     private static $instance;
+    private $isGatewayUrlNotSecure = false; // Store the flag here
 
-    public function attachClient($client = null) {
-        $this->client = $client ?: new NetworkClient();
+    public function attachClient($client = null, $options = []) {
+        $this->client = $client ?: new NetworkClient($options);
         $this->config = new GlobalRequestModel(null, null, null, null);
+        if(isset($options['isGatewayUrlNotSecure'])) {
+            $this->isGatewayUrlNotSecure = $options['isGatewayUrlNotSecure'];
+        }
     }
 
-    public static function instance(): NetworkManager {
-        self::$instance = self::$instance ?: new NetworkManager();
+     // Singleton pattern
+     public static function instance($options = null): NetworkManager {
+        if (!self::$instance) {
+            self::$instance = new NetworkManager();
+        }
+
+        // Set options only once when the instance is first created
+        if ($options && !self::$instance->isInitialized()) {
+            self::$instance->attachClient(new NetworkClient(), $options); // Pass options during first initialization
+        }
+        
         return self::$instance;
+    }
+
+    // Check if the instance has been initialized
+    private function isInitialized() {
+        return isset($this->isGatewayUrlNotSecure);
     }
 
     public function setConfig($config) {

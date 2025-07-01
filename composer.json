@@ -1,7 +1,7 @@
 {
     "name": "vwo/vwo-fme-php-sdk",
 
-    "version": "1.7.6",
+    "version": "1.8.0",
     "keywords": ["vwo", "fme", "sdk"],
     "license": "Apache-2.0",
     "authors": [{
@@ -14,7 +14,6 @@
     "description": "VWO server side sdk",
     "require": {
         "ramsey/uuid": "^3.0 || ^4.2",
-        "guzzlehttp/guzzle": "^6.0 || ^7.8",
         "lastguest/murmurhash": "^2.1.1",
         "vwo/vwo-fme-sdk-e2e-test-settings-n-cases": "^1.2.4"
     },

@@ -67,9 +67,21 @@ class SettingsService implements ISettingsService {
             $this->hostname = Constants::HOST_NAME;
             $this->port = null;
         }
+        // // Pass the flag to NetworkManager
+        $this->initializeNetworkManager($options);
 
         self::$instance = $this;
         LogManager::instance()->debug('Settings Manager initialized');
+    }
+
+    private function initializeNetworkManager($options) {
+        $networkOptions = [
+            'isGatewayUrlNotSecure' => isset($options['gatewayService']['isGatewayUrlNotSecure']) 
+                                      ? $options['gatewayService']['isGatewayUrlNotSecure'] 
+                                      : false
+        ];
+
+        NetworkManager::instance($networkOptions); // Pass the options to the NetworkManager
     }
 
     public static function instance(): SettingsService {
