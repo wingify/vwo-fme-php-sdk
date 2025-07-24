@@ -55,7 +55,7 @@ class SettingsService implements ISettingsService {
         // Parsing URL if provided
         if (isset($options['gatewayService']['url'])) {
             $this->isGatewayServiceProvided = true;
-            
+
             $parsedUrl = parse_url($options['gatewayService']['url']);
             if (!isset($parsedUrl['scheme'])) {
                 $parsedUrl = parse_url('https://' . $options['gatewayService']['url']);
@@ -76,8 +76,8 @@ class SettingsService implements ISettingsService {
 
     private function initializeNetworkManager($options) {
         $networkOptions = [
-            'isGatewayUrlNotSecure' => isset($options['gatewayService']['isGatewayUrlNotSecure']) 
-                                      ? $options['gatewayService']['isGatewayUrlNotSecure'] 
+            'isGatewayUrlNotSecure' => isset($options['gatewayService']['isGatewayUrlNotSecure'])
+                                      ? $options['gatewayService']['isGatewayUrlNotSecure']
                                       : false
         ];
 
@@ -109,6 +109,9 @@ class SettingsService implements ISettingsService {
         $options = (new NetworkUtil())->getSettingsPath($this->sdkKey, $this->accountId);
         $options['platform'] = 'server';
         $options['api-version'] = 1;
+        $options['sn'] = Constants::SDK_NAME;
+        $options['sv'] = Constants::SDK_VERSION;
+
         if (!$networkInstance->getConfig()->getDevelopmentMode()) {
             $options['s'] = 'prod';
         }
