@@ -30,6 +30,7 @@ use vwo\Utils\SettingsUtil;
 use vwo\Models\SettingsModel;
 use vwo\Services\SettingsService;
 use vwo\Utils\UsageStatsUtil;
+use vwo\Services\LoggerService;
 
 interface IVWOBuilder
 {
@@ -54,7 +55,7 @@ class VWOBuilder implements IVWOBuilder
     private $settings;
     private $storage;
     private $logManager;
-    private $originalSettings;
+    public $originalSettings;
     private $isSettingsFetchInProgress;
     private $settingsSetManually = false;
     private $vwoInstance;
@@ -148,10 +149,16 @@ class VWOBuilder implements IVWOBuilder
         return $this;
     }
 
+    public function getSettingsService()
+    {
+        return $this->settingFileManager;
+    }
+
     public function setLogger()
     {
         try {
             $this->logManager = new LogManager(isset($this->options['logger']) ? $this->options['logger'] : []);
+            new LoggerService(isset($this->options['logger']) ? $this->options['logger'] : []);
             return $this;
         } catch (\Exception $error) {
             $errorMessage = $error instanceof \Exception ? $error->getMessage() : 'Unknown error';

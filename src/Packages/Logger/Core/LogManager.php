@@ -22,6 +22,8 @@ use vwo\Packages\Logger\Enums\LogLevelEnum;
 use Ramsey\Uuid\Uuid;
 use vwo\Packages\Logger\Core\LogTransportManager;
 use vwo\Packages\Logger\Core\Logger;
+use vwo\Utils\NetworkUtil as NetworkUtil;
+use vwo\Enums\EventEnum;
 
 interface ILogManager {
     public function handleTransports();
@@ -42,10 +44,12 @@ class LogManager extends Logger implements ILogManager {
     private $requestId;
     private $level = LogLevelEnum::ERROR;
     private $prefix = 'VWO-SDK';
-    private $dateTimeFormat; // Updated
+    private $dateTimeFormat;
+    private $storedMessages; // array to store the messages that have been logged
 
     public function __construct($config = []) {
         $this->config = $config;
+        $this->storedMessages = [];
 
         // Updated to use a closure for dateTimeFormat
         $this->dateTimeFormat = function() {
@@ -117,8 +121,32 @@ class LogManager extends Logger implements ILogManager {
         $this->transportManager->log(LogLevelEnum::WARN, $message);
     }
 
-    public function error($message) {
+    public function error($message): void {
+        // Log the error to the transport manager
         $this->transportManager->log(LogLevelEnum::ERROR, $message);
+        
+        // Skip logging if TEST_ENV is true
+        if (getenv('TEST_ENV') === 'true') {
+            return;
+        }
+
+        // Construct the message with SDK details
+        $messageToSend = $message . '-' . getenv('SDK_NAME') . '-' . getenv('SDK_VERSION');
+
+        // Check if the message has already been logged
+        if (!isset($this->storedMessages[$messageToSend])) {
+            // Add the message to the "set" (array as a set)
+            $this->storedMessages[$messageToSend] = true;
+
+            $networkUtil = new NetworkUtil();
+            $properties = $networkUtil->getEventsBaseProperties(EventEnum::VWO_ERROR);
+
+            // Create the payload for the messaging event
+            $payload = $networkUtil->getMessagingEventPayload('error', $message, EventEnum::VWO_ERROR);
+
+            // Send the constructed payload via POST request
+            $networkUtil->sendEvent($properties, $payload, EventEnum::VWO_ERROR);
+        }
     }
 }
 ?>

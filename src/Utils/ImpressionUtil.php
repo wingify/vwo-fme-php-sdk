@@ -45,7 +45,6 @@ class ImpressionUtil
         $networkUtil = new NetworkUtil();
 
         $properties = $networkUtil->getEventsBaseProperties(
-            $settings,
             EventEnum::VWO_VARIATION_SHOWN,
             urlencode($context->getUserAgent()), // Encode user agent to ensure URL safety
             $context->getIpAddress()

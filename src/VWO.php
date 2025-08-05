@@ -21,6 +21,9 @@ namespace vwo;
 use vwo\Utils\DataTypeUtil;
 use vwo\Models\SettingsModel;
 use Exception;
+use vwo\Utils\EventUtil;
+use vwo\Packages\Logger\Core\LogManager;
+use vwo\Services\LoggerService;
 
 class VWO
 {
@@ -63,10 +66,21 @@ class VWO
 
 
         if (isset($options['settings'])) {
-            // Use the provided settings file
             $settingsObject = json_decode($options['settings']);
-            self::$vwoBuilder->setSettings($settingsObject);
-            $settings = new SettingsModel($settingsObject);
+            if(self::$vwoBuilder->getSettingsService()->settingsSchemaValidator->isSettingsValid($settingsObject)) {
+                self::$vwoBuilder->getSettingsService()->isSettingsValidOnInit = true;
+                self::$vwoBuilder->getSettingsService()->settingsFetchTime = 0;
+                LoggerService::info('SETTINGS_PASSED_IN_INIT_VALID');
+                self::$vwoBuilder->setSettings($settingsObject);
+                $settings = new SettingsModel($settingsObject);
+            } else {
+                self::$vwoBuilder->getSettingsService()->isSettingsValidOnInit = false;
+                self::$vwoBuilder->getSettingsService()->settingsFetchTime = 0;
+                LoggerService::error('SETTINGS_SCHEMA_INVALID');
+                $settingsObject = json_decode('{}');
+                self::$vwoBuilder->setSettings($settingsObject);
+                $settings = new SettingsModel($settingsObject);
+            }
         } else {
             // Fetch settings and build VWO instance
             $settings = self::$vwoBuilder->getSettings();
@@ -96,6 +110,8 @@ class VWO
      */
     public static function init($options = [])
     {
+        # Start timer for total init time
+        $initStartTime = microtime(true) * 1000;
         $apiName = 'init';
         try {
             if (!DataTypeUtil::isObject($options)) {
@@ -111,6 +127,21 @@ class VWO
             }
 
             $instance = new VWO($options);
+
+            # Calculate total init time
+            $initTime = (int)((microtime(true) * 1000) - $initStartTime);
+            $wasInitializedEarlier = false;
+            
+            if (isset(self::$vwoBuilder->originalSettings) && isset(self::$vwoBuilder->originalSettings->sdkMetaInfo) && isset(self::$vwoBuilder->originalSettings->sdkMetaInfo->wasInitializedEarlier)) {
+                $wasInitializedEarlier = self::$vwoBuilder->originalSettings->sdkMetaInfo->wasInitializedEarlier; 
+            } else {
+                $wasInitializedEarlier = false;
+            }
+        
+
+            if (self::$vwoBuilder->getSettingsService()->isSettingsValidOnInit && !$wasInitializedEarlier) {
+                EventUtil::sendSdkInitEvent(self::$vwoBuilder->getSettingsService()->settingsFetchTime, $initTime);
+            }
 
             return self::$instance;
         } catch (\Throwable $error) {

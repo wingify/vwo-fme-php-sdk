@@ -31,7 +31,7 @@ class SettingsSchema {
         $this->initializeSchemas();
     }
 
-    private function initializeSchemas() {
+    private function initializeSchemas(): void {
         $this->campaignMetricSchema = [
             'id' => ['type' => ['number', 'string']],
             'type' => ['type' => 'string'],
@@ -99,49 +99,88 @@ class SettingsSchema {
             'groups' => ['type' => 'array', 'optional' => true],
             'campaignGroups' => ['type' => 'array', 'optional' => true],
             'collectionPrefix' => ['type' => 'string', 'optional' => true],
+            'wasInitializedEarlier' => ['type' => 'boolean', 'optional' => true]
         ];
     }
 
-    public function isSettingsValid($settings) {
+    public function deepConvertToArray($data) {
+        if (is_object($data)) {
+            $data = get_object_vars($data); // Convert object to associative array
+        }
+        if (is_array($data)) {
+            // Use [$this, 'deepConvertToArray'] to reference the method within the class
+            return array_map([$this, 'deepConvertToArray'], $data);
+        }
+        return $data; // Return primitive data types as is
+    }
+    
+    public function isSettingsValid($settings): bool {
         if (!$settings) {
             return false;
         }
-
-        return $this->validate($settings, $this->settingsSchema);
+    
+        // Use deepConvertToArray for robust normalization
+        $normalizedSettings = is_object($settings) ? $this->deepConvertToArray($settings) : $settings;
+    
+        // Validate required keys and schema
+        $isValid = $this->validate($normalizedSettings, $this->settingsSchema);
+    
+        return $isValid;
     }
+    
 
-    private function validate($data, $schema) {
+    private function validate($data, $schema): bool {
         foreach ($schema as $key => $rules) {
+            // Retrieve the value for the current key or set it to null if missing
             $value = $data[$key] ?? null;
-
+    
+            // Handle missing values for optional keys
             if ($value === null) {
-                if (isset($rules['optional']) && $rules['optional']) {
-                    continue;
+                if (!empty($rules['optional'])) {
+                    continue; // Skip validation for optional keys
                 }
-                return false;
+                // Log the missing key
+                return false; // Required key is missing
             }
-
+    
+            // Convert object values to arrays for consistent handling
+            if (is_object($value)) {
+                $value = json_decode(json_encode($value), true); // Deep conversion of object to array
+            }
+    
+            // Normalize the type (e.g., treat integers as numbers)
             $type = gettype($value);
-
+            if ($type === 'integer') {
+                $type = 'number';
+            }
+    
+            // Validate the type of the value against the schema
             if (is_array($rules['type'])) {
                 if (!in_array($type, $rules['type'], true)) {
+                    // Debugging message for type mismatch
                     return false;
                 }
-            } else {
-                if ($type !== $rules['type']) {
-                    return false;
-                }
+            } elseif ($type !== $rules['type']) {
+                // Debugging message for type mismatch
+                return false;
             }
-
+    
+            // If the value is an array, validate its items recursively using the nested schema
             if ($type === 'array' && isset($rules['schema'])) {
                 foreach ($value as $item) {
+                    // Convert nested objects to arrays for consistent handling
+                    if (is_object($item)) {
+                        $item = json_decode(json_encode($item), true);
+                    }
                     if (!$this->validate($item, $rules['schema'])) {
-                        return false;
+                        return false; // Nested validation failed
                     }
                 }
             }
         }
+    
+        // All validations passed for the current schema
         return true;
-    }
+    }       
 }
 ?>

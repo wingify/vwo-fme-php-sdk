@@ -87,4 +87,8 @@ class SettingsModel {
   public function getGroups() {
     return $this->groups;
   }
+  
+  public function toArray(): array {
+    return json_decode(json_encode($this), true);
+  }
 }

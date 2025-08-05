@@ -61,7 +61,6 @@ class SetAttribute implements ISetAttribute
 
         // Retrieve base properties for the event
         $properties = $networkUtil->getEventsBaseProperties(
-            $settings,
             EventEnum::VWO_SYNC_VISITOR_PROP,
             $context->getUserAgent(),
             $context->getIpAddress()

@@ -25,7 +25,7 @@ class Constants {
 
     const SEED_URL = 'https://vwo.com';
     const HTTP_PROTOCOL = self::HTTP . '://';
-    const HTTPS_PROTOCOL = self::HTTPS . '://';
+    const HTTPS_PROTOCOL = self::HTTPS;
     const BASE_URL = 'dev.visualwebsiteoptimizer.com';
 
     const PLATFORM = 'platform';
@@ -40,7 +40,7 @@ class Constants {
     const DEFAULT_EVENTS_PER_REQUEST = 100;
     const SDK_NAME = 'vwo-fme-php-sdk';
 
-    const SDK_VERSION = '1.8.1';
+    const SDK_VERSION = '1.9.0';
     const AP = 'server';
 
     const SETTINGS = 'settings';
@@ -54,6 +54,9 @@ class Constants {
     const VWO_FS_ENVIRONMENT = 'vwo_fs_environment';
 
     const RANDOM_ALGO = 1;
+
+    const PRODUCT = 'product';
+    const FME = 'fme';
 }
 
 ?>

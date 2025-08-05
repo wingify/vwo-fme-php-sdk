@@ -33,7 +33,18 @@ use Exception;
 use vwo\Services\SettingsService;
 use vwo\Services\UrlService;
 use vwo\Utils\UsageStatsUtil;
+use vwo\Enums\EventEnum;
+use vwo\Services\LoggerService;
+
 class NetworkUtil {
+  
+  /**
+   * Gets base properties for bulk operations.
+   *
+   * @param string $accountId The account identifier
+   * @param string $userId The user identifier
+   * @return array Array containing session ID and user UUID
+   */
   public function getBasePropertiesForBulk($accountId, $userId) {
         $path = [
             'sId' => FunctionUtil::getCurrentUnixTimestamp(),
@@ -42,6 +53,13 @@ class NetworkUtil {
         return $path;
     }
 
+  /**
+   * Constructs the path parameters for settings API requests.
+   *
+   * @param string $apikey The API key for authentication
+   * @param string $accountId The account identifier
+   * @return array Array containing API key, random number, and account ID
+   */
   public function getSettingsPath($apikey, $accountId) {
         $path = [
             'i' => $apikey,
@@ -51,6 +69,14 @@ class NetworkUtil {
         return $path;
     }
 
+    /**
+     * Constructs the path parameters for track event API requests.
+     *
+     * @param string $event The event type
+     * @param string $accountId The account identifier
+     * @param string $userId The user identifier
+     * @return array Array containing event tracking parameters
+     */
     public function getTrackEventPath($event, $accountId, $userId)
     {
         try {
@@ -76,6 +102,12 @@ class NetworkUtil {
         return $path;
     }
 
+    /**
+     * Gets query parameters for event batching API requests.
+     *
+     * @param string $accountId The account identifier
+     * @return array Array containing account ID, SDK name, and SDK version
+     */
     public function getEventBatchingQueryParams($accountId)
     {
         try {
@@ -94,12 +126,21 @@ class NetworkUtil {
         return $path;
     }
 
-  public function getEventsBaseProperties($setting, $eventName, $visitorUserAgent = '', $ipAddress = '') {
-        $sdkKey = $setting->getSdkkey();;
+  /**
+   * Constructs base properties for event tracking.
+   *
+   * @param string $eventName The name of the event
+   * @param string $visitorUserAgent The user agent string (optional)
+   * @param string $ipAddress The IP address of the visitor (optional)
+   * @return array Array containing event properties with URL
+   */
+  public function getEventsBaseProperties($eventName, $visitorUserAgent = '', $ipAddress = '') {
+        $sdkKey = SettingsService::instance()->sdkKey;
+        $accountId = SettingsService::instance()->accountId;
 
         $properties = [
             'en' => $eventName,
-            'a' => $setting->getAccountId(),
+            'a' => $accountId,
             'env' => $sdkKey,
             'eTime' => FunctionUtil::getCurrentUnixTimestampInMillis(),
             'random' => FunctionUtil::getRandomNumber(),
@@ -118,9 +159,19 @@ class NetworkUtil {
         return $properties;
     }
 
+  /**
+   * Constructs the base payload structure for events.
+   *
+   * @param mixed $settings The settings object (can be null)
+   * @param string $userId The user identifier
+   * @param string $eventName The name of the event
+   * @param string $visitorUserAgent The user agent string (optional)
+   * @param string $ipAddress The IP address of the visitor (optional)
+   * @return array Array containing the base event payload structure
+   */
   public function getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent = '', $ipAddress = '') {
-        $uuid = UuidUtil::getUUID($userId, $settings->getAccountId());
-        $sdkKey = $settings->getSdkKey();
+        $uuid = UuidUtil::getUUID($userId, SettingsService::instance()->accountId);
+        $sdkKey = SettingsService::instance()->sdkKey;
 
         try {
             $sdkVersion = ComposerUtil::getSdkVersion();
@@ -163,6 +214,18 @@ class NetworkUtil {
         return $properties;
     }
 
+  /**
+   * Constructs payload data for tracking user impressions.
+   *
+   * @param mixed $settings The settings object
+   * @param string $userId The user identifier
+   * @param string $eventName The name of the event
+   * @param string $campaignId The campaign identifier
+   * @param string $variationId The variation identifier
+   * @param string $visitorUserAgent The user agent string (optional)
+   * @param string $ipAddress The IP address of the visitor (optional)
+   * @return array Array containing the track user payload data
+   */
   public function getTrackUserPayloadData($settings, $userId, $eventName, $campaignId, $variationId, $visitorUserAgent = '', $ipAddress = '' ) {
         $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
 
@@ -178,6 +241,17 @@ class NetworkUtil {
         return $properties;
     }
 
+  /**
+   * Constructs payload data for tracking goal conversions.
+   *
+   * @param mixed $settings The settings object
+   * @param string $userId The user identifier
+   * @param string $eventName The name of the event
+   * @param array $eventProperties Additional event properties (optional)
+   * @param string $visitorUserAgent The user agent string (optional)
+   * @param string $ipAddress The IP address of the visitor (optional)
+   * @return array Array containing the track goal payload data
+   */
   public function getTrackGoalPayloadData($settings, $userId, $eventName, $eventProperties, $visitorUserAgent = '', $ipAddress = '' ) {
         $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
         $properties['d']['event']['props']['isCustomEvent'] = true;
@@ -197,6 +271,17 @@ class NetworkUtil {
         return $properties;
     }
 
+  /**
+   * Constructs payload data for setting user attributes.
+   *
+   * @param mixed $settings The settings object
+   * @param string $userId The user identifier
+   * @param string $eventName The name of the event
+   * @param array $attributes The attributes to set for the user
+   * @param string $visitorUserAgent The user agent string (optional)
+   * @param string $ipAddress The IP address of the visitor (optional)
+   * @return array Array containing the attribute payload data
+   */
   public function getAttributePayloadData($settings, $userId, $eventName, $attributes, $visitorUserAgent = '', $ipAddress = '') {
         $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
         $properties['d']['event']['props']['isCustomEvent'] = true;
@@ -213,6 +298,13 @@ class NetworkUtil {
         return $properties;
     }
 
+  /**
+   * Sends a POST API request with the given properties and payload.
+   *
+   * @param array $properties The query parameters for the request
+   * @param array $payload The payload data to send
+   * @return mixed The response from the API call or null on failure
+   */
   public function sendPostApiRequest($properties, $payload) {
 
         $headers = [];
@@ -248,7 +340,13 @@ class NetworkUtil {
         }
     }
 
-
+  /**
+   * Sends a GET API request with the given properties and endpoint.
+   *
+   * @param array $properties The query parameters for the request
+   * @param string $endpoint The API endpoint to call
+   * @return mixed The response from the API call or null on failure
+   */
   public function sendGetApiRequest($properties, $endpoint) {
         $request = new RequestModel(
             UrlService::getBaseUrl(),
@@ -268,6 +366,104 @@ class NetworkUtil {
             LogManager::instance()->error("Error occurred while sending GET request $errorMessage ");
             return null;
         }
+    }
+
+  /**
+   * Constructs payload data for messaging events.
+   *
+   * @param string $messageType The type of message
+   * @param string $message The message content
+   * @param string $eventName The name of the event
+   * @return array Array containing the messaging event payload
+   */
+  public function getMessagingEventPayload($messageType, $message, $eventName) {
+        $userId = SettingsService::instance()->accountId . '_' . SettingsService::instance()->sdkKey;
+        $properties = $this->getEventBasePayload(null, $userId, $eventName, null, null);
+    
+        // Set environment key
+        $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = SettingsService::instance()->sdkKey;
+        $properties['d']['event']['props']['product'] = 'fme';
+    
+        $data = [
+            'type' => $messageType,
+            'content' => [
+                'title' => $message,
+                'dateTime' => FunctionUtil::getCurrentUnixTimestampInMillis(),
+            ],
+        ];
+    
+        $properties['d']['event']['props']['data'] = $data;
+    
+        return $properties;
+    }    
+
+    /**
+     * Sends an event to the VWO server.
+     *
+     * @param array $properties The properties of the event
+     * @param array $payload The payload of the event
+     * @param string $eventName The name of the event
+     * @return array|false The response data if successful, false otherwise
+     */
+    public function sendEvent($properties, $payload, $eventName) {
+    
+        if($eventName == EventEnum::VWO_ERROR) {
+            $baseUrl = Constants::HOST_NAME;
+            $protocol = Constants::HTTPS_PROTOCOL;
+            $port = null;
+        } else {
+            $baseUrl = UrlService::getBaseUrl();
+            $protocol = SettingsService::instance()->protocol ?? Constants::HTTPS_PROTOCOL;
+            $port = SettingsService::instance()->port ?? null;
+        }
+        
+        try {
+            $request = new RequestModel(
+                $baseUrl,
+                'POST',
+                UrlEnum::EVENTS,
+                $properties,
+                $payload,
+                null,
+                $protocol,
+                $port
+            );
+    
+            // Perform the network POST request synchronously
+            $response = NetworkManager::Instance()->post($request);
+            return $response;
+        } catch (Exception $e) {
+            LoggerService::error('NETWORK_CALL_FAILED', ['method' => 'POST', 'error' => $e->getMessage()]);
+            return false;
+        }
+    }    
+    
+    /**
+     * Constructs the payload for SDK init called event.
+     *
+     * @param string $eventName The name of the event
+     * @param int|null $settingsFetchTime Time taken to fetch settings in milliseconds
+     * @param int|null $sdkInitTime Time taken to initialize the SDK in milliseconds
+     * @return array The constructed payload with required fields
+     */
+    public function getSdkInitEventPayload($eventName, $settingsFetchTime = null, $sdkInitTime = null)
+    {
+        $userId = SettingsService::instance()->accountId . '_' . SettingsService::instance()->sdkKey;
+        $properties = $this->getEventBasePayload(null, $userId, $eventName, null, null);
+
+        // Set the required fields as specified
+        $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = SettingsService::instance()->sdkKey;
+        $properties['d']['event']['props'][Constants::PRODUCT] = Constants::FME;
+        
+
+        $data = [
+            'isSDKInitialized' => true,
+            'settingsFetchTime' => $settingsFetchTime,
+            'sdkInitTime' => $sdkInitTime,
+        ];
+        $properties['d']['event']['props']['data'] = $data;
+
+        return $properties;
     }
 }
 ?>

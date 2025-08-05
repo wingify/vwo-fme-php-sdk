@@ -24,6 +24,7 @@ use vwo\Packages\Logger\Core\LogManager;
 use vwo\Constants\Constants;
 use vwo\Packages\NetworkLayer\Models\RequestModel;
 use Exception;
+use vwo\Models\Schemas\SettingsSchema;
 
 // Defining interface ISettingsService
 interface ISettingsService {
@@ -43,6 +44,9 @@ class SettingsService implements ISettingsService {
     public $protocol;
     public $isGatewayServiceProvided = false;
     private static $instance;
+    public $settingsSchemaValidator;
+    public $settingsFetchTime;
+    public $isSettingsValidOnInit;
 
     // Constructor
     public function __construct($options) {
@@ -70,6 +74,8 @@ class SettingsService implements ISettingsService {
         // // Pass the flag to NetworkManager
         $this->initializeNetworkManager($options);
 
+        $this->settingsSchemaValidator = new SettingsSchema(); // Initialize the schema validator
+
         self::$instance = $this;
         LogManager::instance()->debug('Settings Manager initialized');
     }
@@ -88,13 +94,23 @@ class SettingsService implements ISettingsService {
         return self::$instance;
     }
 
+    public function getSettingsSchemaValidator() {
+        return $this->settingsSchemaValidator;
+    }
+
     private function fetchSettingsAndCacheInStorage() {
         try {
-            $settings = $this->fetchSettings();
-            LogManager::instance()->info('Settings fetched successfully');
-            return $settings;
+            $settings = $this->fetchSettings();    
+            if ($this->settingsSchemaValidator->isSettingsValid($settings)) { // Validate settings
+                $this->isSettingsValidOnInit = true;
+                LoggerService::info('SETTINGS_FETCH_SUCCESS');
+                return $settings;
+            } else {
+                LoggerService::error('SETTINGS_SCHEMA_INVALID');
+                return null;
+            }
         } catch (Exception $e) {
-            LogManager::instance()->error("Settings could not be fetched: " . $e->getMessage());
+            LoggerService::error('SETTINGS_FETCH_ERROR', ['err' => $e->getMessage()]);
             return null;
         }
     }
@@ -116,6 +132,9 @@ class SettingsService implements ISettingsService {
             $options['s'] = 'prod';
         }
 
+        // Start timer for settings fetch
+        $settingsFetchStartTime = microtime(true) * 1000; // milliseconds
+
         try {
             $request = new RequestModel(
                 $this->hostname,
@@ -130,6 +149,8 @@ class SettingsService implements ISettingsService {
             $request->setTimeout($this->networkTimeout);
 
             $response = $networkInstance->get($request);
+
+            $this->settingsFetchTime = (int)((microtime(true) * 1000) - $settingsFetchStartTime);
             return $response->getData();
         } catch (Exception $err) {
             LogManager::instance()->error("Error occurred while fetching settings: {$err->getMessage()}");
