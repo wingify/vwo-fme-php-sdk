@@ -71,7 +71,7 @@ class LogManager extends Logger implements ILogManager {
         }
     }
 
-    public static function instance(): LogManager {
+    public static function instance() {
         if (!self::$instance) {
             throw new \Exception("LogManager instance is not set. Make sure to initialize LogManager before calling instance().");
         }
@@ -121,7 +121,7 @@ class LogManager extends Logger implements ILogManager {
         $this->transportManager->log(LogLevelEnum::WARN, $message);
     }
 
-    public function error($message): void {
+    public function error($message) {
         // Log the error to the transport manager
         $this->transportManager->log(LogLevelEnum::ERROR, $message);
         

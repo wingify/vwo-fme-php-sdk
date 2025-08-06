@@ -31,7 +31,7 @@ class SettingsSchema {
         $this->initializeSchemas();
     }
 
-    private function initializeSchemas(): void {
+    private function initializeSchemas() {
         $this->campaignMetricSchema = [
             'id' => ['type' => ['number', 'string']],
             'type' => ['type' => 'string'],
