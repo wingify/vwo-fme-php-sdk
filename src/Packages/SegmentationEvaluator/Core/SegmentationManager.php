@@ -26,8 +26,8 @@ use vwo\Packages\Logger\Core\LogManager;
 use vwo\Models\User\ContextModel;
 use vwo\Models\FeatureModel;
 use vwo\Models\User\ContextVWOModel;
-use vwo\Services\SettingsService;
-use vwo\Utils\DataTypeUtil;
+use vwo\Services\UrlService;
+use vwo\Constants\Constants;
 
 class SegmentationManager {
     private static $instance;
@@ -69,26 +69,35 @@ class SegmentationManager {
             return;
         }
 
-        if ($feature->getIsGatewayServiceRequired() === true) {
-            if (
-                SettingsService::instance()->isGatewayServiceProvided &&
-                (DataTypeUtil::isUndefined($context->getVwo()) || $context->getVwo() === null)
-            ) {
-                $queryParams = [];
-                if ($context->getUserAgent()) {
-                    $queryParams['userAgent'] = $context->getUserAgent();
-                }
+        $baseUrl = UrlService::getBaseUrl();
+        $isDefaultHost = strpos($baseUrl, Constants::HOST_NAME) !== false;
 
-                if ($context->getIpAddress()) {
-                    $queryParams['ipAddress'] = $context->getIpAddress();
-                }
-                try {
-                    $params = GatewayServiceUtil::getQueryParams($queryParams);
-                    $vwoData = GatewayServiceUtil::getFromGatewayService($params, UrlEnum::GET_USER_DATA);
-                    $context->setVwo((new ContextVWOModel())->modelFromDictionary($vwoData));
-                } catch (\Exception $err) {
-                    LogManager::instance()->error('Error in setting contextual data for segmentation. Got error: ' . $err->getMessage());
-                }
+        // Call gateway service if required for segmentation OR if gateway service is provided and user agent/IP is available
+        $shouldCallGatewayService = (
+            ($feature->getIsGatewayServiceRequired() === true && !$isDefaultHost) ||
+            (!$isDefaultHost && ($context->getUserAgent() !== null || $context->getIpAddress() !== null))
+        );
+
+        if ($shouldCallGatewayService && $context->getVwo() === null) {
+            // if both user agent and ip address are not available, return
+            if ($context->getUserAgent() === null && $context->getIpAddress() === null) {
+                return;
+            }
+
+            $queryParams = [];
+            if ($context->getUserAgent()) {
+                $queryParams['userAgent'] = $context->getUserAgent();
+            }
+
+            if ($context->getIpAddress()) {
+                $queryParams['ipAddress'] = $context->getIpAddress();
+            }
+            try {
+                $params = GatewayServiceUtil::getQueryParams($queryParams);
+                $vwoData = GatewayServiceUtil::getFromGatewayService($params, UrlEnum::GET_USER_DATA);
+                $context->setVwo((new ContextVWOModel())->modelFromDictionary($vwoData));
+            } catch (\Exception $err) {
+                LogManager::instance()->error('Error in setting contextual data for segmentation. Got error: ' . $err->getMessage());
             }
         }
     }

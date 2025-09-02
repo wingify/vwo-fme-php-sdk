@@ -145,7 +145,9 @@ class NetworkUtil {
             'a' => $accountId,
             'eTime' => FunctionUtil::getCurrentUnixTimestampInMillis(),
             'random' => FunctionUtil::getRandomNumber(),
-            'p' => 'FS'
+            'p' => 'FS',
+            'sn'=> Constants::SDK_NAME,
+            'sv'=> ComposerUtil::getSdkVersion()
         ];
         
         if (!empty($visitorUserAgent) && $visitorUserAgent !== null) {
@@ -236,23 +238,53 @@ class NetworkUtil {
    * Constructs payload data for tracking user impressions.
    *
    * @param mixed $settings The settings object
-   * @param string $userId The user identifier
    * @param string $eventName The name of the event
    * @param string $campaignId The campaign identifier
    * @param string $variationId The variation identifier
-   * @param string $visitorUserAgent The user agent string (optional)
-   * @param string $ipAddress The IP address of the visitor (optional)
+   * @param ContextModel $context The context object
    * @return array Array containing the track user payload data
    */
-  public function getTrackUserPayloadData($settings, $userId, $eventName, $campaignId, $variationId, $visitorUserAgent = '', $ipAddress = '' ) {
+  public function getTrackUserPayloadData($settings, $eventName, $campaignId, $variationId, $context ) {
+        $userId = $context->getId();
+        $visitorUserAgent = $context->getUserAgent();
+        $ipAddress = $context->getIpAddress();
+        $postSegmentationVariables = $context->getPostSegmentationVariables();
+        $customVariables = $context->getCustomVariables();
+
         $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
 
         $properties['d']['event']['props']['id'] = $campaignId;
         $properties['d']['event']['props']['variation'] = $variationId;
         $properties['d']['event']['props']['isFirst'] = 1;
 
+        if (is_array($postSegmentationVariables) && is_array($customVariables)) {
+            foreach ($postSegmentationVariables as $key) {
+                if (array_key_exists($key, $customVariables)) {
+                    $properties['d']['visitor']['props'][$key] = $customVariables[$key];
+                }
+            }
+        }
+
+        // Add IP address as a standard attribute if available
+        if (!empty($ipAddress) && $ipAddress !== null) {
+            $properties['d']['visitor']['props']['ip'] = $ipAddress;
+        }
+        
+        // if userAgent is passed, add os_version and browser_version
+        if (!empty($visitorUserAgent) && $visitorUserAgent !== null) {
+            if (!empty($context->getVwo()) && !empty($context->getVwo()->getUaInfo())) {
+                $uaInfo = $context->getVwo()->getUaInfo();
+                $properties['d']['visitor']['props']['vwo_osv'] = $uaInfo->os_version;
+                $properties['d']['visitor']['props']['vwo_bv'] = $uaInfo->browser_version;
+            }
+            else {
+                LogManager::instance()->error('To pass user agent related details as standard attributes, please set gateway as well in init method');
+            }
+        }
+        
+        
         LogManager::instance()->debug(
-            "IMPRESSION_FOR_EVENT_ARCH_TRACK_USER: Impression built for vwo_variationShown event for Account ID:{$settings->getAccountId()}, User ID:{$userId}, and Campaign ID:{$campaignId}"
+            "IMPRESSION_FOR_TRACK_USER: Impression built for vwo_variationShown event for Account ID:{$settings->getAccountId()}, User ID:{$userId}, and Campaign ID:{$campaignId}"
         );
 
         return $properties;
@@ -282,7 +314,7 @@ class NetworkUtil {
         }
 
         LogManager::instance()->debug(
-            "IMPRESSION_FOR_EVENT_ARCH_TRACK_GOAL: Impression built for {$eventName} event for Account ID:{$settings->getAccountId()}, User ID:{$userId}"
+            "IMPRESSION_FOR_TRACK_GOAL: Impression built for {$eventName} event for Account ID:{$settings->getAccountId()}, User ID:{$userId}"
         );
 
         return $properties;

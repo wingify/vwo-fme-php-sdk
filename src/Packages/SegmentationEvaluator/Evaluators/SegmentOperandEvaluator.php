@@ -23,6 +23,7 @@ use vwo\Enums\UrlEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandRegexEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandValueEnum;
 use vwo\Packages\Logger\Core\LogManager;
+use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperatorValueEnum;
 
 class SegmentOperandEvaluator {
 
@@ -97,6 +98,31 @@ class SegmentOperandEvaluator {
             return false;
         }
         $tagValue = urldecode($context->getUserAgent());
+        $operandTypeAndValue = $this->preProcessOperandValue($operand);
+        $processedValues = $this->processValues($operandTypeAndValue->operandValue, $tagValue);
+        $tagValue = $processedValues->tagValue;
+        return $this->extractResult($operandTypeAndValue->operandType, $processedValues->operandValue, $tagValue);
+    }
+
+    /**
+     * Evaluates a given string tag value against a DSL operand value.
+     * 
+     * @param string $dslOperandValue The DSL operand string (e.g., "contains(\"value\")").
+     * @param object $context The context object containing the value to evaluate.
+     * @param string $operandType The type of operand being evaluated (ip_address, browser_version, os_version).
+     * @return bool True if tag value matches DSL operand criteria, false otherwise.
+     */
+    public function evaluateStringOperandDSL($dslOperandValue, $context, $operandType = null) {
+        $operand = $dslOperandValue;
+
+        // Determine the tag value based on operand type
+        $tagValue = $this->getTagValueForOperandType($context, $operandType);
+
+        if ($tagValue === null) {
+            $this->logMissingContextError($operandType);
+            return false;
+        }
+        
         $operandTypeAndValue = $this->preProcessOperandValue($operand);
         $processedValues = $this->processValues($operandTypeAndValue->operandValue, $tagValue);
         $tagValue = $processedValues->tagValue;
@@ -219,43 +245,127 @@ class SegmentOperandEvaluator {
                 }
                 break;
             case SegmentOperandValueEnum::GREATER_THAN_VALUE:
-                $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
-                    return $opValue < $tValue;
-                });
+                $result = $this->compareValues($tagValue, strval($operandValue)) > 0;
                 break;
             case SegmentOperandValueEnum::GREATER_THAN_EQUAL_TO_VALUE:
-                $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
-                    return $opValue <= $tValue;
-                });
+                $result = $this->compareValues($tagValue, strval($operandValue)) >= 0;
                 break;
             case SegmentOperandValueEnum::LESS_THAN_VALUE:
-                $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
-                    return $opValue > $tValue;
-                });
+                $result = $this->compareValues($tagValue, strval($operandValue)) < 0;
                 break;  
             case SegmentOperandValueEnum::LESS_THAN_EQUAL_TO_VALUE:
-                $result = $this->isValidNumericComparison($operandValue, $tagValue, function ($opValue, $tValue) {
-                    return $opValue >= $tValue;
-                });
+                $result = $this->compareValues($tagValue, strval($operandValue)) <= 0;
                 break;   
             default:
-                $result = false;
+                $result = $tagValue === strval($operandValue);
                 break;
         }
     
         return $result;
     }
 
-    // Function for numeric comparison
-    private function isValidNumericComparison($operandValue, $tagValue, callable $comparison) {
-        if ($tagValue !== null && is_numeric($operandValue) && is_numeric($tagValue)) {
-            try {
-                return $comparison(floatval($operandValue), floatval($tagValue));
-            } catch (\Exception $e) {
-                return false;
+
+
+    /**
+     * Compares two values.
+     * Supports formats like "1.2.3", "1.0", "2.1.4.5", etc.
+     * 
+     * @param string $value1 First value
+     * @param string $value2 Second value
+     * @return int -1 if value1 < value2, 0 if equal, 1 if value1 > value2
+     */
+    private function compareValues($value1, $value2) {
+        // Split values by dots and convert to integers
+        $parts1 = array_map(function($part) { 
+            return is_numeric($part) ? intval($part) : 0; 
+        }, explode('.', $value1));
+        
+        $parts2 = array_map(function($part) { 
+            return is_numeric($part) ? intval($part) : 0; 
+        }, explode('.', $value2));
+
+        // Find the maximum length to handle different value formats
+        $maxLength = max(count($parts1), count($parts2));
+
+        for ($i = 0; $i < $maxLength; $i++) {
+            $part1 = $i < count($parts1) ? $parts1[$i] : 0;
+            $part2 = $i < count($parts2) ? $parts2[$i] : 0;
+
+            if ($part1 < $part2) {
+                return -1;
+            } else if ($part1 > $part2) {
+                return 1;
             }
         }
-        return false;
+        return 0; // Values are equal
+    }
+
+    /**
+     * Gets the appropriate tag value based on the operand type.
+     * 
+     * @param object $context The context object.
+     * @param string $operandType The type of operand.
+     * @return string|null The tag value or null if not available.
+     */
+    private function getTagValueForOperandType($context, $operandType) {
+        switch ($operandType) {
+            case SegmentOperatorValueEnum::IP:
+                return $context->getIpAddress();
+            case SegmentOperatorValueEnum::BROWSER_VERSION:
+                return $this->getBrowserVersionFromContext($context);
+            default:
+                // Default works for OS version
+                return $this->getOsVersionFromContext($context);
+        }
+    }
+
+    /**
+     * Gets browser version from context.
+     * 
+     * @param object $context The context object.
+     * @return string|null The browser version or null if not available.
+     */
+    private function getBrowserVersionFromContext($context) {
+        if (empty($context->getVwo()) || empty($context->getVwo()->getUaInfo())) {
+            return null;
+        }
+        
+        $uaInfo = $context->getVwo()->getUaInfo();
+        return isset($uaInfo->browser_version) ? $uaInfo->browser_version : null;
+    }
+
+    /**
+     * Gets OS version from context.
+     * 
+     * @param object $context The context object.
+     * @return string|null The OS version or null if not available.
+     */
+    private function getOsVersionFromContext($context) {
+        if (empty($context->getVwo()) || empty($context->getVwo()->getUaInfo())) {
+            return null;
+        }
+        
+        $uaInfo = $context->getVwo()->getUaInfo();
+        return isset($uaInfo->os_version) ? $uaInfo->os_version : null;
+    }
+
+    /**
+     * Logs appropriate error message for missing context.
+     * 
+     * @param string $operandType The type of operand.
+     */
+    private function logMissingContextError($operandType) {
+        switch ($operandType) {
+            case SegmentOperatorValueEnum::IP:
+                LogManager::instance()->info('To evaluate IP segmentation, please provide ipAddress in context');
+                break;
+            case SegmentOperatorValueEnum::BROWSER_VERSION:
+                LogManager::instance()->info('To evaluate browser version segmentation, please provide userAgent in context');
+                break;
+            default:
+            LogManager::instance()->info('To evaluate OS version segmentation, please provide userAgent in context');
+                break;
+        }
     }
 }
 

@@ -27,10 +27,10 @@ class SegmentOperandRegexEnum {
     const ENDING_STAR = '/\*$/';
     const REGEX = '/^regex/';
     const REGEX_MATCH = '/^regex\((.*)\)/';
-    const GREATER_THAN = '/^gt\(((\d+\.?\d*)|(\.\d+))\)/';
-    const LESS_THAN = '/^lt\(((\d+\.?\d*)|(\.\d+))\)/';
-    const GREATER_THAN_EQUAL_TO = '/^gte\(((\d+\.?\d*)|(\.\d+))\)/';
-    const LESS_THAN_EQUAL_TO = '/^lte\(((\d+\.?\d*)|(\.\d+))\)/';
+    const GREATER_THAN = '/^gt\(([\d.]+)\)/';
+    const LESS_THAN = '/^lt\(([\d.]+)\)/';
+    const GREATER_THAN_EQUAL_TO = '/^gte\(([\d.]+)\)/';
+    const LESS_THAN_EQUAL_TO = '/^lte\(([\d.]+)\)/';
     const IN_LIST = '/inlist\(([^)]+)\)/';
 }
 ?>

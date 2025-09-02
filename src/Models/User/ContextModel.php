@@ -26,6 +26,7 @@ class ContextModel
     private $customVariables = [];
     private $variationTargetingVariables = [];
     private $_vwo;
+    private $postSegmentationVariables = [];
 
     public function modelFromDictionary($context)
     {
@@ -43,6 +44,10 @@ class ContextModel
 
         if (isset($context['_vwo'])) {
             $this->_vwo = $context['_vwo'];
+        }
+
+        if (isset($context['postSegmentationVariables'])) {
+            $this->postSegmentationVariables = $context['postSegmentationVariables'];
         }
 
         return $this;
@@ -91,6 +96,16 @@ class ContextModel
     public function setVwo($vwo)
     {
         $this->_vwo = $vwo;
+    }
+
+    public function getPostSegmentationVariables()
+    {
+        return $this->postSegmentationVariables;
+    }
+
+    public function setPostSegmentationVariables($postSegmentationVariables)
+    {
+        $this->postSegmentationVariables = $postSegmentationVariables;
     }
 }
 
