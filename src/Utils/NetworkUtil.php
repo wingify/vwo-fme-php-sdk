@@ -132,16 +132,17 @@ class NetworkUtil {
    * @param string $eventName The name of the event
    * @param string $visitorUserAgent The user agent string (optional)
    * @param string $ipAddress The IP address of the visitor (optional)
+   * @param bool $isUsageStatsEvent Whether this is a usage stats event (optional)
+   * @param int|null $usageStatsAccountId The account ID for usage statistics (optional)
    * @return array Array containing event properties with URL
    */
-  public function getEventsBaseProperties($eventName, $visitorUserAgent = '', $ipAddress = '') {
+  public function getEventsBaseProperties($eventName, $visitorUserAgent = '', $ipAddress = '', $isUsageStatsEvent = false, $usageStatsAccountId = null) {
         $sdkKey = SettingsService::instance()->sdkKey;
         $accountId = SettingsService::instance()->accountId;
 
         $properties = [
             'en' => $eventName,
             'a' => $accountId,
-            'env' => $sdkKey,
             'eTime' => FunctionUtil::getCurrentUnixTimestampInMillis(),
             'random' => FunctionUtil::getRandomNumber(),
             'p' => 'FS'
@@ -153,6 +154,11 @@ class NetworkUtil {
 
         if (!empty($ipAddress) && $ipAddress !== null) {
             $properties['visitor_ip'] = $ipAddress;
+        }
+        if(!$isUsageStatsEvent){
+            $properties['env'] = $sdkKey;
+        } else {
+            $properties['a'] = $usageStatsAccountId;
         }
 
         $properties['url'] = Constants::HTTPS_PROTOCOL . UrlService::getBaseUrl() . UrlEnum::EVENTS;
@@ -167,11 +173,14 @@ class NetworkUtil {
    * @param string $eventName The name of the event
    * @param string $visitorUserAgent The user agent string (optional)
    * @param string $ipAddress The IP address of the visitor (optional)
+   * @param bool $isUsageStatsEvent Whether this is a usage stats event (optional)
+   * @param int|null $usageStatsAccountId The account ID for usage statistics (optional)
    * @return array Array containing the base event payload structure
    */
-  public function getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent = '', $ipAddress = '') {
-        $uuid = UuidUtil::getUUID($userId, SettingsService::instance()->accountId);
-        $sdkKey = SettingsService::instance()->sdkKey;
+  public function getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent = '', $ipAddress = '', $isUsageStatsEvent = false, $usageStatsAccountId = null) {
+        $accountId = $isUsageStatsEvent ? $usageStatsAccountId : SettingsService::instance()->accountId;
+        $uuid = UuidUtil::getUUID($userId, $accountId);
+  
 
         try {
             $sdkVersion = ComposerUtil::getSdkVersion();
@@ -183,8 +192,12 @@ class NetworkUtil {
         $props = [
             'vwo_sdkName' => Constants::SDK_NAME,
             'vwo_sdkVersion' => $sdkVersion,
-            'vwo_envKey' => $sdkKey,
         ];
+
+        if(!$isUsageStatsEvent){
+            // set env key for standard sdk events
+            $props['vwo_envKey'] = SettingsService::instance()->sdkKey;
+        }
 
         $properties = [
             'd' => [
@@ -196,13 +209,18 @@ class NetworkUtil {
                     'name' => $eventName,
                     'time' => FunctionUtil::getCurrentUnixTimestampInMillis(),
                 ],
-                'visitor' => [
-                    'props' => [
-                        'vwo_fs_environment' => $sdkKey,
-                    ],
-                ],
             ],
         ];
+        
+        if (!$isUsageStatsEvent) {
+            // set visitor props for standard sdk events
+            $properties['d']['visitor'] = [
+                'props' => [
+                    'vwo_fs_environment' => SettingsService::instance()->sdkKey,
+                ],
+            ];
+        }
+
         if (!empty($visitorUserAgent) && $visitorUserAgent !== null) {
             $properties['d']['visitor_ua'] = $visitorUserAgent;
         }
@@ -232,7 +250,6 @@ class NetworkUtil {
         $properties['d']['event']['props']['id'] = $campaignId;
         $properties['d']['event']['props']['variation'] = $variationId;
         $properties['d']['event']['props']['isFirst'] = 1;
-        $properties['d']['event']['props']['vwoMeta'] = UsageStatsUtil::getInstance()->getUsageStats();
 
         LogManager::instance()->debug(
             "IMPRESSION_FOR_EVENT_ARCH_TRACK_USER: Impression built for vwo_variationShown event for Account ID:{$settings->getAccountId()}, User ID:{$userId}, and Campaign ID:{$campaignId}"
@@ -407,7 +424,7 @@ class NetworkUtil {
      */
     public function sendEvent($properties, $payload, $eventName) {
     
-        if($eventName == EventEnum::VWO_ERROR) {
+        if($eventName == EventEnum::VWO_ERROR || $eventName == EventEnum::VWO_USAGE_STATS_EVENT) {
             $baseUrl = Constants::HOST_NAME;
             $protocol = Constants::HTTPS_PROTOCOL;
             $port = null;
@@ -462,6 +479,36 @@ class NetworkUtil {
             'sdkInitTime' => $sdkInitTime,
         ];
         $properties['d']['event']['props']['data'] = $data;
+
+        return $properties;
+    }
+
+    /**
+     * Constructs the payload for SDK usage stats event.
+     *
+     * @param string $eventName The name of the event.
+     * @param int $usageStatsAccountId The account ID for usage statistics.
+     * @return array The constructed payload with required fields.
+     */
+    public function getSDKUsageStatsEventPayload($eventName, $usageStatsAccountId)
+    {
+        // Build userId as accountId_sdkKey (not usageStatsAccountId_sdkKey)
+        $userId = SettingsService::instance()->accountId . '_' . SettingsService::instance()->sdkKey;
+
+        // Pass $usageStatsAccountId as the last argument (6th) to getEventBasePayload, with $isUsageStatsEvent = true
+        $properties = $this->getEventBasePayload(
+            null,
+            $userId,
+            $eventName,
+            null,
+            null,
+            true,
+            $usageStatsAccountId
+        );
+
+        // Set the required fields as specified
+        $properties['d']['event']['props'][Constants::PRODUCT] = Constants::FME;
+        $properties['d']['event']['props']['vwoMeta'] = UsageStatsUtil::getInstance()->getUsageStats();
 
         return $properties;
     }

@@ -21,9 +21,8 @@ namespace vwo;
 use vwo\Utils\DataTypeUtil;
 use vwo\Models\SettingsModel;
 use Exception;
-use vwo\Utils\EventUtil;
-use vwo\Packages\Logger\Core\LogManager;
 use vwo\Services\LoggerService;
+use vwo\Utils\SdkInitAndUsageStatsUtil;
 
 class VWO
 {
@@ -140,7 +139,12 @@ class VWO
         
 
             if (self::$vwoBuilder->getSettingsService()->isSettingsValidOnInit && !$wasInitializedEarlier) {
-                EventUtil::sendSdkInitEvent(self::$vwoBuilder->getSettingsService()->settingsFetchTime, $initTime);
+                SdkInitAndUsageStatsUtil::sendSdkInitEvent(self::$vwoBuilder->getSettingsService()->settingsFetchTime, $initTime);
+            }
+
+            $usageStatsAccountId = self::$vwoBuilder->originalSettings->usageStatsAccountId;
+            if($usageStatsAccountId) {
+                SdkInitAndUsageStatsUtil::sendSDKUsageStatsEvent($usageStatsAccountId);
             }
 
             return self::$instance;

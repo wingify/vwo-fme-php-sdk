@@ -20,6 +20,8 @@ namespace vwo\Utils;
 
 use vwo\Constants\Constants;
 use vwo\Enums\LogLevelNumberEnum;
+use vwo\Services\SettingsService;
+
 /**
  * Manages usage statistics for the SDK.
  * Tracks various features and configurations being used by the client.
@@ -66,6 +68,9 @@ class UsageStatsUtil
         $vwoMeta = $options['_vwo_meta'] ?? null;
         $gatewayService = $options['gatewayService'] ?? null;
         $data = [];
+
+        $data['a'] = SettingsService::instance()->accountId;
+        $data['env'] = SettingsService::instance()->sdkKey;
 
         if ($integrations) {
             $data['ig'] = 1;

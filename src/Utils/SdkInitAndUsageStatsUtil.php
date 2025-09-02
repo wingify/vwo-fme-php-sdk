@@ -22,7 +22,7 @@ use vwo\Enums\EventEnum;
 use vwo\Utils\NetworkUtil;
 use vwo\Packages\Logger\Core\LogManager;
 
-class EventUtil
+class SdkInitAndUsageStatsUtil
 {
     /**
      * Sends an SDK init event to VWO. This event is triggered when the init function is called.
@@ -41,6 +41,31 @@ class EventUtil
             $networkUtil->sendEvent($properties, $payload, EventEnum::VWO_SDK_INIT_EVENT);
         } catch (\Exception $e) {
             LogManager::instance()->error('SDK_INIT_EVENT_ERROR', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Sends a usage stats event to VWO.
+     * This event is triggered when the SDK is initialized.
+     *
+     * @param int $usageStatsAccountId The account ID for usage statistics
+     */
+    public static function sendSDKUsageStatsEvent($usageStatsAccountId)
+    {
+        $networkUtil = new NetworkUtil();
+        try {
+            // create the query parameters
+            $properties = $networkUtil->getEventsBaseProperties(EventEnum::VWO_USAGE_STATS_EVENT, null, null, true, $usageStatsAccountId);
+
+            // create the payload with required fields
+            $payload = $networkUtil->getSDKUsageStatsEventPayload(EventEnum::VWO_USAGE_STATS_EVENT, $usageStatsAccountId);
+
+            // Send the constructed properties and payload as a POST request
+            // send eventName in parameters so that we can enable retry for this event
+            $networkUtil->sendEvent($properties, $payload, EventEnum::VWO_USAGE_STATS_EVENT);
+        } catch (\Exception $e) {
+            // Silently catch the exception as per the original TypeScript code
+            LogManager::instance()->error('SDK_USAGE_STATS_EVENT_ERROR', ['error' => $e->getMessage()]);
         }
     }
 } 
