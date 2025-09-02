@@ -99,7 +99,8 @@ class SettingsSchema {
             'groups' => ['type' => 'array', 'optional' => true],
             'campaignGroups' => ['type' => 'array', 'optional' => true],
             'collectionPrefix' => ['type' => 'string', 'optional' => true],
-            'wasInitializedEarlier' => ['type' => 'boolean', 'optional' => true]
+            'wasInitializedEarlier' => ['type' => 'boolean', 'optional' => true],
+            'usageStatsAccountId' => ['type' => ['number', 'string'], 'optional' => true]
         ];
     }
 
