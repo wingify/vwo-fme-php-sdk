@@ -53,12 +53,10 @@ class ImpressionUtil
         // Construct payload data for tracking the user
         $payload = $networkUtil->getTrackUserPayloadData(
             $settings,
-            $context->getId(),
             EventEnum::VWO_VARIATION_SHOWN,
             $campaignId,
             $variationId,
-            $context->getUserAgent(),
-            $context->getIpAddress()
+            $context
         );
 
         // Send the constructed properties and payload as a POST request

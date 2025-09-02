@@ -93,7 +93,7 @@ class GatewayServiceUtil {
     public static function addIsGatewayServiceRequiredFlag($settings) {
     
         // Regular expression pattern to identify relevant segments (without lookbehind)
-        $pattern = '/\b(country|region|city|os|device_type|browser_string|ua)\b|inlist\([^)]*\)/';
+        $pattern = '/\b(country|region|city|os|device_type|browser_string|ua|browser_version|os_version)\b|inlist\([^)]*\)/';
     
         foreach ($settings->getFeatures() as $feature) {
             $rules = $feature->getRulesLinkedCampaign();

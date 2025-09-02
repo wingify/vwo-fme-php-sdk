@@ -33,5 +33,8 @@ class SegmentOperatorValueEnum {
     const BROWSER_AGENT = 'browser_string';
     const UA = 'ua';
     const FEATURE_ID = 'featureId';
+    const IP = 'ip_address';
+    const BROWSER_VERSION = 'browser_version';
+    const OS_VERSION = 'os_version';
 }
 ?>
