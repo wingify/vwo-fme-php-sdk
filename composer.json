@@ -1,7 +1,7 @@
 {
     "name": "vwo/vwo-fme-php-sdk",
 
-    "version": "1.11.0",
+    "version": "1.11.1",
     "keywords": ["vwo", "fme", "sdk"],
     "license": "Apache-2.0",
     "authors": [{
