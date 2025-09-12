@@ -45,13 +45,13 @@ class SettingsSchema {
             'id' => ['type' => ['number', 'string']],
             'type' => ['type' => 'string'],
             'key' => ['type' => 'string'],
-            'value' => ['type' => ['number', 'string', 'boolean', 'array']],
+            'value' => ['type' => ['number', 'string', 'boolean', 'array', 'double']],
         ];
 
         $this->campaignVariationSchema = [
             'id' => ['type' => ['number', 'string']],
             'name' => ['type' => 'string'],
-            'weight' => ['type' => ['number', 'string']],
+            'weight' => ['type' => ['number', 'string','double']],
             'segments' => ['type' => 'array', 'optional' => true],
             'variables' => ['type' => 'array', 'schema' => $this->variableObjectSchema, 'optional' => true],
             'startRangeVariation' => ['type' => 'number', 'optional' => true],
