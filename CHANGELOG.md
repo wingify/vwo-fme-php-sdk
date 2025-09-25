@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2025-09-25
+
+### Fixed
+
+- Add support for user aliasing (will work after gateway has been setup)
+
+```php
+$vwoClient = VWO::init([
+    'accountId' => 'vwo_account_id',
+    'sdkKey' => '32-alpha-numeric-sdk-key',
+    'gatewayService' => [
+        'url' => 'http://your-custom-gateway-url',
+    ],
+    'isAliasingEnabled' => true,
+]);
+
+$vwoClient->setAlias($context, 'aliasId');
+// alternatively you can also pass the userId and the aliasId instead of context and aliasId
+$vwoClient->setAlias('userId', 'aliasId');
+```
+
 ## [1.11.1] - 2025-09-12
 
 ### Fixed

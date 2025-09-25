@@ -32,12 +32,17 @@ use vwo\Api\SetAttribute;
 use vwo\Models\SettingsModel;
 use vwo\Models\User\ContextModel;
 use vwo\Utils\SettingsUtil;
+use vwo\Utils\UserIdUtil;
+use vwo\Services\SettingsService;
+use vwo\Utils\AliasingUtil;
+use vwo\Enums\ApiEnum;
 
 interface IVWOClient {
     public function getFlag(string $featureKey, $context);
 
     public function trackEvent(string $eventName, $context, $eventProperties);
     public function setAttribute($attributesOrAttributeValue, $attributeValueOrContext, $context);
+    public function setAlias($contextOrUserId, $aliasId);
 
 }
 
@@ -45,12 +50,14 @@ class VWOClient implements IVWOClient {
     public $settings;
     private $storage;
     private $options;
+    private $isAliasingEnabled;
 
     public function __construct(SettingsModel $settings, array $options) {
         $this->options = $options;
         $this->settings = $settings;
         $this->storage = new Storage();
         $this->initialize($options, $settings);
+        $this->isAliasingEnabled = $options['isAliasingEnabled'] ?? false;
     }
 
     private function initialize(array $options, $settings) {
@@ -98,6 +105,9 @@ class VWOClient implements IVWOClient {
                 LogManager::instance()->error('Context must contain a valid user ID.');
                 throw new \Error('TypeError: Invalid context');
             }
+            //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
+            $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled);
+            $context['id'] = $userId;
 
             $contextModel = new ContextModel();
             $contextModel->modelFromDictionary($context);
@@ -139,6 +149,10 @@ class VWOClient implements IVWOClient {
                 throw new \Error('TypeError: Invalid context');
             }
 
+            //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
+            $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled);
+            $context['id'] = $userId;
+
             $contextModel = new ContextModel();
             $contextModel->modelFromDictionary($context);
 
@@ -179,6 +193,10 @@ class VWOClient implements IVWOClient {
                     throw new \Error('TypeError: Invalid context');
                 }
     
+                //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
+                $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled);
+                $context['id'] = $userId;
+
                 $contextModel = new ContextModel();
                 $contextModel->modelFromDictionary($context);
     
@@ -221,6 +239,10 @@ class VWOClient implements IVWOClient {
                     throw new \Error('TypeError: Invalid context');
                 }
                 
+                //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
+                $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled);
+                $context['id'] = $userId;
+
                 $contextModel = new ContextModel();
                 $contextModel->modelFromDictionary($context);
     
@@ -229,6 +251,91 @@ class VWOClient implements IVWOClient {
             }
         } catch (\Throwable $error) {
             LogManager::instance()->error("API - $apiName failed to execute. Error: " . $error->getMessage());
+        }
+    }
+
+    /**
+     * Sets alias for a given user ID
+     * @param mixed $contextOrUserId The context containing user ID or the user ID directly
+     * @param string $aliasId The alias identifier to set
+     * @return bool Returns true if successful, false otherwise
+     */
+    public function setAlias($contextOrUserId, $aliasId) {
+        $apiName = ApiEnum::SET_ALIAS;
+
+        try {
+            LogManager::instance()->debug("API Called: $apiName");
+
+            if (!$this->isAliasingEnabled) {
+                LogManager::instance()->error('Aliasing is not enabled.');
+                return false;
+            }
+
+            if (!SettingsService::instance()->isGatewayServiceProvided) {
+                LogManager::instance()->error('Gateway URL is not provided.');
+                return false;
+            }
+
+            if ($aliasId === null || $aliasId === '') {
+                LogManager::instance()->error('TypeError: Invalid aliasId');
+                throw new \TypeError('TypeError: Invalid aliasId');
+            }
+
+            if (is_array($aliasId)) {
+                LogManager::instance()->error('TypeError: aliasId cannot be an array');
+                throw new \TypeError('TypeError: aliasId cannot be an array');
+            }
+
+            // trim aliasId before going forward
+            if (is_string($aliasId)) {
+                $aliasId = trim($aliasId);
+            }
+
+            $userId = null;
+
+            if (is_string($contextOrUserId)) {
+                if ($contextOrUserId === null || $contextOrUserId === '') {
+                    LogManager::instance()->error('Invalid userId passed to setAlias API.');
+                    throw new \TypeError('TypeError: Invalid userId');
+                }
+
+                if ($contextOrUserId === $aliasId) {
+                    LogManager::instance()->error('UserId and aliasId cannot be the same.');
+                    return false;
+                }
+
+                if (is_array($contextOrUserId)) {
+                    LogManager::instance()->error('TypeError: userId cannot be an array');
+                    throw new \TypeError('TypeError: userId cannot be an array');
+                }
+
+                $contextOrUserId = trim($contextOrUserId);
+                $userId = $contextOrUserId;
+            } else {
+                if (!is_array($contextOrUserId) || !isset($contextOrUserId['id']) || empty($contextOrUserId['id'])) {
+                    LogManager::instance()->error('Invalid context passed to setAlias API.');
+                    throw new \TypeError('TypeError: Invalid context');
+                }
+
+                if ($contextOrUserId['id'] === $aliasId) {
+                    LogManager::instance()->error('UserId and aliasId cannot be the same.');
+                    return false;
+                }
+
+                if(is_array($contextOrUserId['id'])) {
+                    LogManager::instance()->error('TypeError: userId cannot be an array');
+                    throw new \TypeError('TypeError: userId cannot be an array');
+                }
+
+                $contextOrUserId['id'] = trim($contextOrUserId['id']);
+                $userId = $contextOrUserId['id'];
+            }
+
+            $result = AliasingUtil::setAlias($userId, $aliasId);
+            return $result !== false;
+        } catch (\Throwable $error) {
+            LogManager::instance()->error("API - $apiName failed to execute. Error: " . $error->getMessage());
+            return false;
         }
     }
 }

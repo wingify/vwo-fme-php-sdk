@@ -125,6 +125,10 @@ class VWO
                 throw new Exception('Please provide VWO account ID in the options and should be of type string|number');
             }
 
+            if(isset($options['isAliasingEnabled']) && !isset($options['gatewayService']['url'])) {
+                throw new Exception('Please provide the gatewayService URL in the options if aliasing is enabled');
+            }
+
             $instance = new VWO($options);
 
             # Calculate total init time

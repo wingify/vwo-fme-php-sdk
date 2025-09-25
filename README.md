@@ -358,6 +358,44 @@ $options = [
 $vwoClient = VWO::init($options);
 ```
 
+### User Aliasing
+
+User aliasing lets you associate an existing user ID with an alternate ID (alias) so future evaluations and tracking use a unified identity across systems.
+
+Requirements:
+
+- Gateway must be configured
+- Aliasing must be enabled during initialization: `isAliasingEnabled: true`
+
+Initialization example:
+
+```php
+$vwoClient = VWO::init([
+  'accountId' => '123456',
+  'sdkKey' => '32-alpha-numeric-sdk-key',
+  'isAliasingEnabled' => true,
+  'gatewayService' => [ 'url' => 'https://custom.gateway.com' ],
+]);
+```
+
+Usage examples:
+
+```php
+// Using context array
+$success1 = $vwoClient->setAlias(['id' => 'user-123'], 'alias-abc');
+
+// Using direct userId
+$success2 = $vwoClient->setAlias('user-123', 'alias-abc');
+```
+
+Behavior and validations:
+
+- Returns `true` on success, `false` otherwise
+- Requires aliasing to be enabled and gateway configured
+- `aliasId` must be a non-empty string (not an array); it is trimmed before use
+- When passing context, `context['id']` must be a non-empty string (not an array); it is trimmed before use
+- `userId` and `aliasId` cannot be the same
+
 ### Version History
 
 The version history tracks changes, improvements, and bug fixes in each version. For a full history, see the [CHANGELOG.md](https://github.com/wingify/vwo-fme-php-sdk/blob/master/CHANGELOG.md).

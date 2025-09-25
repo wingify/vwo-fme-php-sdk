@@ -29,5 +29,7 @@ class UrlEnum {
     const EVENTS = '/events/t';
     const ATTRIBUTE_CHECK = '/check-attribute';
     const GET_USER_DATA = '/get-user-details';
+    const SET_ALIAS = '/user-alias/setUserAlias';
+    const GET_ALIAS = '/user-alias/getAliasUserId';
 }
 ?>

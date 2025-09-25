@@ -22,5 +22,6 @@ class ApiEnum {
     const GET_FLAG = 'getFlag';
     const TRACK = 'trackEvent';
     const SET_ATTRIBUTE = 'setAttribute';
+    const SET_ALIAS = 'setAlias';
 }
 ?>
