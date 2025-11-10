@@ -209,6 +209,62 @@ $vwoClient = VWO::init([
 
 Refer to the [Gateway Documentation](https://developers.vwo.com/v2/docs/gateway-service) for further details.
 
+### Synchronous network calls
+
+Synchronous network calls differ from the default (asynchronous or fire-and-forget) tracking behavior by waiting for the tracking request to return a response from the VWO server before proceeding with the rest of your application code. By default, the SDK sends tracking network calls in a way that does not block your application, providing maximum throughput and lowest latency for user actions.
+
+**Why is it so?**
+- The default asynchronous approach ensures minimal impact on user experience or application response times. Tracking calls are dispatched without waiting for a server response.
+- With synchronous calls enabled (`shouldWaitForTrackingCalls => true`), your code will block and wait for the network call to complete, allowing you to detect network errors, retry, and ensure delivery before execution continues.
+
+**When should you use synchronous calls?**
+- Use synchronous tracking when tracking data integrity or acknowledgment is critical before user flow continues (e.g., checkout flows, conversion confirmations, or compliance events).
+- It is recommended when you need to guarantee that server-side events are delivered, and are willing to trade a slight increase in user-facing latency for this assurance.
+
+
+
+You can opt-in to perform network calls synchronously by passing an init parameter.
+
+```php
+$vwoClient = VWO::init([
+  'sdkKey' => '32-alpha-numeric-sdk-key',
+  'accountId' => '123456',
+  'shouldWaitForTrackingCalls' => true,
+]);
+```
+
+Notes:
+- In PHP, the default transport for tracking is a non-blocking socket-based call (fire-and-forget).
+- When you enable `shouldWaitForTrackingCalls`, the SDK switches to a blocking cURL-based call so your code waits for the response.
+- For synchronous (cURL) calls, retry is enabled by default. You can override via `retryConfig` in init:
+
+```php
+$vwoClient = VWO::init([
+  'sdkKey' => '32-alpha-numeric-sdk-key',
+  'accountId' => '123456',
+  'shouldWaitForTrackingCalls' => true,
+  'retryConfig' => [
+    'shouldRetry' => true,        // default: true
+    'maxRetries' => 3,            // default: 3
+    'initialDelay' => 2,          // seconds; default: 2
+    'backoffMultiplier' => 2,     // delays: 2s, 4s, 8s; default: 2
+  ],
+]);
+```
+
+If you want synchronous calls but without retries, set `shouldRetry` to `false`:
+
+```php
+$vwoClient = VWO::init([
+  'sdkKey' => '32-alpha-numeric-sdk-key',
+  'accountId' => '123456',
+  'shouldWaitForTrackingCalls' => true,
+  'retryConfig' => [
+    'shouldRetry' => false,
+  ],
+]);
+```
+
 ### Storage
 
 The SDK operates in a stateless mode by default, meaning each `getFlag` call triggers a fresh evaluation of the flag against the current user context.

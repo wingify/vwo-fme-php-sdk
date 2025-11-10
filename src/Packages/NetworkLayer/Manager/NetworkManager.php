@@ -22,6 +22,8 @@ use vwo\Packages\NetworkLayer\Client\NetworkClient;
 use vwo\Packages\NetworkLayer\Models\GlobalRequestModel;
 use vwo\Packages\NetworkLayer\Models\RequestModel;
 use vwo\Packages\NetworkLayer\Handlers\RequestHandler;
+use vwo\Constants\Constants;
+use vwo\Services\LoggerService;
 use Exception;
 
 class NetworkManager {
@@ -29,13 +31,28 @@ class NetworkManager {
     private $client;
     private static $instance;
     private $isGatewayUrlNotSecure = false; // Store the flag here
+    private $shouldWaitForTrackingCalls = false;
+    private $retryConfig = Constants::DEFAULT_RETRY_CONFIG;
 
     public function attachClient($client = null, $options = []) {
-        $this->client = $client ?: new NetworkClient($options);
         $this->config = new GlobalRequestModel(null, null, null, null);
         if(isset($options['isGatewayUrlNotSecure'])) {
             $this->isGatewayUrlNotSecure = $options['isGatewayUrlNotSecure'];
         }
+        if(isset($options['shouldWaitForTrackingCalls'])) {
+            $this->shouldWaitForTrackingCalls = $options['shouldWaitForTrackingCalls'];
+        }
+        // Normalize retry config from options (if any)
+        $providedRetry = isset($options['retryConfig']) && is_array($options['retryConfig']) ? $options['retryConfig'] : [];
+        $this->retryConfig = $this->validateRetryConfig($providedRetry);
+
+        // Initialize client without retryConfig; manager owns it
+        $clientOptions = [
+            'isGatewayUrlNotSecure' => $this->isGatewayUrlNotSecure,
+            'shouldWaitForTrackingCalls' => $this->shouldWaitForTrackingCalls,
+            'retryConfig' => $this->retryConfig,
+        ];
+        $this->client = $client ?: new NetworkClient($clientOptions);
     }
 
      // Singleton pattern
@@ -54,7 +71,7 @@ class NetworkManager {
 
     // Check if the instance has been initialized
     private function isInitialized() {
-        return isset($this->isGatewayUrlNotSecure);
+        return isset($this->isGatewayUrlNotSecure) && isset($this->shouldWaitForTrackingCalls);
     }
 
     public function setConfig($config) {
@@ -98,6 +115,51 @@ class NetworkManager {
         } catch (Exception $e) {
             throw new \Exception('Failed to make POST request: ' . $e->getMessage());
         }
+    }
+
+    public function getRetryConfig() {
+        return $this->retryConfig;
+    }
+
+    private function validateRetryConfig($retryConfig) {
+        $validated = Constants::DEFAULT_RETRY_CONFIG;
+        $invalid = false;
+
+        if (isset($retryConfig[Constants::RETRY_SHOULD_RETRY])) {
+            if (is_bool($retryConfig[Constants::RETRY_SHOULD_RETRY])) {
+                $validated[Constants::RETRY_SHOULD_RETRY] = $retryConfig[Constants::RETRY_SHOULD_RETRY];
+            } else { 
+                $invalid = true; 
+            }
+        }
+        if (isset($retryConfig[Constants::RETRY_MAX_RETRIES])) {
+            if (is_int($retryConfig[Constants::RETRY_MAX_RETRIES]) && $retryConfig[Constants::RETRY_MAX_RETRIES] >= 1) {
+                $validated[Constants::RETRY_MAX_RETRIES] = $retryConfig[Constants::RETRY_MAX_RETRIES];
+            } 
+            else { 
+                $invalid = true;
+            }
+        }
+        if (isset($retryConfig[Constants::RETRY_INITIAL_DELAY])) {
+            if (is_int($retryConfig[Constants::RETRY_INITIAL_DELAY]) && $retryConfig[Constants::RETRY_INITIAL_DELAY] >= 1) {
+                $validated[Constants::RETRY_INITIAL_DELAY] = $retryConfig[Constants::RETRY_INITIAL_DELAY];
+            } else { 
+                $invalid = true; 
+            }
+        }
+        if (isset($retryConfig[Constants::RETRY_BACKOFF_MULTIPLIER])) {
+            if (is_int($retryConfig[Constants::RETRY_BACKOFF_MULTIPLIER]) && $retryConfig[Constants::RETRY_BACKOFF_MULTIPLIER] >= 2) {
+                $validated[Constants::RETRY_BACKOFF_MULTIPLIER] = $retryConfig[Constants::RETRY_BACKOFF_MULTIPLIER];
+            } else { 
+                $invalid = true; 
+            }
+        }
+
+        if ($invalid) {
+            LoggerService::error('INVALID_RETRY_CONFIG', [ 'retryConfig' => json_encode($retryConfig) ]);
+        }
+
+        return $validated;
     }
 }
 

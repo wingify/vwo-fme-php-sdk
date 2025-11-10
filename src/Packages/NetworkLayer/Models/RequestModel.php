@@ -28,6 +28,7 @@ class RequestModel {
     private $timeout;
     private $body;
     private $headers;
+    private $retryConfig;
 
     public function __construct(
         $url,
@@ -37,7 +38,8 @@ class RequestModel {
         $body = null,
         $headers = [],
         $scheme = 'http',
-        $port = '80'
+        $port = '80',
+        $retryConfig = []
     ) {
         $this->url = $url;
         $this->path = $path;
@@ -47,6 +49,7 @@ class RequestModel {
         $this->scheme = $scheme ?? 'http';
         $this->port = $port;
         $this->method = $method;
+        $this->retryConfig = $retryConfig;
     }
 
     public function getMethod() {
@@ -89,6 +92,14 @@ class RequestModel {
 
     public function getTimeout() {
         return $this->timeout;
+    }
+
+    public function getRetryConfig() {
+        return $this->retryConfig;
+    }
+
+    public function setRetryConfig($retryConfig) {
+        $this->retryConfig = $retryConfig;
     }
 
     public function getUrl() {
@@ -157,6 +168,7 @@ class RequestModel {
             $options['timeout'] = $this->timeout;
         }
 
+        $options['retryConfig'] = $this->retryConfig;
         return $options;
     }
 }

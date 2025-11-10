@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2025-10-10
+
+### Added
+
+- Introduced option to send network calls synchronously with the introduction of a new parameter in init, `shouldWaitForTrackingCalls`.
+- Added `retryConfig` init parameter to configure retries: `shouldRetry`, `maxRetries`, `initialDelay`, `backoffMultiplier`.
+
+Example:
+
+```php
+$vwoClient = VWO::init([
+    'accountId' => '123456',
+    'sdkKey' => '32-alpha-numeric-sdk-key',
+    'shouldWaitForTrackingCalls' => true, // switch to synchronous (cURL) tracking
+    'retryConfig' => [
+        'shouldRetry' => true,        // default: true
+        'maxRetries' => 3,            // default: 3
+        'initialDelay' => 2,          // seconds; default: 2
+        'backoffMultiplier' => 2,     // delays: 2s, 4s, 8s; default: 2
+    ],
+]);
+
+// If you want synchronous calls without retries
+$vwoClient = VWO::init([
+    'accountId' => '123456',
+    'sdkKey' => '32-alpha-numeric-sdk-key',
+    'shouldWaitForTrackingCalls' => true,
+    'retryConfig' => [
+        'shouldRetry' => false,
+    ],
+]);
+```
+
 ## [1.12.0] - 2025-09-25
 
 ### Added

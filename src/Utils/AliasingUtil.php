@@ -61,16 +61,22 @@ class AliasingUtil
       $response = NetworkManager::instance()->get($request);
       if ($response) {
         $responseData = $response->getData();
-        // alias id is the 0th index of the response data
-        $aliasIdFromResponse = $responseData[0]->userId;
-        return $aliasIdFromResponse;
+        // Check if response data exists and has the expected structure
+        if ($responseData && is_array($responseData) && isset($responseData[0]) && is_object($responseData[0]) && isset($responseData[0]->userId)) {
+          $aliasIdFromResponse = $responseData[0]->userId;
+          return $aliasIdFromResponse;
+        } else {
+          LogManager::instance()->debug("No response from the gateway or the call to the gateway failed.");
+          return $userId;
+        }
       } else {
+        LogManager::instance()->debug("No response from the gateway or the call to the gateway failed.");
         return $userId;
       }
     } catch (Exception $err) {
       $message = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
       LogManager::instance()->error("Error occurred while fetching alias: {$message}");
-      return false;
+      return $userId;
     }
   }
 

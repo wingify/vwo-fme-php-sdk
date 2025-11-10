@@ -40,7 +40,7 @@ class Constants {
     const DEFAULT_EVENTS_PER_REQUEST = 100;
     const SDK_NAME = 'vwo-fme-php-sdk';
 
-    const SDK_VERSION = '1.12.0';
+    const SDK_VERSION = '1.13.0';
     const AP = 'server';
 
     const SETTINGS = 'settings';
@@ -57,6 +57,20 @@ class Constants {
 
     const PRODUCT = 'product';
     const FME = 'fme';
+
+    // Retry configuration keys
+    const RETRY_SHOULD_RETRY = 'shouldRetry';
+    const RETRY_MAX_RETRIES = 'maxRetries';
+    const RETRY_INITIAL_DELAY = 'initialDelay';
+    const RETRY_BACKOFF_MULTIPLIER = 'backoffMultiplier';
+
+    // Retry configuration defaults
+    const DEFAULT_RETRY_CONFIG = [
+        self::RETRY_SHOULD_RETRY => true,
+        self::RETRY_MAX_RETRIES => 3,
+        self::RETRY_INITIAL_DELAY => 2,
+        self::RETRY_BACKOFF_MULTIPLIER => 2,
+    ];
 }
 
 ?>

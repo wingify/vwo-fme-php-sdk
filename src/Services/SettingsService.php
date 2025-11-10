@@ -84,7 +84,13 @@ class SettingsService implements ISettingsService {
         $networkOptions = [
             'isGatewayUrlNotSecure' => isset($options['gatewayService']['isGatewayUrlNotSecure'])
                                       ? $options['gatewayService']['isGatewayUrlNotSecure']
-                                      : false
+                                      : false, 
+            'shouldWaitForTrackingCalls' => isset($options['shouldWaitForTrackingCalls'])
+                                      ? $options['shouldWaitForTrackingCalls']
+                                      : false,
+            'retryConfig' => isset($options['retryConfig']) && is_array($options['retryConfig'])
+                                      ? $options['retryConfig']
+                                      : null,
         ];
 
         NetworkManager::instance($networkOptions); // Pass the options to the NetworkManager

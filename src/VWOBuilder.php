@@ -71,6 +71,12 @@ class VWOBuilder implements IVWOBuilder
             'isGatewayUrlNotSecure' => isset($this->options['gatewayService']['isGatewayUrlNotSecure']) 
                 ? $this->options['gatewayService']['isGatewayUrlNotSecure'] 
                 : false,
+            'shouldWaitForTrackingCalls' => isset($this->options['shouldWaitForTrackingCalls'])
+                ? $this->options['shouldWaitForTrackingCalls']
+                : false,
+            'retryConfig' => isset($this->options['retryConfig']) && is_array($this->options['retryConfig'])
+                ? $this->options['retryConfig']
+                : null,
         ];
 
         $networkInstance = NetworkManager::instance($networkOptions);

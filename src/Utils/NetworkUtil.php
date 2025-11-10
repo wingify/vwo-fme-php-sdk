@@ -356,6 +356,7 @@ class NetworkUtil {
    */
   public function sendPostApiRequest($properties, $payload) {
 
+        $retryConfig = NetworkManager::Instance()->getRetryConfig();
         $headers = [];
 
         $userAgent = isset($payload['d']['visitor_ua']) ? $payload['d']['visitor_ua'] : null;
@@ -377,7 +378,8 @@ class NetworkUtil {
             $payload,
             $headers,
             SettingsService::instance()->protocol,
-            SettingsService::instance()->port
+            SettingsService::instance()->port,
+            $retryConfig
         );
 
         try {
@@ -455,7 +457,12 @@ class NetworkUtil {
      * @return array|false The response data if successful, false otherwise
      */
     public function sendEvent($properties, $payload, $eventName) {
-    
+        $retryConfig = NetworkManager::Instance()->getRetryConfig();
+
+        if($eventName == EventEnum::VWO_ERROR){
+            $retryConfig['shouldRetry'] = false;
+        }
+        
         if($eventName == EventEnum::VWO_ERROR || $eventName == EventEnum::VWO_USAGE_STATS_EVENT) {
             $baseUrl = Constants::HOST_NAME;
             $protocol = Constants::HTTPS_PROTOCOL;
@@ -475,7 +482,8 @@ class NetworkUtil {
                 $payload,
                 null,
                 $protocol,
-                $port
+                $port,
+                $retryConfig
             );
     
             // Perform the network POST request synchronously
