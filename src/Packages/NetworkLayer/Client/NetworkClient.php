@@ -263,32 +263,16 @@ class NetworkClient implements NetworkClientInterface
         $responseModel = new ResponseModel();
 
         try {
-            // Check if we should use cURL instead of socket
-            if ($this->shouldUseCurl($networkOptions)) {
-                $curlResponse = $this->makeCurlRequest(
-                    $networkOptions['url'],
-                    'GET',
-                    $networkOptions['headers'],
-                    null,
-                    $networkOptions['timeout'] / 1000
-                );
-                $rawResponse = $curlResponse['body'];
-                $responseModel->setStatusCode($curlResponse['status_code']);
-            } else {
-                // Use socket connection (existing logic)
-                $socket = $this->createSocketConnection(
-                    $networkOptions['url'],
-                    $networkOptions['timeout'] / 1000
-                );
-
-                $parsedUrl = parse_url($networkOptions['url']);
-                $path = $parsedUrl['path'] . (isset($parsedUrl['query']) ? '?' . $parsedUrl['query'] : '');
-                
-                $this->sendRequest($socket, 'GET', $path, $networkOptions['headers'], null, $networkOptions['url']);
-                $rawResponse = $this->readResponse($socket)['body'];
-                
-                fclose($socket);
-            }
+            $curlResponse = $this->makeCurlRequest(
+                $networkOptions['url'],
+                'GET',
+                $networkOptions['headers'],
+                null,
+                $networkOptions['timeout'] / 1000
+            );
+            $rawResponse = $curlResponse['body'];
+            $responseModel->setStatusCode($curlResponse['status_code']);
+            
 
             $parsedData = json_decode($rawResponse, false);
             if ($parsedData === null && json_last_error() !== JSON_ERROR_NONE) {
