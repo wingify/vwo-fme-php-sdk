@@ -121,6 +121,7 @@ class NetworkUtil {
             'a' => $accountId,
             'sd' => Constants::SDK_NAME,
             'sv' => $sdkVersion,
+            'env' => SettingsService::instance()->sdkKey
         ];
 
         return $path;

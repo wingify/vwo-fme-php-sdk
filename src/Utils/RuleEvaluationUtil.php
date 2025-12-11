@@ -25,7 +25,9 @@ use vwo\Services\StorageService;
 use vwo\Utils\DataTypeUtil;
 use vwo\Utils\DecisionUtil;
 use vwo\Utils\ImpressionUtil;
+use vwo\Utils\NetworkUtil;
 use vwo\Models\User\ContextModel;
+use vwo\Enums\EventEnum;
 
 class RuleEvaluationUtil
 {
@@ -57,6 +59,7 @@ class RuleEvaluationUtil
             $storageService,
             $decision
         );
+        $payload = null;
 
         // If pre-segmentation is successful and a whitelisted object exists, proceed to send an impression
         if ($preSegmentationResult && DataTypeUtil::isObject($whitelistedObject) && count((array) $whitelistedObject) > 0) {
@@ -66,16 +69,16 @@ class RuleEvaluationUtil
                 'experimentKey' => $campaign->getKey(),
                 'experimentVariationId' => $whitelistedObject['variationId'],
             ]);
-
             // Send an impression for the variation shown
             // if settings passed in init options is true, then we don't need to send an impression
             if (!$isDebuggerUsed) {
-                ImpressionUtil::createAndSendImpressionForVariationShown($settings, $campaign->getId(), $whitelistedObject['variation']->getId(), $context);
+                $networkUtil = new NetworkUtil();
+                $payload = $networkUtil->getTrackUserPayloadData($settings, EventEnum::VWO_VARIATION_SHOWN, $campaign->getId(), $whitelistedObject['variation']->getId(), $context);
             }
         }
 
         // Return the results of the evaluation
-        return ['preSegmentationResult' => $preSegmentationResult, 'whitelistedObject' => $whitelistedObject, 'updatedDecision' => $decision];
+        return ['preSegmentationResult' => $preSegmentationResult, 'whitelistedObject' => $whitelistedObject, 'updatedDecision' => $decision, 'payload' => $payload];
     }
 }
 ?>

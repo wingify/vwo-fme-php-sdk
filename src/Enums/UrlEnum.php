@@ -25,7 +25,7 @@ class UrlEnum {
     const TRACK_USER = '/server-side/track-user';
     const TRACK_GOAL = '/server-side/track-goal';
     const PUSH = '/server-side/push';
-    const BATCH_EVENTS = '/server-side/batch-events';
+    const BATCH_EVENTS = '/server-side/batch-events-v2';
     const EVENTS = '/events/t';
     const ATTRIBUTE_CHECK = '/check-attribute';
     const GET_USER_DATA = '/get-user-details';

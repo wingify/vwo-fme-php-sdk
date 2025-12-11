@@ -37,6 +37,9 @@ use vwo\Utils\FunctionUtil;
 use vwo\Utils\ImpressionUtil;
 use vwo\Utils\GetFlagResultUtil;
 use vwo\Utils\RuleEvaluationUtil;
+use vwo\Utils\NetworkUtil;
+use vwo\Enums\EventEnum;
+use vwo\Services\SettingsService;
 
 class GetFlag
 {
@@ -57,6 +60,7 @@ class GetFlag
         $evaluatedFeatureMap = [];
         $storageService = new StorageService();
         $ruleStatus = [];
+        $batchPayload = [];
 
         // Get feature object from feature key
         $feature = FunctionUtil::getFeatureFromKey($settings, $featureKey);
@@ -155,6 +159,18 @@ class GetFlag
                 );
 
                 if ($evaluateRuleResult['preSegmentationResult']) {
+                    $payload = $evaluateRuleResult['payload'];
+                    if(!$isDebuggerUsed) {
+                        if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+                        } else {
+                            //push this payload to the batch payload
+                            if($payload !== null) {
+                                $batchPayload[] = $payload;
+                            }
+                        }
+                    }
+                    
                     $evaluatedFeatureMap[$featureKey] = [
                         'rolloutId' => $rule->getId(),
                         'rolloutKey' => $rule->getKey(),
@@ -180,12 +196,24 @@ class GetFlag
                     $this->updateIntegrationsDecisionObject($passedRolloutCampaign, $variation, $passedRulesInformation, $decision);
 
                     if (!$isDebuggerUsed) {
-                        ImpressionUtil::createAndSendImpressionForVariationShown(
+                        //push this payload to the batch payload
+                        $networkUtil = new NetworkUtil();
+                        $payload = $networkUtil->getTrackUserPayloadData(
                             $settings,
+                            EventEnum::VWO_VARIATION_SHOWN,
                             $passedRolloutCampaign->getId(),
                             $variation->getId(),
                             $context
                         );
+
+                        if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+                        } else {
+                            //push this payload to the batch payload
+                            if($payload !== null) {
+                                $batchPayload[] = $payload;
+                            }
+                        }
                     }
                 }
             }
@@ -218,6 +246,14 @@ class GetFlag
                         $experimentRulesToEvaluate[] = $rule;
                     } else {
                         $isEnabled = true;
+                        $payload = $evaluateRuleResult['payload'];
+                        if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+                        } else {
+                            if($payload !== null) {
+                                $batchPayload[] = $payload;
+                            }
+                        }
                         $experimentVariationToReturn = $evaluateRuleResult['whitelistedObject']['variation'];
 
                         $passedRulesInformation = array_merge($passedRulesInformation, [
@@ -245,12 +281,23 @@ class GetFlag
                     $this->updateIntegrationsDecisionObject($campaign, $variation, $passedRulesInformation, $decision);
 
                     if (!$isDebuggerUsed) {
-                        ImpressionUtil::createAndSendImpressionForVariationShown(
+                        // Construct payload data for tracking the user
+                        $networkUtil = new NetworkUtil();
+                        $payload = $networkUtil->getTrackUserPayloadData(
                             $settings,
+                            EventEnum::VWO_VARIATION_SHOWN,
                             $campaign->getId(),
                             $variation->getId(),
                             $context
                         );
+                        if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+                        } else {
+                            //push this payload to the batch payload
+                            if($payload !== null) {
+                                $batchPayload[] = $payload;
+                            }
+                        }
                     }
                 }
             }
@@ -282,12 +329,23 @@ class GetFlag
             ));
 
             if (!$isDebuggerUsed) {
-                ImpressionUtil::createAndSendImpressionForVariationShown(
+                // Construct payload data for tracking the user
+                $networkUtil = new NetworkUtil();
+                $payload = $networkUtil->getTrackUserPayloadData(
                     $settings,
+                    EventEnum::VWO_VARIATION_SHOWN,
                     $feature->getImpactCampaign()->getCampaignId(),
                     $isEnabled ? 2 : 1,
                     $context
                 );
+                if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
+                    ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+                } else {
+                    //push this payload to the batch payload
+                    if($payload !== null) {
+                        $batchPayload[] = $payload;
+                    }
+                }
             }
         }
 
@@ -297,6 +355,10 @@ class GetFlag
             $variablesForEvaluatedFlag = $experimentVariationToReturn->getVariables();
         } elseif ($rolloutVariationToReturn !== null) {
             $variablesForEvaluatedFlag = $rolloutVariationToReturn->getVariables();
+        }
+
+        if(!SettingsService::instance()->isGatewayServiceProvided) {
+            ImpressionUtil::SendImpressionForVariationShownInBatch($batchPayload);
         }
 
         return new GetFlagResultUtil($isEnabled, $variablesForEvaluatedFlag, $ruleStatus);

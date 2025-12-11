@@ -22,9 +22,19 @@ use vwo\Models\SettingsModel;
 use vwo\Enums\EventEnum;
 use vwo\Utils\NetworkUtil;
 use vwo\Models\User\ContextModel;
+use vwo\Enums\HeadersEnum;
+use vwo\Services\SettingsService;
+use vwo\Services\UrlService;
+use vwo\Enums\UrlEnum;
+use vwo\Packages\NetworkLayer\Manager\NetworkManager;
+use vwo\Packages\NetworkLayer\Models\RequestModel;
+use vwo\Packages\Logger\Core\LogManager;
 
 class ImpressionUtil
 {
+    private $accountId;
+    
+
     /**
      * Creates and sends an impression for a variation shown event.
      * This function constructs the necessary properties and payload for the event
@@ -35,10 +45,9 @@ class ImpressionUtil
      * @param int $variationId - The ID of the variation shown to the user.
      * @param ContextModel $context - The user context model containing user-specific data.
      */
-    public static function createAndSendImpressionForVariationShown(
+    public static function SendImpressionForVariationShown(
         SettingsModel $settings,
-        $campaignId,
-        $variationId,
+        $payload,
         ContextModel $context
     ) {
         // Get base properties for the event
@@ -50,17 +59,75 @@ class ImpressionUtil
             $context->getIpAddress()
         );
 
-        // Construct payload data for tracking the user
-        $payload = $networkUtil->getTrackUserPayloadData(
-            $settings,
-            EventEnum::VWO_VARIATION_SHOWN,
-            $campaignId,
-            $variationId,
-            $context
-        );
-
         // Send the constructed properties and payload as a POST request
         $networkUtil->sendPostApiRequest($properties, $payload);
+    }
+
+    /**
+     * Sends a batch of events to the VWO server.
+     *
+     * @param array $batchPayload The batch payload to send.
+     * @return bool True if the batch of events was sent successfully, false otherwise.
+     */
+    public static function SendImpressionForVariationShownInBatch($batchPayload) {
+        return self::sendBatchEvents($batchPayload);
+    }
+
+    /**
+     * Sends a batch of events to the VWO server.
+     *
+     * @param array $batchPayload The batch payload to send.
+     * @return bool True if the batch of events was sent successfully, false otherwise.
+     */
+    private static function sendBatchEvents($batchPayload) {
+        $accountId = SettingsService::instance()->accountId ?? null;
+        $retryConfig = NetworkManager::instance()->getRetryConfig();
+
+        $networkUtil = new NetworkUtil();
+        $properties = $networkUtil->getEventBatchingQueryParams($accountId);
+        $headers = [];
+        $headers[HeadersEnum::AUTHORIZATION] = SettingsService::instance()->sdkKey;
+        
+        $eventCount = is_array($batchPayload) ? count($batchPayload) : 1;
+        $batchPayload = [
+            'ev' => $batchPayload
+        ];
+
+
+        $request = new RequestModel(
+            UrlService::getBaseUrl(),
+            'POST',
+            UrlEnum::BATCH_EVENTS,
+            $properties,
+            $batchPayload,
+            $headers,
+            SettingsService::instance()->protocol,
+            SettingsService::instance()->port,
+            $retryConfig
+        );
+
+        try {
+            $response = NetworkManager::instance()->post($request);
+            $statusCode = $response->getStatusCode();
+            
+            // When shouldWaitForTrackingCalls is false, socket connections are used (fire-and-forget)
+            // No status code is available, so we don't log success (we can't verify it)
+            if ($statusCode === null) {
+                LogManager::instance()->info('Impression sent to VWO server via socket connection for ' . $eventCount . ' events.');
+                return true;
+            }
+            
+            if ($statusCode == 200) {
+                LogManager::instance()->info('Impression sent successfully for ' . $eventCount . ' events.');
+                return true;
+            } else {
+                LogManager::instance()->error('Impression failed to send for ' . $eventCount . ' events');
+                return false;
+            }
+        } catch (\Exception $e) {
+            LogManager::instance()->error('Error occurred while sending impressions. Error:' . $e->getMessage());
+            return false;
+        }
     }
 }
 

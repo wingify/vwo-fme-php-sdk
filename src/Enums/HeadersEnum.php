@@ -21,5 +21,6 @@ namespace vwo\Enums;
 class HeadersEnum {
     const USER_AGENT = 'X-Device-User-Agent';
     const IP = 'VWO-X-Forwarded-For';
+    const AUTHORIZATION = 'Authorization';
 }
 ?>
