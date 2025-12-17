@@ -80,6 +80,7 @@ class FunctionUtil
         if ($feature && $feature->getRulesLinkedCampaign() && $type && is_string($type)) {
             return array_filter($feature->getRulesLinkedCampaign(), function ($rule) use ($type) {
                 $ruleModel = (new CampaignModel())->modelFromDictionary($rule);
+
                 return $ruleModel->getType() === $type;
             });
         }
@@ -205,5 +206,21 @@ class FunctionUtil
             return $f->getKey() === $featureKey;
         }));
         return !empty($features) ? $features[0]->getId() : null;
+    }
+
+    /**
+     * Checks if a featureId exists in the settings.
+     * @param SettingsModel $settings - The settings containing features.
+     * @param int|string $featureId - The ID of the feature to check.
+     * @return bool True if the featureId exists in settings, otherwise false.
+     */
+    public static function isFeatureIdPresentInSettings(SettingsModel $settings, $featureId)
+    {
+        foreach ($settings->getFeatures() as $feature) {
+            if ($feature->getId() == $featureId) {
+                return true;
+            }
+        }
+        return false;
     }
 }

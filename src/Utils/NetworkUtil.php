@@ -23,7 +23,6 @@ use vwo\Utils\UuidUtil;
 use vwo\Constants\Constants;
 use vwo\Utils\UrlUtil;
 use vwo\Enums\UrlEnum;
-use vwo\Packages\Logger\Core\LogManager;
 use vwo\Utils\DataTypeUtil;
 use vwo\Packages\NetworkLayer\Manager\NetworkManager;
 use vwo\Enums\HeadersEnum;
@@ -35,8 +34,15 @@ use vwo\Services\UrlService;
 use vwo\Utils\UsageStatsUtil;
 use vwo\Enums\EventEnum;
 use vwo\Services\LoggerService;
+use vwo\Services\ServiceContainer;
 
 class NetworkUtil {
+  private $serviceContainer;
+
+  public function __construct(ServiceContainer $serviceContainer = null)
+  {
+    $this->serviceContainer = $serviceContainer;
+  }
   
   /**
    * Gets base properties for bulk operations.
@@ -82,7 +88,7 @@ class NetworkUtil {
         try {
             $sdkVersion = ComposerUtil::getSdkVersion();
         } catch (Exception $e) {
-            LogManager::instance()->error($e->getMessage());
+            $this->serviceContainer->getLogManager()->error($e->getMessage());
             $sdkVersion = Constants::SDK_VERSION; // Use the constant as a fallback
         }
 
@@ -113,15 +119,16 @@ class NetworkUtil {
         try {
             $sdkVersion = ComposerUtil::getSdkVersion();
         } catch (Exception $e) {
-            LogManager::instance()->error($e->getMessage());
+            $this->serviceContainer->getLogManager()->error($e->getMessage());
             $sdkVersion = Constants::SDK_VERSION; // Use the constant as a fallback
         }
-
+        $settingsService = $this->serviceContainer->getSettingsService();
+        $sdkKey = $settingsService->sdkKey;
         $path = [
             'a' => $accountId,
             'sd' => Constants::SDK_NAME,
             'sv' => $sdkVersion,
-            'env' => SettingsService::instance()->sdkKey
+            'env' => $sdkKey
         ];
 
         return $path;
@@ -138,8 +145,9 @@ class NetworkUtil {
    * @return array Array containing event properties with URL
    */
   public function getEventsBaseProperties($eventName, $visitorUserAgent = '', $ipAddress = '', $isUsageStatsEvent = false, $usageStatsAccountId = null) {
-        $sdkKey = SettingsService::instance()->sdkKey;
-        $accountId = SettingsService::instance()->accountId;
+        $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
+        $sdkKey = $settingsService->sdkKey;
+        $accountId = $settingsService->accountId;
 
         $properties = [
             'en' => $eventName,
@@ -181,14 +189,15 @@ class NetworkUtil {
    * @return array Array containing the base event payload structure
    */
   public function getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent = '', $ipAddress = '', $isUsageStatsEvent = false, $usageStatsAccountId = null) {
-        $accountId = $isUsageStatsEvent ? $usageStatsAccountId : SettingsService::instance()->accountId;
+        $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
+        $accountId = $isUsageStatsEvent ? $usageStatsAccountId : $settingsService->accountId;
         $uuid = UuidUtil::getUUID($userId, $accountId);
   
 
         try {
             $sdkVersion = ComposerUtil::getSdkVersion();
         } catch (Exception $e) {
-            LogManager::instance()->error($e->getMessage());
+            $this->serviceContainer->getLogManager()->error($e->getMessage());
             $sdkVersion = Constants::SDK_VERSION; // Use the constant as a fallback
         }
 
@@ -199,7 +208,7 @@ class NetworkUtil {
 
         if(!$isUsageStatsEvent){
             // set env key for standard sdk events
-            $props['vwo_envKey'] = SettingsService::instance()->sdkKey;
+            $props['vwo_envKey'] = $settingsService->sdkKey;
         }
 
         $properties = [
@@ -219,7 +228,7 @@ class NetworkUtil {
             // set visitor props for standard sdk events
             $properties['d']['visitor'] = [
                 'props' => [
-                    'vwo_fs_environment' => SettingsService::instance()->sdkKey,
+                    'vwo_fs_environment' => $settingsService->sdkKey,
                 ],
             ];
         }
@@ -279,12 +288,12 @@ class NetworkUtil {
                 $properties['d']['visitor']['props']['vwo_bv'] = $uaInfo->browser_version;
             }
             else {
-                LogManager::instance()->error('To pass user agent related details as standard attributes, please set gateway as well in init method');
+                $this->serviceContainer->getLogManager()->error('To pass user agent related details as standard attributes, please set gateway as well in init method');
             }
         }
         
         
-        LogManager::instance()->debug(
+        $this->serviceContainer->getLogManager()->debug(
             "IMPRESSION_FOR_TRACK_USER: Impression built for vwo_variationShown event for Account ID:{$settings->getAccountId()}, User ID:{$userId}, and Campaign ID:{$campaignId}"
         );
 
@@ -314,7 +323,7 @@ class NetworkUtil {
             }
         }
 
-        LogManager::instance()->debug(
+        $this->serviceContainer->getLogManager()->debug(
             "IMPRESSION_FOR_TRACK_GOAL: Impression built for {$eventName} event for Account ID:{$settings->getAccountId()}, User ID:{$userId}"
         );
 
@@ -341,7 +350,7 @@ class NetworkUtil {
             $properties['d']['visitor']['props'][$key] = $value;
         }
     
-        LogManager::instance()->debug(
+        $this->serviceContainer->getLogManager()->debug(
             "IMPRESSION_FOR_SYNC_VISITOR_PROP: Impression built for {$eventName} event for Account ID: {$settings->getAccountId()}, User ID: {$userId}"
         );
 
@@ -371,24 +380,37 @@ class NetworkUtil {
             $headers[HeadersEnum::IP] = $ipAddress;
         }
 
+        $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
+        $networkManager = $this->serviceContainer ? $this->serviceContainer->getNetworkManager() : NetworkManager::instance();
+        $logManager = $this->serviceContainer->getLogManager();
+        
         $request = new RequestModel(
-            UrlService::getBaseUrl(),
+            $settingsService->hostname,
             'POST',
             UrlEnum::EVENTS,
             $properties,
             $payload,
             $headers,
-            SettingsService::instance()->protocol,
-            SettingsService::instance()->port,
+            $settingsService->protocol,
+            $settingsService->port,
             $retryConfig
         );
 
         try {
-            $response = NetworkManager::Instance()->post($request);
+            // Ensure NetworkManager has client attached if using singleton fallback
+            if (!$this->serviceContainer && $networkManager) {
+                $networkOptions = [
+                    'isGatewayUrlNotSecure' => false
+                ];
+                $networkManager->attachClient(null, $networkOptions);
+            }
+            
+            $response = $networkManager->post($request);
             return $response;
         } catch (Exception $err) {
             $errorMessage = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
-            LogManager::instance()->error("Error occurred while sending POST request $errorMessage");
+            $logManager->error("Error occurred while sending POST request: $errorMessage");
+            return null;
         }
     }
 
@@ -400,22 +422,35 @@ class NetworkUtil {
    * @return mixed The response from the API call or null on failure
    */
   public function sendGetApiRequest($properties, $endpoint) {
+        $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
+        $networkManager = $this->serviceContainer ? $this->serviceContainer->getNetworkManager() : NetworkManager::instance();
+        $logManager = $this->serviceContainer->getLogManager();
+        
         $request = new RequestModel(
-            UrlService::getBaseUrl(),
+            $settingsService->hostname,
             'Get',
             $endpoint,
             $properties,
             null,
             null,
-            SettingsService::instance()->protocol,
-            SettingsService::instance()->port
+            $settingsService->protocol,
+            $settingsService->port
         );
         try {
-            $response = NetworkManager::Instance()->get($request);
+            // Ensure NetworkManager has client attached if using singleton fallback
+            if (!$this->serviceContainer && $networkManager) {
+                $networkOptions = [
+                    'isGatewayUrlNotSecure' => false
+                ];
+                // Ensure singleton has client attached
+                $networkManager->attachClient(null, $networkOptions);
+            }
+            
+            $response = $networkManager->get($request);
             return $response; // Return the response model
         } catch (Exception $err) {
             $errorMessage = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
-            LogManager::instance()->error("Error occurred while sending GET request $errorMessage ");
+            $logManager->error("Error occurred while sending GET request: $errorMessage");
             return null;
         }
     }
@@ -429,11 +464,12 @@ class NetworkUtil {
    * @return array Array containing the messaging event payload
    */
   public function getMessagingEventPayload($messageType, $message, $eventName) {
-        $userId = SettingsService::instance()->accountId . '_' . SettingsService::instance()->sdkKey;
+        $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
+        $userId = $settingsService->accountId . '_' . $settingsService->sdkKey;
         $properties = $this->getEventBasePayload(null, $userId, $eventName, null, null);
     
         // Set environment key
-        $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = SettingsService::instance()->sdkKey;
+        $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settingsService->sdkKey;
         $properties['d']['event']['props']['product'] = 'fme';
     
         $data = [
@@ -470,8 +506,9 @@ class NetworkUtil {
             $port = null;
         } else {
             $baseUrl = UrlService::getBaseUrl();
-            $protocol = SettingsService::instance()->protocol ?? Constants::HTTPS_PROTOCOL;
-            $port = SettingsService::instance()->port ?? null;
+            $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
+            $protocol = $settingsService->protocol ?? Constants::HTTPS_PROTOCOL;
+            $port = $settingsService->port ?? null;
         }
         
         try {
@@ -488,10 +525,21 @@ class NetworkUtil {
             );
     
             // Perform the network POST request synchronously
-            $response = NetworkManager::Instance()->post($request);
+            $networkManager = $this->serviceContainer ? $this->serviceContainer->getNetworkManager() : NetworkManager::instance();
+            
+            // Ensure NetworkManager has client attached if using singleton fallback
+            if (!$this->serviceContainer && $networkManager) {
+                $networkOptions = [
+                    'isGatewayUrlNotSecure' => false
+                ];
+                // Ensure singleton has client attached
+                $networkManager->attachClient(null, $networkOptions);
+            }
+            
+            $response = $networkManager->post($request);
             return $response;
         } catch (Exception $e) {
-            LoggerService::error('NETWORK_CALL_FAILED', ['method' => 'POST', 'error' => $e->getMessage()]);
+            $this->serviceContainer->getLogManager()->error('NETWORK_CALL_FAILED', ['method' => 'POST', 'error' => $e->getMessage()]);
             return false;
         }
     }    
@@ -506,11 +554,12 @@ class NetworkUtil {
      */
     public function getSdkInitEventPayload($eventName, $settingsFetchTime = null, $sdkInitTime = null)
     {
-        $userId = SettingsService::instance()->accountId . '_' . SettingsService::instance()->sdkKey;
+        $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
+        $userId = $settingsService->accountId . '_' . $settingsService->sdkKey;
         $properties = $this->getEventBasePayload(null, $userId, $eventName, null, null);
 
         // Set the required fields as specified
-        $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = SettingsService::instance()->sdkKey;
+        $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settingsService->sdkKey;
         $properties['d']['event']['props'][Constants::PRODUCT] = Constants::FME;
         
 
@@ -534,7 +583,8 @@ class NetworkUtil {
     public function getSDKUsageStatsEventPayload($eventName, $usageStatsAccountId)
     {
         // Build userId as accountId_sdkKey (not usageStatsAccountId_sdkKey)
-        $userId = SettingsService::instance()->accountId . '_' . SettingsService::instance()->sdkKey;
+        $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
+        $userId = $settingsService->accountId . '_' . $settingsService->sdkKey;
 
         // Pass $usageStatsAccountId as the last argument (6th) to getEventBasePayload, with $isUsageStatsEvent = true
         $properties = $this->getEventBasePayload(

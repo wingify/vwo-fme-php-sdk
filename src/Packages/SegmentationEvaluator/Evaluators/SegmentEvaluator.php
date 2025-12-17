@@ -23,7 +23,6 @@ use vwo\Models\SettingsModel;
 use vwo\Models\User\ContextModel;
 use vwo\Models\FeatureModel;
 use vwo\Services\StorageService;
-use vwo\Packages\Logger\Core\LogManager;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperatorValueEnum;
 use vwo\Packages\SegmentationEvaluator\Evaluators\SegmentOperandEvaluator;
 use vwo\Utils\DataTypeUtil;
@@ -31,14 +30,16 @@ use vwo\Utils\DataTypeUtil;
 class SegmentEvaluator implements Segmentation
 {
     public $context;
-    public $settings;
+    public $serviceContainer;
     public $feature;
+    public $segmentOperandEvaluator;
 
-    public function __construct($settings = null, $context = null, $feature = null)
+    public function __construct($serviceContainer = null, $context = null, $feature = null)
     {
-        $this->settings = $settings;
+        $this->serviceContainer = $serviceContainer;
         $this->context = $context;
         $this->feature = $feature;
+        $this->segmentOperandEvaluator = new SegmentOperandEvaluator($serviceContainer);
     }
 
     public function isSegmentationValid($dsl, $properties)
@@ -55,17 +56,17 @@ class SegmentEvaluator implements Segmentation
             case SegmentOperatorValueEnum::OR:
                 return $this->some($subDsl, $properties);
             case SegmentOperatorValueEnum::CUSTOM_VARIABLE:
-                return (new SegmentOperandEvaluator())->evaluateCustomVariableDSL($subDsl, $properties);
+                return $this->segmentOperandEvaluator->evaluateCustomVariableDSL($subDsl, $properties);
             case SegmentOperatorValueEnum::USER:
-                return (new SegmentOperandEvaluator())->evaluateUserDSL($subDsl, $properties);
+                return $this->segmentOperandEvaluator->evaluateUserDSL($subDsl, $properties);
             case SegmentOperatorValueEnum::UA:
-                return (new SegmentOperandEvaluator())->evaluateUserAgentDSL($subDsl, $this->context);
+                return $this->segmentOperandEvaluator->evaluateUserAgentDSL($subDsl, $this->context);
             case SegmentOperatorValueEnum::IP:
-                return (new SegmentOperandEvaluator())->evaluateStringOperandDSL($subDsl, $this->context, SegmentOperatorValueEnum::IP);
+                return $this->segmentOperandEvaluator->evaluateStringOperandDSL($subDsl, $this->context, SegmentOperatorValueEnum::IP);
             case SegmentOperatorValueEnum::BROWSER_VERSION:
-                return (new SegmentOperandEvaluator())->evaluateStringOperandDSL($subDsl, $this->context, SegmentOperatorValueEnum::BROWSER_VERSION);
+                return $this->segmentOperandEvaluator->evaluateStringOperandDSL($subDsl, $this->context, SegmentOperatorValueEnum::BROWSER_VERSION);
             case SegmentOperatorValueEnum::OS_VERSION:
-                return (new SegmentOperandEvaluator())->evaluateStringOperandDSL($subDsl, $this->context, SegmentOperatorValueEnum::OS_VERSION);
+                return $this->segmentOperandEvaluator->evaluateStringOperandDSL($subDsl, $this->context, SegmentOperatorValueEnum::OS_VERSION);
             default:
                 return false;
         }
@@ -117,7 +118,7 @@ class SegmentEvaluator implements Segmentation
                             }
                             return $result;
                         } else {
-                            LogManager::instance()->error("Feature not found with featureIdKey: $featureIdKey");
+                            $this->serviceContainer->getLogManager()->error("Feature not found with featureIdKey: $featureIdKey");
                             return false;
                         }
                     }
@@ -129,7 +130,7 @@ class SegmentEvaluator implements Segmentation
                     $uaParserResult = $this->checkUserAgentParser($uaParserMap);
                     return $uaParserResult;
                 } catch (\Exception $err) {
-                    LogManager::instance()->error($err->getMessage());
+                    $this->serviceContainer->getLogManager()->error($err->getMessage());
                 }
             }
 
@@ -176,7 +177,7 @@ class SegmentEvaluator implements Segmentation
         $ipAddress = $this->context->getIpAddress(); // Use the getter method
 
         if (empty($ipAddress)) {
-            LogManager::instance()->info('To evaluate location pre-segmentation, please pass ipAddress in the context object');
+            $this->serviceContainer->getLogManager()->info('To evaluate location pre-segmentation, please pass ipAddress in the context object');
             return false;
         }
 
@@ -192,7 +193,7 @@ class SegmentEvaluator implements Segmentation
         $userAgent = $this->context->getUserAgent(); // Use the getter method
 
         if (empty($userAgent)) {
-            LogManager::instance()->info('To evaluate user agent related segments, please pass userAgent in the context object');
+            $this->serviceContainer->getLogManager()->info('To evaluate user agent related segments, please pass userAgent in the context object');
             return false;
         }
 

@@ -32,7 +32,7 @@ class StorageService
      * @param mixed $context The user context containing the ID.
      * @return mixed The data retrieved from storage or an error/storage status enum.
      */
-    public function getDataInStorage($featureKey, $context)
+    public function getDataInStorage($featureKey, $context, $serviceContainer)
     {
         $storageInstance = Storage::Instance()->getConnector();
 
@@ -45,11 +45,11 @@ class StorageService
                 if ($data !== null) {
                     return $data;
                 } else {
-                    LogManager::instance()->info("No data found in storage for feature key: " . $featureKey);
+                    $serviceContainer->getLogManager()->info("No data found in storage for feature key: " . $featureKey);
                     return StorageEnum::NO_DATA_FOUND;
                 }
             } catch (\Exception $e) {
-                LogManager::instance()->error("Error occurred while retrieving data: " . $e->getMessage());
+                $serviceContainer->getLogManager()->error("Error occurred while retrieving data: " . $e->getMessage());
                 return StorageEnum::NO_DATA_FOUND;
             }
         }
@@ -60,7 +60,7 @@ class StorageService
      * @param array $data The data to be stored.
      * @return bool Returns true if data is successfully stored, otherwise false.
      */
-    public function setDataInStorage($data)
+    public function setDataInStorage($data, $serviceContainer)
     {
         $storageInstance = Storage::Instance()->getConnector();
 
@@ -71,7 +71,7 @@ class StorageService
             try {
                 return $storageInstance->set($data);
             } catch (\Exception $e) {
-                LogManager::instance()->error("Error occurred while storing data: " . $e->getMessage());
+                $serviceContainer->getLogManager()->error("Error occurred while storing data: " . $e->getMessage());
                 return false;
             }
         }

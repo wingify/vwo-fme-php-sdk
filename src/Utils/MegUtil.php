@@ -37,6 +37,7 @@ use vwo\Utils\DataTypeUtil;
 use vwo\Utils\DecisionUtil;
 use vwo\Utils\FunctionUtil;
 use vwo\Utils\LogMessageUtil;
+use vwo\Services\ServiceContainer;
 
 
 class MegUtil
@@ -44,6 +45,7 @@ class MegUtil
     /**
      * Evaluates groups for a given feature and group ID.
      *
+     * @param ServiceContainer|null $serviceContainer
      * @param SettingsModel $settings
      * @param FeatureModel $feature
      * @param int $groupId
@@ -52,18 +54,18 @@ class MegUtil
      * @param StorageService $storageService
      * @return array
      */
-    public static function evaluateGroups($settings, $feature, $groupId, &$evaluatedFeatureMap, $context, $storageService)
+    public static function evaluateGroups($serviceContainer, $feature, $groupId, &$evaluatedFeatureMap, $context, $storageService)
     {
         $featureToSkip = [];
         $campaignMap = [];
 
         // get all feature keys and all campaignIds from the groupId
-        $result = self::getFeatureKeysFromGroup($settings, $groupId);
+        $result = self::getFeatureKeysFromGroup($serviceContainer->getSettings(), $groupId);
         $featureKeys = $result['featureKeys'];
         $groupCampaignIds = $result['groupCampaignIds'];
 
         foreach ($featureKeys as $featureKey) {
-            $tempFeature = FunctionUtil::getFeatureFromKey($settings, $featureKey);
+            $tempFeature = FunctionUtil::getFeatureFromKey($serviceContainer->getSettings(), $featureKey);
             // check if the feature is already evaluated
             if (in_array($featureKey, $featureToSkip)) {
                 continue;
@@ -71,7 +73,7 @@ class MegUtil
             
             // evaluate the feature rollout rules
             $isRolloutRulePassed = self::isRolloutRuleForFeaturePassed(
-                $settings,
+                $serviceContainer,
                 $tempFeature,
                 $evaluatedFeatureMap,
                 $featureToSkip,
@@ -79,7 +81,7 @@ class MegUtil
                 $context
             );
             if ($isRolloutRulePassed) {
-                foreach ($settings->getFeatures() as $tempFeature) {
+                foreach ($serviceContainer->getSettings()->getFeatures() as $tempFeature) {
                     if ($tempFeature->getKey() === $featureKey) {
                         foreach ($tempFeature->getRulesLinkedCampaign() as $rule) {                            
                             if (in_array($rule->getId(), $groupCampaignIds) || in_array($rule->getId() . '_' . $rule->getVariations()[0]->getId(), $groupCampaignIds)) {
@@ -97,10 +99,10 @@ class MegUtil
             }
         }
 
-        $result = self::getEligbleCampaigns($settings, $campaignMap, $context, $storageService);
+        $result = self::getEligbleCampaigns($serviceContainer, $campaignMap, $context, $storageService);
 
         return self::findWinnerCampaignAmongEligibleCampaigns(
-            $settings,
+            $serviceContainer,
             $feature->getKey(),
             $result['eligibleCampaigns'],
             $result['eligibleCampaignsWithStorage'],
@@ -132,7 +134,7 @@ class MegUtil
     /**
      * Evaluates the feature rollout rules for a given feature.
      *
-     * @param SettingsModel $settings
+     * @param ServiceContainer $serviceContainer
      * @param FeatureModel $feature
      * @param array $evaluatedFeatureMap
      * @param array $featureToSkip
@@ -140,7 +142,7 @@ class MegUtil
      * @param ContextModel $context
      * @return bool
      */
-    private static function isRolloutRuleForFeaturePassed($settings, $feature, &$evaluatedFeatureMap, $featureToSkip, $storageService, $context)
+    private static function isRolloutRuleForFeaturePassed($serviceContainer, $feature, &$evaluatedFeatureMap, $featureToSkip, $storageService, $context)
     {
         if (isset($evaluatedFeatureMap[$feature->getKey()]) && array_key_exists('rolloutId', $evaluatedFeatureMap[$feature->getKey()])) {
             return true;
@@ -152,7 +154,7 @@ class MegUtil
             foreach ($rollOutRules as $rule) {
                 $decision = [];
                 $result = RuleEvaluationUtil::evaluateRule(
-                    $settings,
+                    $serviceContainer,
                     $feature,
                     $rule,
                     $context,
@@ -169,7 +171,7 @@ class MegUtil
             }
             if ($ruleToTestForTraffic !== null) {
                 $campaign = (new CampaignModel())->modelFromDictionary($ruleToTestForTraffic);
-                $variation = DecisionUtil::evaluateTrafficAndGetVariation($settings, $campaign, $context->getId());
+                $variation = DecisionUtil::evaluateTrafficAndGetVariation($serviceContainer, $campaign, $context->getId());
                 if (DataTypeUtil::isObject($variation) && count((array)$variation) > 0) {
                     $evaluatedFeatureMap[$feature->getKey()] = [
                         'rolloutId' => $ruleToTestForTraffic->getId(),
@@ -184,20 +186,20 @@ class MegUtil
             return false;
         }
 
-        LogManager::instance()->debug("MEG: No rollout rule found for feature {$feature->getKey()}, evaluating experiments...");
+        $serviceContainer->getLogManager()->debug("MEG: No rollout rule found for feature {$feature->getKey()}, evaluating experiments...");
         return true;
     }
 
     /**
      * Retrieves eligible campaigns based on the provided campaign map and context.
      *
-     * @param SettingsModel $settings
+     * @param ServiceContainer $serviceContainer
      * @param array $campaignMap
      * @param ContextModel $context
      * @param StorageService $storageService
      * @return array
      */
-    private static function getEligbleCampaigns($settings, $campaignMap, $context, $storageService)
+    private static function getEligbleCampaigns($serviceContainer, $campaignMap, $context, $storageService)
     {
         $eligibleCampaigns = [];
         $eligibleCampaignsWithStorage = [];
@@ -213,12 +215,12 @@ class MegUtil
                 if (isset($storedData['experimentVariationId'])) {
                     if ($storedData['experimentKey'] && $storedData['experimentKey'] === $campaign->getKey()) {
                         $variation = CampaignUtil::getVariationFromCampaignKey(
-                            $settings,
+                            $serviceContainer->getSettings(),
                             $storedData['experimentKey'],
                             $storedData['experimentVariationId']
                         );
                         if ($variation) {
-                            LogManager::instance()->debug("MEG: Campaign {$storedData['experimentKey']} found in storage for user {$context['user']['id']}");
+                            $serviceContainer->getLogManager()->debug("MEG: Campaign {$storedData['experimentKey']} found in storage for user {$context['user']['id']}");
 
                             if (array_search($campaign->getKey(), array_column($eligibleCampaignsWithStorage, 'key')) === false) {
                                 $eligibleCampaignsWithStorage[] = $campaign;
@@ -232,12 +234,14 @@ class MegUtil
                 if (
                     (new CampaignDecisionService())->getPreSegmentationDecision(
                         (new CampaignModel())->modelFromDictionary($campaign),
-                        $context
+                        $context,
+                        $serviceContainer
                     ) &&
-                    (new CampaignDecisionService())->isUserPartOfCampaign($context->getId(), $campaign)
+                    (new CampaignDecisionService())->isUserPartOfCampaign($context->getId(), $campaign, $serviceContainer)
                 ) {
                     $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
-                    LogManager::instance()->info("Campaign {$campaignKey} is eligible for user ID:{$context->getId()}");
+                    $logManager = $serviceContainer->getLogManager();
+                    $logManager->info("Campaign {$campaignKey} is eligible for user ID:{$context->getId()}");
 
                     $eligibleCampaigns[] = $campaign;
                     continue;
@@ -257,7 +261,7 @@ class MegUtil
     /**
      * Evaluates the eligible campaigns and determines the winner campaign based on the provided settings, feature key, eligible campaigns, eligible campaigns with storage, group ID, and context.
      *
-     * @param SettingsModel $settings
+     * @param ServiceContainer $serviceContainer
      * @param string $featureKey
      * @param array $eligibleCampaigns
      * @param array $eligibleCampaignsWithStorage
@@ -266,19 +270,20 @@ class MegUtil
      * @param StorageService $storageService
      * @return CampaignModel|null
      */
-    private static function findWinnerCampaignAmongEligibleCampaigns($settings, $featureKey, $eligibleCampaigns, $eligibleCampaignsWithStorage, $groupId, $context, $storageService)
+    private static function findWinnerCampaignAmongEligibleCampaigns($serviceContainer, $featureKey, $eligibleCampaigns, $eligibleCampaignsWithStorage, $groupId, $context, $storageService)
     {
         // getCampaignIds from featureKey
         $winnerCampaign = null;
-        $campaignIds = CampaignUtil::getCampaignIdsFromFeatureKey($settings, $featureKey);
+        $campaignIds = CampaignUtil::getCampaignIdsFromFeatureKey($serviceContainer->getSettings(), $featureKey);
         // get the winner from each group and store it in winnerFromEachGroup
-        $megAlgoNumber = (isset($settings->getGroups()->$groupId) && property_exists($settings->getGroups()->$groupId, 'et'))
-            ? $settings->getGroups()->$groupId->et
+        $megAlgoNumber = (isset($serviceContainer->getSettings()->getGroups()->$groupId) && property_exists($serviceContainer->getSettings()->getGroups()->$groupId, 'et'))
+            ? $serviceContainer->getSettings()->getGroups()->$groupId->et
             : Constants::RANDOM_ALGO;
         // if eligibleCampaignsWithStorage has only one campaign, then that campaign is the winner
         if (count($eligibleCampaignsWithStorage) === 1) {
             $winnerCampaign = $eligibleCampaignsWithStorage[0];
-            LogManager::instance()->info(
+            $logManager = $serviceContainer->getLogManager();
+            $logManager->info(
                 "MEG: Campaign " . 
                 ($eligibleCampaignsWithStorage[0]->getType() === CampaignTypeEnum::AB
                     ? $eligibleCampaignsWithStorage[0]->getKey()
@@ -290,6 +295,7 @@ class MegUtil
         } elseif (count($eligibleCampaignsWithStorage) > 1 && $megAlgoNumber === Constants::RANDOM_ALGO) {
             // if eligibleCampaignsWithStorage has more than one campaign and algo is random, then find the winner using random algo
             $winnerCampaign = self::normalizeWeightsAndFindWinningCampaign(
+                $serviceContainer,
                 $eligibleCampaignsWithStorage,
                 $context,
                 $campaignIds,
@@ -299,7 +305,7 @@ class MegUtil
         } elseif (count($eligibleCampaignsWithStorage) > 1) {
             // if eligibleCampaignsWithStorage has more than one campaign and algo is not random, then find the winner using advanced algo
             $winnerCampaign = self::getCampaignUsingAdvancedAlgo(
-                $settings,
+                $serviceContainer,
                 $eligibleCampaignsWithStorage,
                 $context,
                 $campaignIds,
@@ -312,11 +318,12 @@ class MegUtil
             if (count($eligibleCampaigns) === 1) {
                 $winnerCampaign = $eligibleCampaigns[0];
                 $campaignKey = $eligibleCampaigns[0]->getType() === CampaignTypeEnum::AB ? $eligibleCampaigns[0]->getKey() : $eligibleCampaigns[0]->getName() . '_' . $eligibleCampaigns[0]->getRuleKey();
-                LogManager::instance()->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:{$context->getId()}");
+                $logManager = $serviceContainer->getLogManager();
+                $logManager->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:{$context->getId()}");
             } elseif (count($eligibleCampaigns) > 1 && $megAlgoNumber === Constants::RANDOM_ALGO) {
-                $winnerCampaign = self::normalizeWeightsAndFindWinningCampaign($eligibleCampaigns, $context, $campaignIds, $groupId, $storageService);
+                $winnerCampaign = self::normalizeWeightsAndFindWinningCampaign($serviceContainer, $eligibleCampaigns, $context, $campaignIds, $groupId, $storageService);
             } elseif (count($eligibleCampaigns) > 1) {
-                $winnerCampaign = self::getCampaignUsingAdvancedAlgo($settings, $eligibleCampaigns, $context, $campaignIds, $groupId, $storageService);
+                $winnerCampaign = self::getCampaignUsingAdvancedAlgo($serviceContainer, $eligibleCampaigns, $context, $campaignIds, $groupId, $storageService);
             }
         }
 
@@ -326,6 +333,7 @@ class MegUtil
     /**
      * Normalizes the weights of shortlisted campaigns and determines the winning campaign using random allocation.
      *
+     * @param ServiceContainer $serviceContainer
      * @param array $shortlistedCampaigns
      * @param ContextModel $context
      * @param array $calledCampaignIds
@@ -333,7 +341,7 @@ class MegUtil
      * @param StorageService $storageService
      * @return CampaignModel|null
      */
-    private static function normalizeWeightsAndFindWinningCampaign($shortlistedCampaigns, $context, $calledCampaignIds, $groupId, $storageService)
+    private static function normalizeWeightsAndFindWinningCampaign($serviceContainer, $shortlistedCampaigns, $context, $calledCampaignIds, $groupId, $storageService)
     {
         // Normalize the weights of all the shortlisted campaigns
         foreach ($shortlistedCampaigns as $campaign) {
@@ -371,7 +379,8 @@ class MegUtil
 
         if ($winnerCampaign) {
             $campaignKey = $winnerCampaign->getType() === CampaignTypeEnum::AB ? $winnerCampaign->getKey() : $winnerCampaign->getKey() . '_' . $winnerCampaign->getRuleKey();
-            LogManager::instance()->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:{$context->getId()} using random algorithm");
+            $logManager = $serviceContainer->getLogManager();
+            $logManager->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:{$context->getId()} using random algorithm");
             (new StorageDecorator())->setDataInStorage(
                 [
                     'featureKey' => "_vwo_meta_meg_{$groupId}",
@@ -380,7 +389,8 @@ class MegUtil
                     'experimentKey' => $winnerCampaign->getKey(),
                     'experimentVariationId' => $winnerCampaign->getType() === CampaignTypeEnum::PERSONALIZE ? $winnerCampaign->getVariations()[0]->getId() : -1,
                 ],
-                $storageService
+                $storageService,
+                $serviceContainer
             );
             
             if (in_array($winnerCampaign->getId(), $calledCampaignIds)) {
@@ -388,7 +398,8 @@ class MegUtil
             }
         }
         else {
-            LogManager::instance()->info("No winner campaign found for MEG group: {$groupId}");
+            $logManager = $serviceContainer->getLogManager();
+            $logManager->info("No winner campaign found for MEG group: {$groupId}");
         }
         return null;
     }
@@ -396,7 +407,7 @@ class MegUtil
     /**
      * Advanced algorithm to find the winning campaign based on priority order and weighted random distribution.
      *
-     * @param SettingsModel $settings
+     * @param ServiceContainer $serviceContainer
      * @param array $shortlistedCampaigns
      * @param ContextModel $context
      * @param array $calledCampaignIds
@@ -404,12 +415,12 @@ class MegUtil
      * @param StorageService $storageService
      * @return CampaignModel|null
      */
-    private static function getCampaignUsingAdvancedAlgo($settings, $shortlistedCampaigns, $context, $calledCampaignIds, $groupId, $storageService)
+    private static function getCampaignUsingAdvancedAlgo($serviceContainer, $shortlistedCampaigns, $context, $calledCampaignIds, $groupId, $storageService)
     {
         $winnerCampaign = null;
         $found = false; // flag to check whether winnerCampaign has been found or not and helps to break from the outer loop
-        $priorityOrder = isset($settings->getGroups()->$groupId->p) ? $settings->getGroups()->$groupId->p : [];
-        $wt = isset($settings->getGroups()->$groupId->wt) ? $settings->getGroups()->$groupId->wt : [];
+        $priorityOrder = isset($serviceContainer->getSettings()->getGroups()->$groupId->p) ? $serviceContainer->getSettings()->getGroups()->$groupId->p : [];
+        $wt = isset($serviceContainer->getSettings()->getGroups()->$groupId->wt) ? $serviceContainer->getSettings()->getGroups()->$groupId->wt : [];
 
         for ($i = 0; $i < count($priorityOrder); $i++) {
             for ($j = 0; $j < count($shortlistedCampaigns); $j++) {
@@ -481,9 +492,11 @@ class MegUtil
 
         if ($winnerCampaign) {
             $campaignKey = $winnerCampaign->getType() === CampaignTypeEnum::AB ? $winnerCampaign->getKey() : $winnerCampaign->getKey() . '_' . $winnerCampaign->getRuleKey();
-            LogManager::instance()->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:{$context->getId()} using advanced algorithm");
+            $logManager = $serviceContainer->getLogManager();
+            $logManager->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:{$context->getId()} using advanced algorithm");
         } else {
-            LogManager::instance()->info("No winner campaign found for MEG group: {$groupId}");
+            $logManager = $serviceContainer->getLogManager();
+            $logManager->info("No winner campaign found for MEG group: {$groupId}");
         }
 
         if ($winnerCampaign) {
@@ -495,7 +508,8 @@ class MegUtil
                     'experimentKey' => $winnerCampaign->getKey(),
                     'experimentVariationId' => $winnerCampaign->getType() === CampaignTypeEnum::PERSONALIZE ? $winnerCampaign->getVariations()[0]->getId() : -1,
                 ],
-                $storageService
+                $storageService,
+                $serviceContainer
             );
             if (in_array($winnerCampaign->getId(), $calledCampaignIds)) {
                 return $winnerCampaign;

@@ -21,7 +21,6 @@ namespace vwo\Api;
 use vwo\Decorators\StorageDecorator;
 use vwo\Models\CampaignModel;
 use vwo\Models\FeatureModel;
-use vwo\Models\SettingsModel;
 use vwo\Models\VariationModel;
 use vwo\Models\User\ContextModel;
 use vwo\Services\StorageService;
@@ -37,6 +36,7 @@ use vwo\Utils\FunctionUtil;
 use vwo\Utils\ImpressionUtil;
 use vwo\Utils\GetFlagResultUtil;
 use vwo\Utils\RuleEvaluationUtil;
+use vwo\Services\ServiceContainer;
 use vwo\Utils\NetworkUtil;
 use vwo\Enums\EventEnum;
 use vwo\Services\SettingsService;
@@ -45,9 +45,8 @@ class GetFlag
 {
     public function get(
         string $featureKey,
-        SettingsModel $settings,
         ContextModel $context,
-        HooksService $hooksService,
+        ServiceContainer $serviceContainer,
         bool $isDebuggerUsed = false
     ) {
         $ruleEvaluationUtil = new RuleEvaluationUtil();
@@ -55,6 +54,7 @@ class GetFlag
         $rolloutVariationToReturn = null;
         $experimentVariationToReturn = null;
         $shouldCheckForExperimentsRules = false;
+        $batchPayload = [];
 
         $passedRulesInformation = [];
         $evaluatedFeatureMap = [];
@@ -62,8 +62,11 @@ class GetFlag
         $ruleStatus = [];
         $batchPayload = [];
 
+        $hooksService = $serviceContainer->getHooksService();
+        $logManager = $serviceContainer->getLogManager();
+
         // Get feature object from feature key
-        $feature = FunctionUtil::getFeatureFromKey($settings, $featureKey);
+        $feature = FunctionUtil::getFeatureFromKey($serviceContainer->getSettings(), $featureKey);
         $decision = [
             'featureName' => $feature ? $feature->getName() : null,
             'featureId' => $feature ? $feature->getId() : null,
@@ -76,48 +79,47 @@ class GetFlag
         $storedData = (new StorageDecorator())->getFeatureFromStorage(
             $featureKey,
             $context,
-            $storageService
+            $storageService,
+            $serviceContainer
         );
-
+        
+    // Check if stored data has featureId and if feature still exists in settings
+    if (isset($storedData['featureId']) && FunctionUtil::isFeatureIdPresentInSettings($serviceContainer->getSettings(), $storedData['featureId'])) {
         if (isset($storedData['experimentVariationId'])) {
             if (isset($storedData['experimentKey'])) {
                 $variation = CampaignUtil::getVariationFromCampaignKey(
-                    $settings,
+                    $serviceContainer->getSettings(),
                     $storedData['experimentKey'],
                     $storedData['experimentVariationId']
                 );
-
                 if ($variation) {
-                    LogManager::instance()->info(sprintf(
+                    $logManager->info(sprintf(
                         "Variation %s found in storage for the user %s for the experiment: %s",
                         $variation->getKey(),
                         $context->getId(),
                         $storedData['experimentKey']
                     ));
-
                     return new GetFlagResultUtil(true, $variation->getVariables(), $ruleStatus);
                 }
             }
-        } elseif (isset($storedData['rolloutKey'], $storedData['rolloutId'])) {
+        } elseif (isset($storedData['rolloutKey']) && isset($storedData['rolloutId'])) {
             $variation = CampaignUtil::getVariationFromCampaignKey(
-                $settings,
+                $serviceContainer->getSettings(),
                 $storedData['rolloutKey'],
                 $storedData['rolloutVariationId']
             );
 
             if ($variation) {
-                LogManager::instance()->info(sprintf(
+                $logManager->info(sprintf(
                     "Variation %s found in storage for the user %s for the rollout experiment: %s",
                     $variation->getKey(),
                     $context->getId(),
                     $storedData['rolloutKey']
                 ));
-
-                LogManager::instance()->debug(sprintf(
+                $logManager->debug(sprintf(
                     "Rollout rule got passed for user %s. Hence, evaluating experiments",
                     $context->getId()
                 ));
-
                 $isEnabled = true;
                 $shouldCheckForExperimentsRules = true;
                 $rolloutVariationToReturn = $variation;
@@ -129,9 +131,10 @@ class GetFlag
                 $passedRulesInformation = array_merge($passedRulesInformation, $evaluatedFeatureMap[$featureKey]);
             }
         }
+    }
 
         if (!DataTypeUtil::isObject($feature)) {
-            LogManager::instance()->error(sprintf(
+            $logManager->error(sprintf(
                 "Feature not found for the key: %s",
                 $featureKey
             ));
@@ -139,7 +142,8 @@ class GetFlag
             return new GetFlagResultUtil(false, [], $ruleStatus);
         }
 
-        SegmentationManager::instance()->setContextualData($settings, $feature, $context);
+        $segmentationManager = $serviceContainer->getSegmentationManager();
+        $segmentationManager->setContextualData($serviceContainer, $feature, $context);
 
         // Evaluate Rollout Rules
         $rollOutRules = FunctionUtil::getSpecificRulesBasedOnType($feature, CampaignTypeEnum::ROLLOUT);
@@ -147,7 +151,7 @@ class GetFlag
             $megGroupWinnerCampaigns = [];
             foreach ($rollOutRules as $rule) {
                 $evaluateRuleResult = $ruleEvaluationUtil->evaluateRule(
-                    $settings,
+                    $serviceContainer,
                     $feature,
                     $rule,
                     $context,
@@ -160,17 +164,17 @@ class GetFlag
 
                 if ($evaluateRuleResult['preSegmentationResult']) {
                     $payload = $evaluateRuleResult['payload'];
+
                     if(!$isDebuggerUsed) {
-                        if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+                        if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
                         } else {
-                            //push this payload to the batch payload
                             if($payload !== null) {
                                 $batchPayload[] = $payload;
                             }
-                        }
+                        }   
                     }
-                    
+
                     $evaluatedFeatureMap[$featureKey] = [
                         'rolloutId' => $rule->getId(),
                         'rolloutKey' => $rule->getKey(),
@@ -186,7 +190,7 @@ class GetFlag
             if (isset($evaluatedFeatureMap[$featureKey])) {
                 $passedRolloutCampaign = new CampaignModel();
                 $passedRolloutCampaign->modelFromDictionary($rule);
-                $variation = DecisionUtil::evaluateTrafficAndGetVariation($settings, $passedRolloutCampaign, $context->getId());
+                $variation = DecisionUtil::evaluateTrafficAndGetVariation($serviceContainer, $passedRolloutCampaign, $context->getId());
 
                 if (DataTypeUtil::isObject($variation) && !empty($variation)) {
                     $isEnabled = true;
@@ -194,20 +198,20 @@ class GetFlag
                     $rolloutVariationToReturn = $variation;
 
                     $this->updateIntegrationsDecisionObject($passedRolloutCampaign, $variation, $passedRulesInformation, $decision);
-
-                    if (!$isDebuggerUsed) {
+                    
+                    if(!$isDebuggerUsed) {
                         //push this payload to the batch payload
-                        $networkUtil = new NetworkUtil();
+                        $networkUtil = new NetworkUtil($serviceContainer);
                         $payload = $networkUtil->getTrackUserPayloadData(
-                            $settings,
+                            $serviceContainer->getSettings(),
                             EventEnum::VWO_VARIATION_SHOWN,
                             $passedRolloutCampaign->getId(),
                             $variation->getId(),
                             $context
                         );
 
-                        if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+                        if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
                         } else {
                             //push this payload to the batch payload
                             if($payload !== null) {
@@ -218,7 +222,7 @@ class GetFlag
                 }
             }
         } else if (count($rollOutRules) === 0) {
-            LogManager::instance()->debug("No Rollout rules present for the feature. Hence, checking experiment rules");
+            $logManager->debug("No Rollout rules present for the feature. Hence, checking experiment rules");
             $shouldCheckForExperimentsRules = true;
         }
 
@@ -230,7 +234,7 @@ class GetFlag
             $megGroupWinnerCampaigns = [];
             foreach ($experimentRules as $rule) {
                 $evaluateRuleResult = $ruleEvaluationUtil->evaluateRule(
-                    $settings,
+                    $serviceContainer,
                     $feature,
                     $rule,
                     $context,
@@ -247,8 +251,8 @@ class GetFlag
                     } else {
                         $isEnabled = true;
                         $payload = $evaluateRuleResult['payload'];
-                        if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+                        if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
                         } else {
                             if($payload !== null) {
                                 $batchPayload[] = $payload;
@@ -272,7 +276,7 @@ class GetFlag
             if (isset($experimentRulesToEvaluate[0])) {
                 $campaign = new CampaignModel();
                 $campaign->modelFromDictionary($experimentRulesToEvaluate[0]);
-                $variation = DecisionUtil::evaluateTrafficAndGetVariation($settings, $campaign, $context->getId());
+                $variation = DecisionUtil::evaluateTrafficAndGetVariation($serviceContainer, $campaign, $context->getId());
 
                 if (DataTypeUtil::isObject($variation) && !empty($variation)) {
                     $isEnabled = true;
@@ -280,18 +284,19 @@ class GetFlag
 
                     $this->updateIntegrationsDecisionObject($campaign, $variation, $passedRulesInformation, $decision);
 
-                    if (!$isDebuggerUsed) {
-                        // Construct payload data for tracking the user
-                        $networkUtil = new NetworkUtil();
-                        $payload = $networkUtil->getTrackUserPayloadData(
-                            $settings,
-                            EventEnum::VWO_VARIATION_SHOWN,
-                            $campaign->getId(),
-                            $variation->getId(),
-                            $context
-                        );
-                        if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+                    if(!$isDebuggerUsed) {
+                         // Construct payload data for tracking the user
+                         $networkUtil = new NetworkUtil($serviceContainer);
+                         $payload = $networkUtil->getTrackUserPayloadData(
+                             $serviceContainer->getSettings(),
+                             EventEnum::VWO_VARIATION_SHOWN,
+                             $campaign->getId(),
+                             $variation->getId(),
+                             $context
+                         );
+
+                        if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
                         } else {
                             //push this payload to the batch payload
                             if($payload !== null) {
@@ -308,9 +313,11 @@ class GetFlag
             (new StorageDecorator())->setDataInStorage(
                 array_merge([
                     'featureKey' => $featureKey,
+                    'featureId' => $feature->getId(),
                     'context' => $context
                 ], $passedRulesInformation),
-                $storageService
+                $storageService,
+                $serviceContainer
             );
         }
 
@@ -321,25 +328,26 @@ class GetFlag
         // Send data for Impact Campaign, if defined
         if ($feature->getImpactCampaign()->getCampaignId()) {
             $status = $isEnabled ? 'enabled' : 'disabled';
-            LogManager::instance()->info(sprintf(
+            $logManager->info(sprintf(
                 "Tracking feature: %s being %s for Impact Analysis Campaign for the user %s",
                 $featureKey,
                 $status,
                 $context->getId()
             ));
 
-            if (!$isDebuggerUsed) {
+            if(!$isDebuggerUsed) {
                 // Construct payload data for tracking the user
-                $networkUtil = new NetworkUtil();
+                $networkUtil = new NetworkUtil($serviceContainer);
                 $payload = $networkUtil->getTrackUserPayloadData(
-                    $settings,
+                    $serviceContainer->getSettings(),
                     EventEnum::VWO_VARIATION_SHOWN,
                     $feature->getImpactCampaign()->getCampaignId(),
                     $isEnabled ? 2 : 1,
                     $context
                 );
-                if(SettingsService::instance()->isGatewayServiceProvided && $payload !== null) {
-                    ImpressionUtil::SendImpressionForVariationShown($settings, $payload, $context);
+
+                if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
+                    ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
                 } else {
                     //push this payload to the batch payload
                     if($payload !== null) {
@@ -356,11 +364,11 @@ class GetFlag
         } elseif ($rolloutVariationToReturn !== null) {
             $variablesForEvaluatedFlag = $rolloutVariationToReturn->getVariables();
         }
-
-        if(!SettingsService::instance()->isGatewayServiceProvided) {
-            ImpressionUtil::SendImpressionForVariationShownInBatch($batchPayload);
+        
+        if(!$serviceContainer->getSettingsService()->isGatewayServiceProvided) {
+            ImpressionUtil::SendImpressionForVariationShownInBatch($batchPayload, $serviceContainer);
         }
-
+    
         return new GetFlagResultUtil($isEnabled, $variablesForEvaluatedFlag, $ruleStatus);
     }
 

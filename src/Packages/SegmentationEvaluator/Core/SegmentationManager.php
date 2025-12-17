@@ -28,21 +28,10 @@ use vwo\Models\FeatureModel;
 use vwo\Models\User\ContextVWOModel;
 use vwo\Services\UrlService;
 use vwo\Constants\Constants;
+use vwo\Services\ServiceContainer;
 
 class SegmentationManager {
-    private static $instance;
     private $evaluator;
-
-    /**
-     * Singleton pattern implementation for getting the instance of SegmentationManager.
-     * @returns SegmentationManager The singleton instance.
-     */
-    public static function instance(): SegmentationManager {
-        if (self::$instance === null) {
-            self::$instance = new SegmentationManager();
-        }
-        return self::$instance;
-    }
 
     /**
      * Attaches an evaluator to the manager, or creates a new one if none is provided.
@@ -54,11 +43,14 @@ class SegmentationManager {
 
     /**
      * Sets the contextual data for the segmentation process.
-     * @param SettingsModel $settings The settings data.
+     * @param ServiceContainer $serviceContainer The service container.
      * @param FeatureModel $feature The feature data including segmentation needs.
      * @param ContextModel $context The context data for the evaluation.
      */
-    public function setContextualData($settings, $feature, $context) {
+    public function setContextualData(ServiceContainer $serviceContainer, $feature, $context) {
+        $settings = $serviceContainer->getSettings();
+        $logManager = $serviceContainer->getLogManager();
+        
         $this->attachEvaluator(); // Ensure a fresh evaluator instance
         $this->evaluator->settings = $settings; // Set settings in evaluator
         $this->evaluator->context = $context; // Set context in evaluator
@@ -94,10 +86,10 @@ class SegmentationManager {
             }
             try {
                 $params = GatewayServiceUtil::getQueryParams($queryParams);
-                $vwoData = GatewayServiceUtil::getFromGatewayService($params, UrlEnum::GET_USER_DATA);
+                $vwoData = GatewayServiceUtil::getFromGatewayService($serviceContainer, $params, UrlEnum::GET_USER_DATA);
                 $context->setVwo((new ContextVWOModel())->modelFromDictionary($vwoData));
             } catch (\Exception $err) {
-                LogManager::instance()->error('Error in setting contextual data for segmentation. Got error: ' . $err->getMessage());
+                $logManager->error('Error in setting contextual data for segmentation. Got error: ' . $err->getMessage());
             }
         }
     }

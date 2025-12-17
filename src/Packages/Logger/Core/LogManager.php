@@ -56,19 +56,18 @@ class LogManager extends Logger implements ILogManager {
             return (new \DateTime())->format(\DateTime::ISO8601);
         };
 
-        if (!isset(self::$instance)) {
-            self::$instance = $this;
+        // Always initialize config and transportManager for this instance
+        $this->config['name'] = $config['name'] ?? $this->name;
+        $this->config['requestId'] = $config['requestId'] ?? Uuid::uuid4()->toString();
+        $this->config['level'] = $config['level'] ?? $this->level;
+        $this->config['prefix'] = $config['prefix'] ?? $this->prefix;
+        $this->config['dateTimeFormat'] = $config['dateTimeFormat'] ?? $this->dateTimeFormat;
 
-            $this->config['name'] = $config['name'] ?? $this->name;
-            $this->config['requestId'] = $config['requestId'] ?? Uuid::uuid4()->toString();
-            $this->config['level'] = $config['level'] ?? $this->level;
-            $this->config['prefix'] = $config['prefix'] ?? $this->prefix;
-            $this->config['dateTimeFormat'] = $config['dateTimeFormat'] ?? $this->dateTimeFormat;
+        $this->transportManager = new LogTransportManager($this->config);
+        $this->handleTransports();
 
-            $this->transportManager = new LogTransportManager($this->config);
-
-            $this->handleTransports();
-        }
+        // Always update singleton to the latest instance to support multiple SDK instances
+        self::$instance = $this;
     }
 
     public static function instance() {

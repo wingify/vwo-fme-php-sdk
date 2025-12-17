@@ -28,6 +28,7 @@ use vwo\Models\User\ContextModel;
 use vwo\Packages\Logger\Core\LogManager;
 use vwo\Services\CampaignDecisionService;
 use vwo\Services\StorageService;
+use vwo\Services\ServiceContainer;
 use vwo\Packages\DecisionMaker\DecisionMaker;
 use vwo\Packages\SegmentationEvaluator\Core\SegmentationManager;
 use vwo\Decorators\StorageDecorator;
@@ -35,7 +36,7 @@ use vwo\Decorators\StorageDecorator;
 class DecisionUtil
 {
     public static function checkWhitelistingAndPreSeg(
-        SettingsModel $settings,
+        ServiceContainer $serviceContainer,
         FeatureModel $feature,
         CampaignModel $campaign,
         ContextModel $context,
@@ -44,7 +45,7 @@ class DecisionUtil
         StorageService $storageService,
         &$decision
     ) {
-        $vwoUserId = UuidUtil::getUUID((string)$context->getId(), $settings->getAccountId());
+        $vwoUserId = UuidUtil::getUUID((string)$context->getId(), $serviceContainer->getSettings()->getAccountId());
         $campaignId = $campaign->getId();
 
         if ($campaign->getType() === CampaignTypeEnum::AB) {
@@ -57,12 +58,13 @@ class DecisionUtil
 
             // Check if the campaign satisfies the whitelisting
             if ($campaign->getIsForcedVariationEnabled()) {
-                $whitelistedVariation = self::_checkCampaignWhitelisting($campaign, $context);
+                $whitelistedVariation = self::_checkCampaignWhitelisting($serviceContainer, $campaign, $context);
                 if ($whitelistedVariation && !empty($whitelistedVariation)) {
                     return [true, $whitelistedVariation];
                 }
             } else {
-                LogManager::instance()->info(
+                $logManager = $serviceContainer->getLogManager();
+                $logManager->info(
                     "WHITELISTING_SKIPPED: Whitelisting is not used for Campaign:{$campaign->getRuleKey()}, hence skipping evaluating whitelisting for User ID:{$context->getId()}"
                 );
             }
@@ -76,7 +78,7 @@ class DecisionUtil
         $decision['customVariables'] = $context->getCustomVariables();
 
         // Check if Rule being evaluated is part of Mutually Exclusive Group
-        $groupDetails = CampaignUtil::getGroupDetailsIfCampaignPartOfIt($settings,$campaign->getId(), $campaign->getType() === CampaignTypeEnum::PERSONALIZE ? $campaign->getVariations()[0]->getId() : null);
+        $groupDetails = CampaignUtil::getGroupDetailsIfCampaignPartOfIt($serviceContainer->getSettings(),$campaign->getId(), $campaign->getType() === CampaignTypeEnum::PERSONALIZE ? $campaign->getVariations()[0]->getId() : null);
 
         if (is_array($groupDetails) && isset($groupDetails['groupId'])) {
             $groupWinnerCampaignId = $megGroupWinnerCampaigns[$groupDetails['groupId']] ?? null;
@@ -103,7 +105,7 @@ class DecisionUtil
                     $storageService
                 );
                 if ($storedData && isset($storedData['experimentKey']) && isset($storedData['experimentId'])) {
-                    LogManager::instance()->info(
+                    $serviceContainer->getLogManager()->info(
                         "MEG_CAMPAIGN_FOUND_IN_STORAGE: Campaign:{$storedData['experimentKey']} found in storage for User:{$context->getId()}"
                     );
                     if ($storedData['experimentId'] == $campaignId) {
@@ -130,11 +132,11 @@ class DecisionUtil
 
         // If Whitelisting is skipped/failed and campaign not part of any MEG Groups
         // Check campaign's pre-segmentation
-        $isPreSegmentationPassed = (new CampaignDecisionService())->getPreSegmentationDecision($campaign, $context);
+        $isPreSegmentationPassed = (new CampaignDecisionService())->getPreSegmentationDecision($campaign, $context, $serviceContainer);
 
         if ($isPreSegmentationPassed && isset($groupDetails['groupId'])) {
             $winnerCampaign = MegUtil::evaluateGroups(
-                $settings,
+                $serviceContainer,
                 $feature,
                 $groupDetails['groupId'],
                 $evaluatedFeatureMap,
@@ -167,18 +169,21 @@ class DecisionUtil
         return [$isPreSegmentationPassed, null];
     }
 
-    public static function evaluateTrafficAndGetVariation(SettingsModel $settings, CampaignModel $campaign, $userId)
+    public static function evaluateTrafficAndGetVariation(ServiceContainer $serviceContainer, CampaignModel $campaign, $userId)
     {
-        $variation = (new CampaignDecisionService())->getVariationAlloted($userId, $settings->getAccountId(), $campaign);
+        $settings = $serviceContainer->getSettings();
+        $logManager = $serviceContainer->getLogManager();
+        
+        $variation = (new CampaignDecisionService())->getVariationAlloted($userId, $settings->getAccountId(), $campaign, $serviceContainer);
         $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
         if (!$variation) {
-            LogManager::instance()->info(
+            $logManager->info(
                 "USER_CAMPAIGN_BUCKET_INFO: Campaign:{$campaignKey} User:{$userId} did not get any variation"
             );
             return null;
         }
 
-        LogManager::instance()->info(
+        $logManager->info(
             "USER_CAMPAIGN_BUCKET_INFO: Campaign:{$campaignKey} User:{$userId} got variation:{$variation->getKey()}"
         );
 
@@ -189,35 +194,38 @@ class DecisionUtil
      * PRIVATE METHODS
      ******************/
 
-    private static function _checkCampaignWhitelisting(CampaignModel $campaign, ContextModel $context)
+    private static function _checkCampaignWhitelisting(ServiceContainer $serviceContainer, CampaignModel $campaign, ContextModel $context)
     {
-        $whitelistingResult = self::_evaluateWhitelisting($campaign, $context);
+        $whitelistingResult = self::_evaluateWhitelisting($serviceContainer, $campaign, $context);
         $status = $whitelistingResult ? StatusEnum::PASSED : StatusEnum::FAILED;
         $variationString = $whitelistingResult ? $whitelistingResult['variation']->getKey() : '';
         
         $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
-        LogManager::instance()->info(
+        $logManager = $serviceContainer->getLogManager();
+        $logManager->info(
             "WHITELISTING_STATUS: Campaign:{$campaignKey} User:{$context->getId()} Status:{$status} Variation:{$variationString}"
         );
 
         return $whitelistingResult;
     }
 
-    private static function _evaluateWhitelisting(CampaignModel $campaign, ContextModel $context)
+    private static function _evaluateWhitelisting(ServiceContainer $serviceContainer, CampaignModel $campaign, ContextModel $context)
     {
         $targetedVariations = [];
+        $logManager = $serviceContainer->getLogManager();
+        $segmentationManager = $serviceContainer->getSegmentationManager();
 
         foreach ($campaign->getVariations() as $variation) {
             if (is_object($variation->getSegments()) && empty((array)$variation->getSegments())) {
                 $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
-                LogManager::instance()->info(
+                $logManager->info(
                     "WHITELISTING_SKIP: Campaign:{$campaignKey} User:{$context->getId()} Skipped for variation: {$variation->getKey()}"
                 );
                 continue;
             }
 
             if (is_object($variation->getSegments())) {
-                $segmentEvaluatorResult = SegmentationManager::instance()->validateSegmentation(
+                $segmentEvaluatorResult = $segmentationManager->validateSegmentation(
                     $variation->getSegments(),
                     $context->getVariationTargetingVariables()
                 );

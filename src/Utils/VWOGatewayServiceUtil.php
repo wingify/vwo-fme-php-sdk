@@ -26,12 +26,12 @@ use vwo\Services\UrlService;
 use vwo\Packages\Logger\Core\LogManager;
 
 class VWOGatewayServiceUtil {
-    public static function getFromVWOGatewayService($queryParams, $endpoint) {
+    public static function getFromVWOGatewayService($queryParams, $endpoint, $serviceContainer = null) {
 
-        $networkInstance = NetworkManager::Instance();
+        $networkInstance = $serviceContainer ? $serviceContainer->getNetworkManager() : NetworkManager::Instance();
 
         if (UrlService::getBaseUrl() === UrlEnum::BASE_URL) {
-            LogManager::instance()->info('Invalid URL. Please provide a valid URL for vwo helper VWOGatewayService');
+            $serviceContainer->getLogManager()->info('Invalid URL. Please provide a valid URL for vwo helper VWOGatewayService');
             return false;
         }
 
@@ -52,11 +52,11 @@ class VWOGatewayServiceUtil {
             if ($response instanceof ResponseModel) {
                 return $response->getData();
             } else {
-                LogManager::instance()->error('Failed to get a valid response from the network request.');
+                $serviceContainer->getLogManager()->error('Failed to get a valid response from the network request.');
                 return false;
             }
         } catch (\Exception $err) {
-            LogManager::instance()->error('Error occurred while sending GET request: ' . $err->getMessage());
+            $serviceContainer->getLogManager()->error('Error occurred while sending GET request: ' . $err->getMessage());
             return false;
         }
     }

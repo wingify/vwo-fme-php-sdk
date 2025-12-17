@@ -20,6 +20,7 @@ namespace vwo\Utils;
 
 use vwo\Services\SettingsService;
 use vwo\Services\LoggerService;
+use vwo\Services\ServiceContainer;
 
 class UserIdUtil
 {
@@ -27,18 +28,20 @@ class UserIdUtil
    * Resolves the canonical userId considering aliasing feature and gateway availability
    * @param string $userId
    * @param bool $isAliasingEnabled
+   * @param ServiceContainer|null $serviceContainer
    * @return string
    */
-  public static function getUserId($userId, $isAliasingEnabled)
+  public static function getUserId($userId, $isAliasingEnabled, ServiceContainer $serviceContainer = null)
   {
     if ($isAliasingEnabled) {
-      if (SettingsService::instance()->isGatewayServiceProvided) {
-        $aliasId = AliasingUtil::getAlias($userId);
+      $settingsService = $serviceContainer ? $serviceContainer->getSettingsService() : SettingsService::instance();
+      if ($settingsService->isGatewayServiceProvided) {
+        $aliasId = AliasingUtil::getAlias($userId, $serviceContainer);
 
-        LoggerService::info('ALIAS_ENABLED', ['userId' => $aliasId]);
+        $serviceContainer->getLogManager()->info('ALIAS_ENABLED', ['userId' => $aliasId]);
         return $aliasId;
       } else {
-        LoggerService::error('GATEWAY_URL_ERROR');
+        $serviceContainer->getLogManager()->error('GATEWAY_URL_ERROR');
         return $userId;
       }
     } else {

@@ -31,7 +31,7 @@ class SettingsUtil {
         return $parsedSettings;
     }
     
-    public static function setSettingsAndAddCampaignsToRules($settings, $vwoClientInstance) {
+    public static function setSettingsAndAddCampaignsToRules($settings, $vwoClientInstance, $logManager) {
         $vwoClientInstance->settings = new SettingsModel($settings);
         $vwoClientInstance->originalSettings = $settings;
 
@@ -39,11 +39,11 @@ class SettingsUtil {
         $campaigns = $vwoClientInstance->settings->getCampaigns();
 
         foreach ($campaigns as $index => $campaign) {
-            CampaignUtil::setVariationAllocation($campaign);
+            CampaignUtil::setVariationAllocation($campaign, $logManager);
             $campaigns[$index] = $campaign;
         }
 
-        FunctionUtil::addLinkedCampaignsToSettings($vwoClientInstance->settings);
+        FunctionUtil::addLinkedCampaignsToSettings($vwoClientInstance->settings, $logManager);
         GatewayServiceUtil::addIsGatewayServiceRequiredFlag($vwoClientInstance->settings);
     }
 }

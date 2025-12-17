@@ -33,6 +33,11 @@ class NetworkManager {
     private $isGatewayUrlNotSecure = false; // Store the flag here
     private $shouldWaitForTrackingCalls = false;
     private $retryConfig = Constants::DEFAULT_RETRY_CONFIG;
+    private $logManager;
+
+    // public function __construct() {
+    //     $this->config = new GlobalRequestModel(null, null, null, null);
+    // }
 
     public function attachClient($client = null, $options = []) {
         $this->config = new GlobalRequestModel(null, null, null, null);
@@ -41,6 +46,12 @@ class NetworkManager {
         }
         if(isset($options['shouldWaitForTrackingCalls'])) {
             $this->shouldWaitForTrackingCalls = $options['shouldWaitForTrackingCalls'];
+        }
+        if(isset($options['retryConfig'])) {
+            $this->retryConfig = $options['retryConfig'];
+        }
+        if(isset($options['logManager'])) {
+            $this->logManager = $options['logManager'];
         }
         // Normalize retry config from options (if any)
         $providedRetry = isset($options['retryConfig']) && is_array($options['retryConfig']) ? $options['retryConfig'] : [];
@@ -51,6 +62,7 @@ class NetworkManager {
             'isGatewayUrlNotSecure' => $this->isGatewayUrlNotSecure,
             'shouldWaitForTrackingCalls' => $this->shouldWaitForTrackingCalls,
             'retryConfig' => $this->retryConfig,
+            'logManager' => $this->logManager,
         ];
         $this->client = $client ?: new NetworkClient($clientOptions);
     }
@@ -88,6 +100,10 @@ class NetworkManager {
     }
 
     public function get($request) {
+        if ($this->client === null) {
+            throw new \Exception('NetworkManager client is not initialized. Please call attachClient() first.');
+        }
+
         $networkOptions = $this->createRequest($request);
 
         if ($networkOptions === null) {
@@ -103,6 +119,10 @@ class NetworkManager {
     }
 
     public function post($request) {
+        if ($this->client === null) {
+            throw new \Exception('NetworkManager client is not initialized. Please call attachClient() first.');
+        }
+
         $networkOptions = $this->createRequest($request);
 
         if ($networkOptions === null) {

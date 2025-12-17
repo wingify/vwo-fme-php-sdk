@@ -30,19 +30,21 @@ use vwo\Models\VariationModel;
 use vwo\Utils\LogMessageUtil;
 
 interface ICampaignDecisionService {
-    public function isUserPartOfCampaign($userId, $campaign);
+    public function isUserPartOfCampaign($userId, $campaign, $serviceContainer);
     public function getVariation($variations, $bucketValue);
     public function checkInRange($variation, $bucketValue);
-    public function bucketUserToVariation($userId, $accountId, $campaign);
-    public function getPreSegmentationDecision($campaign, $context);
-    public function getVariationAlloted($userId, $accountId, $campaign);
+    public function bucketUserToVariation($userId, $accountId, $campaign, $serviceContainer);
+    public function getPreSegmentationDecision($campaign, $context, $serviceContainer);
+    public function getVariationAlloted($userId, $accountId, $campaign, $serviceContainer);
 }
 
 class CampaignDecisionService implements ICampaignDecisionService {
-    public function isUserPartOfCampaign($userId, $campaign) {
+    public function isUserPartOfCampaign($userId, $campaign, $serviceContainer) {
         if (!$campaign || !$userId) {
             return false;
         }
+
+        $logManager = $serviceContainer->getLogManager();
     
         // Check if the campaign is of type ROLLOUT or PERSONALIZE
         $isRolloutOrPersonalize = $campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE;
@@ -64,7 +66,7 @@ class CampaignDecisionService implements ICampaignDecisionService {
 
         $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
 
-        LogManager::instance()->debug("User:{$userId} part of campaign {$campaignKey} ? " . ($isUserPart ? 'true' : 'false'));
+        $logManager->debug("User:{$userId} part of campaign {$campaignKey} ? " . ($isUserPart ? 'true' : 'false'));
 
         return $isUserPart;
     }
@@ -86,7 +88,7 @@ class CampaignDecisionService implements ICampaignDecisionService {
         return null;
     }
 
-    public function bucketUserToVariation($userId, $accountId, $campaign) {
+    public function bucketUserToVariation($userId, $accountId, $campaign, $serviceContainer) {
         if (!$campaign || !$userId) {
             return null;
         }
@@ -103,12 +105,13 @@ class CampaignDecisionService implements ICampaignDecisionService {
         
         $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
 
-        LogManager::instance()->debug("user:{$userId} for campaign:{$campaignKey} having percenttraffic:{$percentTraffic} got bucketValue as {$bucketValue} and hashvalue:{$hashValue}");
+        $logManager = $serviceContainer->getLogManager();
+        $logManager->debug("user:{$userId} for campaign:{$campaignKey} having percenttraffic:{$percentTraffic} got bucketValue as {$bucketValue} and hashvalue:{$hashValue}");
         $variations = $campaign->getVariations();
         return $this->getVariation($variations, $bucketValue);
     }
 
-    public function getPreSegmentationDecision($campaign, $context) {
+    public function getPreSegmentationDecision($campaign, $context, $serviceContainer) {
         $campaignType = $campaign->getType();
         $segments = [];
 
@@ -119,31 +122,33 @@ class CampaignDecisionService implements ICampaignDecisionService {
         }
         if (DataTypeUtil::isObject($segments) && !count((array)$segments)) {
             $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
-            LogManager::instance()->debug("For userId: {$context->getId()} of Campaign: {$campaignKey}, segment was missing, hence skipping segmentation");
+            $serviceContainer->getLogManager()->debug("For userId: {$context->getId()} of Campaign: {$campaignKey}, segment was missing, hence skipping segmentation");
             return true;
         } else {
             $customVariables = $context->getCustomVariables()!=null ? $context->getCustomVariables() : [];
-            $preSegmentationResult = SegmentationManager::Instance()->validateSegmentation(
+            
+            $preSegmentationResult = $serviceContainer->getSegmentationManager()->validateSegmentation(
                 $segments,
                 $customVariables
             );
+
             $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
             if (!$preSegmentationResult) {
-                LogManager::instance()->info("Segmentation failed for userId: {$context->getId()} of Campaign: {$campaignKey}");
+                $serviceContainer->getLogManager()->info("Segmentation failed for userId: {$context->getId()} of Campaign: {$campaignKey}");
                 return false;
             }
-            LogManager::instance()->info("Segmentation passed for userId: {$context->getId()} of Campaign: {$campaignKey}");
+            $serviceContainer->getLogManager()->info("Segmentation passed for userId: {$context->getId()} of Campaign: {$campaignKey}");
             return true;
         }
     }
 
-    public function getVariationAlloted($userId, $accountId, $campaign) {
-        $isUserPart = $this->isUserPartOfCampaign($userId, $campaign);
+    public function getVariationAlloted($userId, $accountId, $campaign, $serviceContainer) {
+        $isUserPart = $this->isUserPartOfCampaign($userId, $campaign, $serviceContainer);
         
         if ($campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE) {
             return $isUserPart ? $campaign->getVariations()[0] : null;
         } else {
-            return $isUserPart ? $this->bucketUserToVariation($userId, $accountId, $campaign) : null;
+            return $isUserPart ? $this->bucketUserToVariation($userId, $accountId, $campaign, $serviceContainer) : null;
         }
     }    
 }

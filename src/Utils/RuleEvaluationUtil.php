@@ -27,6 +27,7 @@ use vwo\Utils\DecisionUtil;
 use vwo\Utils\ImpressionUtil;
 use vwo\Utils\NetworkUtil;
 use vwo\Models\User\ContextModel;
+use vwo\Services\ServiceContainer;
 use vwo\Enums\EventEnum;
 
 class RuleEvaluationUtil
@@ -36,7 +37,7 @@ class RuleEvaluationUtil
      * This function checks for whitelisting and pre-segmentation conditions, and if applicable,
      * sends an impression for the variation shown.
      *
-     * @param SettingsModel $settings - The settings configuration for the evaluation.
+     * @param ServiceContainer $serviceContainer - The service container.
      * @param FeatureModel $feature - The feature being evaluated.
      * @param CampaignModel $campaign - The campaign associated with the feature.
      * @param ContextModel $context - The user context for evaluation.
@@ -46,11 +47,11 @@ class RuleEvaluationUtil
      * @param array $decision - The decision object that will be updated based on the evaluation.
      * @return array An array containing the result of the pre-segmentation and the whitelisted object, if any.
      */
-    public static function evaluateRule($settings, $feature, $campaign, $context, &$evaluatedFeatureMap, &$megGroupWinnerCampaigns, $storageService, &$decision, $isDebuggerUsed = false)
+    public static function evaluateRule(ServiceContainer $serviceContainer, $feature, $campaign, $context, &$evaluatedFeatureMap, &$megGroupWinnerCampaigns, $storageService, &$decision, bool $isDebuggerUsed = false)
     {
         // Perform whitelisting and pre-segmentation checks
         list($preSegmentationResult, $whitelistedObject) = DecisionUtil::checkWhitelistingAndPreSeg(
-            $settings,
+            $serviceContainer,
             $feature,
             $campaign,
             $context,
@@ -59,6 +60,8 @@ class RuleEvaluationUtil
             $storageService,
             $decision
         );
+        $payload = null;
+
         $payload = null;
 
         // If pre-segmentation is successful and a whitelisted object exists, proceed to send an impression
@@ -70,10 +73,9 @@ class RuleEvaluationUtil
                 'experimentVariationId' => $whitelistedObject['variationId'],
             ]);
             // Send an impression for the variation shown
-            // if settings passed in init options is true, then we don't need to send an impression
-            if (!$isDebuggerUsed) {
-                $networkUtil = new NetworkUtil();
-                $payload = $networkUtil->getTrackUserPayloadData($settings, EventEnum::VWO_VARIATION_SHOWN, $campaign->getId(), $whitelistedObject['variation']->getId(), $context);
+            if(!$isDebuggerUsed) {
+                $networkUtil = new NetworkUtil($serviceContainer);
+                $payload = $networkUtil->getTrackUserPayloadData($serviceContainer->getSettings(), EventEnum::VWO_VARIATION_SHOWN, $campaign->getId(), $whitelistedObject['variation']->getId(), $context);
             }
         }
 

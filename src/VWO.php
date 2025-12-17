@@ -26,34 +26,21 @@ use vwo\Utils\SdkInitAndUsageStatsUtil;
 
 class VWO
 {
-    private static $vwoBuilder;
-    private static $instance;
+    // Removed static properties to support multiple instances
+    // Each call to init() will create a new independent instance
 
     /**
-     * Constructor for the VWO class.
-     * Initializes a new instance of VWO with the provided options.
-     *
-     * @param array $options Configuration options for the VWO instance.
-     * @return void
-     */
-    public function __construct($options = [])
-    {
-        // The constructor should not return anything
-        self::setInstance($options);
-    }
-
-    /**
-     * Sets the singleton instance of VWO.
-     * Configures and builds the VWO instance using the provided options.
+     * Creates and returns a new VWO instance with the provided options.
+     * This method supports multiple instances by creating a new VWOBuilder each time.
      *
      * @param array $options Configuration options for setting up VWO.
-     * @return VWO|null The configured VWO instance.
+     * @return VWOClient|null The configured VWO client instance.
      */
-    private static function setInstance($options)
+    private static function createInstance($options)
     {
-        self::$vwoBuilder = isset($options['vwoBuilder']) ? $options['vwoBuilder'] : new VWOBuilder($options);
+        $vwoBuilder = isset($options['vwoBuilder']) ? $options['vwoBuilder'] : new VWOBuilder($options);
 
-        self::$instance = self::$vwoBuilder
+        $vwoBuilder
             ->setLogger()
             ->setSettingsService()
             ->setStorage()
@@ -63,49 +50,48 @@ class VWO
             ->initPolling()
             ->initUsageStats();
 
+        // Get logManager from builder for logging
+        $logManager = $vwoBuilder->getLogger();
 
         if (isset($options['settings'])) {
             $settingsObject = json_decode($options['settings']);
-            if(self::$vwoBuilder->getSettingsService()->settingsSchemaValidator->isSettingsValid($settingsObject)) {
-                self::$vwoBuilder->getSettingsService()->isSettingsValidOnInit = true;
-                self::$vwoBuilder->getSettingsService()->settingsFetchTime = 0;
-                LoggerService::info('SETTINGS_PASSED_IN_INIT_VALID');
-                self::$vwoBuilder->setSettings($settingsObject);
+            if($vwoBuilder->getSettingsService()->settingsSchemaValidator->isSettingsValid($settingsObject)) {
+                $vwoBuilder->getSettingsService()->isSettingsValidOnInit = true;
+                $vwoBuilder->getSettingsService()->settingsFetchTime = 0;
+                if ($logManager) {
+                    $logManager->info('SETTINGS_PASSED_IN_INIT_VALID');
+                }
+                $vwoBuilder->setSettings($settingsObject);
                 $settings = new SettingsModel($settingsObject);
             } else {
-                self::$vwoBuilder->getSettingsService()->isSettingsValidOnInit = false;
-                self::$vwoBuilder->getSettingsService()->settingsFetchTime = 0;
-                LoggerService::error('SETTINGS_SCHEMA_INVALID');
+                $vwoBuilder->getSettingsService()->isSettingsValidOnInit = false;
+                $vwoBuilder->getSettingsService()->settingsFetchTime = 0;
+                if ($logManager) {
+                    $logManager->error('SETTINGS_SCHEMA_INVALID');
+                }
                 $settingsObject = json_decode('{}');
-                self::$vwoBuilder->setSettings($settingsObject);
+                $vwoBuilder->setSettings($settingsObject);
                 $settings = new SettingsModel($settingsObject);
             }
         } else {
             // Fetch settings and build VWO instance
-            $settings = self::$vwoBuilder->getSettings();
+            $settings = $vwoBuilder->getSettings();
         }
+        
+        $instance = null;
         if ($settings) {
-            self::$instance = self::$vwoBuilder->build($settings);
+            $instance = $vwoBuilder->build($settings);
         }
 
-        return self::$instance;
-    }
-
-    /**
-     * Gets the singleton instance of VWO.
-     *
-     * @return VWO|null The singleton instance of VWO.
-     */
-    public static function instance()
-    {
-        return self::$instance;
+        return ['instance' => $instance, 'vwoBuilder' => $vwoBuilder];
     }
 
     /**
      * Initializes a new instance of VWO with the provided options.
+     * Each call creates a new independent instance, supporting multiple SDK instances.
      *
      * @param array $options Configuration options for the VWO instance.
-     * @return VWO|null The initialized VWO instance.
+     * @return VWOClient|null The initialized VWO client instance.
      */
     public static function init($options = [])
     {
@@ -129,39 +115,49 @@ class VWO
                 throw new Exception('Please provide the gatewayService URL in the options if aliasing is enabled');
             }
 
-            $instance = new VWO($options);
+            // Create a new instance (not singleton)
+            $result = self::createInstance($options);
+            $instance = $result['instance'];
+            $vwoBuilder = $result['vwoBuilder'];
+
+            if (!$instance) {
+                return null;
+            }
 
             # Calculate total init time
             $initTime = (int)((microtime(true) * 1000) - $initStartTime);
             $wasInitializedEarlier = false;
             
-            if (isset(self::$vwoBuilder->originalSettings) && isset(self::$vwoBuilder->originalSettings->sdkMetaInfo) && isset(self::$vwoBuilder->originalSettings->sdkMetaInfo->wasInitializedEarlier)) {
-                $wasInitializedEarlier = self::$vwoBuilder->originalSettings->sdkMetaInfo->wasInitializedEarlier; 
+            if (isset($vwoBuilder->originalSettings) && isset($vwoBuilder->originalSettings->sdkMetaInfo) && isset($vwoBuilder->originalSettings->sdkMetaInfo->wasInitializedEarlier)) {
+                $wasInitializedEarlier = $vwoBuilder->originalSettings->sdkMetaInfo->wasInitializedEarlier; 
             } else {
                 $wasInitializedEarlier = false;
             }
         
 
-            if (self::$vwoBuilder->getSettingsService()->isSettingsValidOnInit && !$wasInitializedEarlier) {
-                SdkInitAndUsageStatsUtil::sendSdkInitEvent(self::$vwoBuilder->getSettingsService()->settingsFetchTime, $initTime);
+            if(!isset($options['isDebuggerUsed']) || !($options['isDebuggerUsed'])) {
+                if ($vwoBuilder->getSettingsService()->isSettingsValidOnInit && !$wasInitializedEarlier) {
+                    SdkInitAndUsageStatsUtil::sendSdkInitEvent($vwoBuilder->getSettingsService()->settingsFetchTime, $initTime, $vwoBuilder->serviceContainer);
+                }
             }
 
             //check if it exists or is not null
-            if(isset(self::$vwoBuilder->originalSettings->usageStatsAccountId) && self::$vwoBuilder->originalSettings->usageStatsAccountId !== null) {
-                $usageStatsAccountId = self::$vwoBuilder->originalSettings->usageStatsAccountId;
+            if(isset($vwoBuilder->originalSettings->usageStatsAccountId) && $vwoBuilder->originalSettings->usageStatsAccountId !== null) {
+                $usageStatsAccountId = $vwoBuilder->originalSettings->usageStatsAccountId;
             } else {
                 $usageStatsAccountId = null;
             }
 
             if($usageStatsAccountId) {
-                SdkInitAndUsageStatsUtil::sendSDKUsageStatsEvent($usageStatsAccountId);
+                SdkInitAndUsageStatsUtil::sendSDKUsageStatsEvent($usageStatsAccountId, $vwoBuilder->serviceContainer);
             }
 
-            return self::$instance;
+            return $instance;
         } catch (\Throwable $error) {
             $msg = sprintf('API - %s failed to execute. Trace: %s. ', $apiName, $error->getMessage());
             $logMessage = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $msg);
             file_put_contents("php://stdout", $logMessage . PHP_EOL);
+            return null;
         }
     }
 }

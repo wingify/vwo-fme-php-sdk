@@ -18,12 +18,12 @@
 
 namespace vwo\Utils;
 
-use vwo\Packages\Logger\Core\LogManager;
 use vwo\Packages\NetworkLayer\Manager\NetworkManager;
 use vwo\Packages\NetworkLayer\Models\RequestModel;
 use vwo\Services\SettingsService;
 use vwo\Enums\UrlEnum;
 use Exception;
+use vwo\Services\ServiceContainer;
 
 /**
  * Utility class for handling alias operations through network calls to gateway
@@ -36,29 +36,32 @@ class AliasingUtil
   /**
    * Retrieves alias for a given user ID
    * @param string $userId The user identifier
+   * @param ServiceContainer|null $serviceContainer
    * @return mixed Returns response data array/object on success, or false on failure
    */
-  public static function getAlias($userId)
+  public static function getAlias($userId, ServiceContainer $serviceContainer = null)
   {
     try {
+      $settingsService = $serviceContainer ? $serviceContainer->getSettingsService() : SettingsService::instance();
       $queryParams = [];
-      $queryParams['accountId'] = SettingsService::instance()->accountId;
-      $queryParams['sdkKey'] = SettingsService::instance()->sdkKey;
+      $queryParams['accountId'] = $settingsService->accountId;
+      $queryParams['sdkKey'] = $settingsService->sdkKey;
       // Backend expects userId as JSON array
       $queryParams[self::KEY_USER_ID] = json_encode([$userId]);
 
       $request = new RequestModel(
-        SettingsService::instance()->hostname,
+        $settingsService->hostname,
         'GET',
         UrlEnum::GET_ALIAS,
         $queryParams,
         null,
         null,
-        SettingsService::instance()->protocol,
-        SettingsService::instance()->port
+        $settingsService->protocol,
+        $settingsService->port
       );
 
-      $response = NetworkManager::instance()->get($request);
+      $networkManager = $serviceContainer ? $serviceContainer->getNetworkManager() : NetworkManager::instance();
+      $response = $networkManager->get($request);
       if ($response) {
         $responseData = $response->getData();
         // Check if response data exists and has the expected structure
@@ -66,16 +69,22 @@ class AliasingUtil
           $aliasIdFromResponse = $responseData[0]->userId;
           return $aliasIdFromResponse;
         } else {
-          LogManager::instance()->debug("No response from the gateway or the call to the gateway failed.");
+          if ($serviceContainer) {
+            $serviceContainer->getLogManager()->debug("No response from the gateway or the call to the gateway failed.");
+          }
           return $userId;
         }
       } else {
-        LogManager::instance()->debug("No response from the gateway or the call to the gateway failed.");
+        if ($serviceContainer) {
+          $serviceContainer->getLogManager()->debug("No response from the gateway or the call to the gateway failed.");
+        }
         return $userId;
       }
     } catch (Exception $err) {
       $message = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
-      LogManager::instance()->error("Error occurred while fetching alias: {$message}");
+
+      $logManager = $serviceContainer->getLogManager();
+      $logManager->error("Error occurred while fetching alias: {$message}");
       return $userId;
     }
   }
@@ -84,14 +93,16 @@ class AliasingUtil
    * Sets alias for a given user ID
    * @param string $userId The user identifier
    * @param string $aliasId The alias identifier to set
+   * @param ServiceContainer|null $serviceContainer
    * @return mixed Returns response data array/object on success, or false on failure
    */
-  public static function setAlias($userId, $aliasId)
+  public static function setAlias($userId, $aliasId, ServiceContainer $serviceContainer = null)
   {
     try {
+      $settingsService = $serviceContainer ? $serviceContainer->getSettingsService() : SettingsService::instance();
       $queryParams = [];
-      $queryParams['accountId'] = SettingsService::instance()->accountId;
-      $queryParams['sdkKey'] = SettingsService::instance()->sdkKey;
+      $queryParams['accountId'] = $settingsService->accountId;
+      $queryParams['sdkKey'] = $settingsService->sdkKey;
       $queryParams[self::KEY_USER_ID] = $userId;
       $queryParams[self::KEY_ALIAS_ID] = $aliasId;
 
@@ -101,21 +112,23 @@ class AliasingUtil
       ];
 
       $request = new RequestModel(
-        SettingsService::instance()->hostname,
+        $settingsService->hostname,
         'POST',
         UrlEnum::SET_ALIAS,
         $queryParams,
         $requestBody,
         null,
-        SettingsService::instance()->protocol,
-        SettingsService::instance()->port
+        $settingsService->protocol,
+        $settingsService->port
       );
 
-      $response = NetworkManager::instance()->post($request);
+      $networkManager = $serviceContainer ? $serviceContainer->getNetworkManager() : NetworkManager::instance();
+      $response = $networkManager->post($request);
       return $response ? $response->getData() : false;
     } catch (Exception $err) {
       $message = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
-      LogManager::instance()->error("Error occurred while setting alias: {$message}");
+      $logManager = $serviceContainer->getLogManager();
+      $logManager->error("Error occurred while setting alias: {$message}");
       return false;
     }
   }

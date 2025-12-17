@@ -30,9 +30,9 @@ class SdkInitAndUsageStatsUtil
      * @param int|null $settingsFetchTime Time taken to fetch settings in milliseconds
      * @param int|null $sdkInitTime Time taken to initialize the SDK in milliseconds
      */
-    public static function sendSdkInitEvent($settingsFetchTime = null, $sdkInitTime = null)
+    public static function sendSdkInitEvent($settingsFetchTime = null, $sdkInitTime = null, $serviceContainer = null)
     {
-        $networkUtil = new NetworkUtil();
+        $networkUtil = new NetworkUtil($serviceContainer);
         try {
             $properties = $networkUtil->getEventsBaseProperties(EventEnum::VWO_SDK_INIT_EVENT);
         
@@ -40,7 +40,7 @@ class SdkInitAndUsageStatsUtil
 
             $networkUtil->sendEvent($properties, $payload, EventEnum::VWO_SDK_INIT_EVENT);
         } catch (\Exception $e) {
-            LogManager::instance()->error('SDK_INIT_EVENT_ERROR', ['error' => $e->getMessage()]);
+            $serviceContainer->getLogManager()->error('SDK_INIT_EVENT_ERROR', ['error' => $e->getMessage()]);
         }
     }
 
@@ -50,9 +50,9 @@ class SdkInitAndUsageStatsUtil
      *
      * @param int $usageStatsAccountId The account ID for usage statistics
      */
-    public static function sendSDKUsageStatsEvent($usageStatsAccountId)
+    public static function sendSDKUsageStatsEvent($usageStatsAccountId, $serviceContainer = null)
     {
-        $networkUtil = new NetworkUtil();
+        $networkUtil = new NetworkUtil($serviceContainer);
         try {
             // create the query parameters
             $properties = $networkUtil->getEventsBaseProperties(EventEnum::VWO_USAGE_STATS_EVENT, null, null, true, $usageStatsAccountId);
@@ -65,7 +65,7 @@ class SdkInitAndUsageStatsUtil
             $networkUtil->sendEvent($properties, $payload, EventEnum::VWO_USAGE_STATS_EVENT);
         } catch (\Exception $e) {
             // Silently catch the exception as per the original TypeScript code
-            LogManager::instance()->error('SDK_USAGE_STATS_EVENT_ERROR', ['error' => $e->getMessage()]);
+            $serviceContainer->getLogManager()->error('SDK_USAGE_STATS_EVENT_ERROR', ['error' => $e->getMessage()]);
         }
     }
 } 

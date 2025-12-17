@@ -24,7 +24,6 @@ use vwo\Models\CampaignModel;
 use vwo\Models\FeatureModel;
 use vwo\Models\VariationModel;
 use vwo\Models\SettingsModel;
-use vwo\Packages\Logger\Core\LogManager;
 
 class CampaignUtil
 {
@@ -34,17 +33,17 @@ class CampaignUtil
      * Otherwise, it assigns range values to each variation in the campaign.
      * @param CampaignModel $campaign The campaign for which to set the variation allocation.
      */
-    public static function setVariationAllocation($campaign)
+    public static function setVariationAllocation($campaign, $logManager)
     {
         if ($campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE) {
-            self::handleRolloutCampaign($campaign);
+            self::handleRolloutCampaign($campaign, $logManager);
         } else {
             $currentAllocation = 0;
             foreach ($campaign->getVariations() as $variation) {
                 $stepFactor = self::assignRangeValues($variation, $currentAllocation);
                 $currentAllocation += $stepFactor;
 
-                LogManager::instance()->info(
+                $logManager->info(
                     sprintf(
                         "VARIATION_RANGE_ALLOCATION: Variation:%s of Campaign:%s having weight:%s got bucketing range: ( %s - %s )",
                         $variation->getKey(),
@@ -389,7 +388,7 @@ class CampaignUtil
      * Handles the rollout campaign by setting start and end ranges for all variations.
      * @param CampaignModel $campaign The campaign to handle.
      */
-    private static function handleRolloutCampaign($campaign)
+    private static function handleRolloutCampaign($campaign, $logManager)
     {
         foreach ($campaign->getVariations() as $variation) {
             $endRange = $variation->getWeight() * 100;
@@ -397,7 +396,7 @@ class CampaignUtil
             $variation->setStartRange(1);
             $variation->setEndRange($endRange);
 
-            LogManager::instance()->info(
+            $logManager->info(
                 sprintf(
                     "VARIATION_RANGE_ALLOCATION: Variation:%s of Campaign:%s got bucketing range: ( 1 - %s )",
                     $variation->getKey(),

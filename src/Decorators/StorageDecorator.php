@@ -18,24 +18,24 @@
 
 namespace vwo\Decorators;
 
-use vwo\Packages\Logger\Core\LogManager;
 use vwo\Services\StorageService;
 use vwo\Enums\StorageEnum;
 use vwo\Models\FeatureModel;
 use vwo\Models\VariationModel;
 use vwo\Models\User\ContextModel;
+use vwo\Services\ServiceContainer;
 
 interface IStorageDecorator
 {
-    public function getFeatureFromStorage($featureKey, $context, $storageService);
-    public function setDataInStorage($data, $storageService);
+    public function getFeatureFromStorage($featureKey, $context, $storageService, ServiceContainer $serviceContainer = null);
+    public function setDataInStorage($data, $storageService, ServiceContainer $serviceContainer = null);
 }
 
 class StorageDecorator implements IStorageDecorator
 {
-    public function getFeatureFromStorage($featureKey, $context, $storageService)
+    public function getFeatureFromStorage($featureKey, $context, $storageService, ServiceContainer $serviceContainer = null)
     {
-        $campaignMap = $storageService->getDataInStorage($featureKey, $context);
+        $campaignMap = $storageService->getDataInStorage($featureKey, $context, $serviceContainer);
 
         switch ($campaignMap) {
             case StorageEnum::STORAGE_UNDEFINED:
@@ -55,9 +55,10 @@ class StorageDecorator implements IStorageDecorator
         }
     }
 
-    public function setDataInStorage($data, $storageService)
+    public function setDataInStorage($data, $storageService, ServiceContainer $serviceContainer = null)
     {
         $featureKey = $data['featureKey'] ?? null;
+        $featureId = $data['featureId'] ?? null;
         $context = $data['context'] ?? null;
         $rolloutId = $data['rolloutId'] ?? null;
         $rolloutKey = $data['rolloutKey'] ?? null;
@@ -66,27 +67,29 @@ class StorageDecorator implements IStorageDecorator
         $experimentKey = $data['experimentKey'] ?? null;
         $experimentVariationId = $data['experimentVariationId'] ?? null;
 
+        $logManager = $serviceContainer->getLogManager();
+
         if (!$featureKey) {
-            LogManager::instance()->error("Error storing data: featureKey is invalid.");
+            $logManager->error("Error storing data: featureKey is invalid.");
             return false;
         }
 
         if ($context->getId() == null) {
-            LogManager::instance()->error("Error storing data: Context or Context.id is invalid.");
+            $logManager->error("Error storing data: Context or Context.id is invalid.");
             return false;
         }
 
         if ($rolloutKey && !$experimentKey && !$rolloutVariationId) {
-            LogManager::instance()->error("Error storing data: Variation (rolloutKey, experimentKey or rolloutVariationId) is invalid.");
+            $logManager->error("Error storing data: Variation (rolloutKey, experimentKey or rolloutVariationId) is invalid.");
             return false;
         }
 
         if ($experimentKey && !$experimentVariationId) {
-            LogManager::instance()->error("Error storing data: Variation (experimentKey or experimentVariationId) is invalid.");
+            $logManager->error("Error storing data: Variation (experimentKey or experimentVariationId) is invalid.");
             return false;
         }
 
-        $storageService->setDataInStorage([
+        $storageData = [
             'featureKey' => $featureKey,
             'userId' => $context->getId(),
             'rolloutId' => isset($rolloutId) ? $rolloutId : null,
@@ -95,7 +98,14 @@ class StorageDecorator implements IStorageDecorator
             'experimentId' => isset($experimentId) ? $experimentId : null,
             'experimentKey' => isset($experimentKey) ? $experimentKey : null,
             'experimentVariationId' => isset($experimentVariationId) ? $experimentVariationId : null,
-        ]);
+        ];
+
+        // Add featureId if provided
+        if ($featureId !== null) {
+            $storageData['featureId'] = $featureId;
+        }
+
+        $storageService->setDataInStorage($storageData, $serviceContainer);
 
         return true;
     }

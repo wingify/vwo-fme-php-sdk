@@ -36,25 +36,25 @@ class GatewayServiceUtil {
      * @param string $endpoint The endpoint URL to which the request is sent.
      * @return mixed The response data or false if an error occurs.
      */
-    public static function getFromGatewayService($queryParams, $endpoint) {
-        $networkInstance = NetworkManager::instance();
+    public static function getFromGatewayService($serviceContainer, $queryParams, $endpoint) {
+        $networkInstance = $serviceContainer->getNetworkManager();
 
         // Check if the base URL is correctly set
-        if (!SettingsService::instance()->isGatewayServiceProvided) {
-            LogManager::instance()->error('Invalid URL. Please provide a valid URL for vwo helper gatewayService');
+        if (!$serviceContainer->getSettingsService()->isGatewayServiceProvided) {
+            $serviceContainer->getLogManager()->error('Invalid URL. Please provide a valid URL for vwo helper gatewayService');
             return false;
         }
 
         try {
             $request = new RequestModel(
-                UrlService::getBaseUrl(),
+                $serviceContainer->getSettingsService()->hostname,
                 'GET',
                 $endpoint,
                 $queryParams,
                 null,
                 null,
-                SettingsService::instance()->protocol,
-                SettingsService::instance()->port
+                $serviceContainer->getSettingsService()->protocol,
+                $serviceContainer->getSettingsService()->port
             );
 
             $response = $networkInstance->get($request);
@@ -62,11 +62,11 @@ class GatewayServiceUtil {
             if ($response instanceof ResponseModel) {
                 return $response->getData();
             } else {
-                LogManager::instance()->error('Failed to get a valid response from the network request.');
+                $serviceContainer->getLogManager()->error('Failed to get a valid response from the network request.');
                 return false;
             }
         } catch (\Exception $err) {
-            LogManager::instance()->error('Error occurred while sending GET request: ' . $err->getMessage());
+            $serviceContainer->getLogManager()->error('Error occurred while sending GET request: ' . $err->getMessage());
             return false;
         }
     }

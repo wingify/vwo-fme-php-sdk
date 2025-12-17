@@ -29,15 +29,14 @@ class LoggerService {
     public static $infoMessages = [];
     public static $warningMessages = [];
     public static $traceMessages = [];
-
+    private $logManager;
     /**
      * Constructor initializes LogManager and loads message files
      * 
      * @param array $config Configuration for the logger
      */
     public function __construct($config = []) {
-        // Initialize the LogManager
-        new LogManager($config);
+        $this->logManager = LogManager::instance();
 
         // Load the log messages from centralized repository
         $logMessages = LogMessages::get();
@@ -57,7 +56,7 @@ class LoggerService {
      * @param array $map Associative array of parameters to replace in the message
      */
     public static function log($level, $key, $map = []) {
-        $logManager = LogManager::instance();
+        $logManager = $this->logManager;
         $messageTemplate = '';
 
         switch ($level) {
@@ -91,7 +90,7 @@ class LoggerService {
      * @param string $message The message to log
      */
     public static function logMessage($level, $message) {
-        $logManager = LogManager::instance();
+        $logManager = $this->logManager;
         
         switch ($level) {
             case LogLevelEnum::DEBUG:

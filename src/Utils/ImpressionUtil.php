@@ -22,6 +22,7 @@ use vwo\Models\SettingsModel;
 use vwo\Enums\EventEnum;
 use vwo\Utils\NetworkUtil;
 use vwo\Models\User\ContextModel;
+use vwo\Services\ServiceContainer;
 use vwo\Enums\HeadersEnum;
 use vwo\Services\SettingsService;
 use vwo\Services\UrlService;
@@ -33,25 +34,25 @@ use vwo\Packages\Logger\Core\LogManager;
 class ImpressionUtil
 {
     private $accountId;
-    
 
     /**
      * Creates and sends an impression for a variation shown event.
      * This function constructs the necessary properties and payload for the event
      * and uses the NetworkUtil to send a POST API request.
      *
-     * @param SettingsModel $settings - The settings model containing configuration.
+     * @param ServiceContainer $serviceContainer - The service container.
      * @param int $campaignId - The ID of the campaign.
      * @param int $variationId - The ID of the variation shown to the user.
      * @param ContextModel $context - The user context model containing user-specific data.
      */
     public static function SendImpressionForVariationShown(
-        SettingsModel $settings,
+        ServiceContainer $serviceContainer,
         $payload,
         ContextModel $context
     ) {
         // Get base properties for the event
-        $networkUtil = new NetworkUtil();
+        $networkUtil = new NetworkUtil($serviceContainer);
+        $settings = $serviceContainer->getSettings();
 
         $properties = $networkUtil->getEventsBaseProperties(
             EventEnum::VWO_VARIATION_SHOWN,
@@ -69,8 +70,8 @@ class ImpressionUtil
      * @param array $batchPayload The batch payload to send.
      * @return bool True if the batch of events was sent successfully, false otherwise.
      */
-    public static function SendImpressionForVariationShownInBatch($batchPayload) {
-        return self::sendBatchEvents($batchPayload);
+    public static function SendImpressionForVariationShownInBatch($batchPayload, ServiceContainer $serviceContainer) {
+        return self::sendBatchEvents($batchPayload, $serviceContainer);
     }
 
     /**
@@ -79,14 +80,14 @@ class ImpressionUtil
      * @param array $batchPayload The batch payload to send.
      * @return bool True if the batch of events was sent successfully, false otherwise.
      */
-    private static function sendBatchEvents($batchPayload) {
-        $accountId = SettingsService::instance()->accountId ?? null;
-        $retryConfig = NetworkManager::instance()->getRetryConfig();
+    private static function sendBatchEvents($batchPayload, ServiceContainer $serviceContainer) {
+        $accountId = $serviceContainer->getSettingsService()->accountId ?? null;
+        $retryConfig = $serviceContainer->getNetworkManager()->getRetryConfig();
 
-        $networkUtil = new NetworkUtil();
+        $networkUtil = new NetworkUtil($serviceContainer);
         $properties = $networkUtil->getEventBatchingQueryParams($accountId);
         $headers = [];
-        $headers[HeadersEnum::AUTHORIZATION] = SettingsService::instance()->sdkKey;
+        $headers[HeadersEnum::AUTHORIZATION] = $serviceContainer->getSettingsService()->sdkKey;
         
         $eventCount = is_array($batchPayload) ? count($batchPayload) : 1;
         $batchPayload = [
@@ -101,27 +102,27 @@ class ImpressionUtil
             $properties,
             $batchPayload,
             $headers,
-            SettingsService::instance()->protocol,
-            SettingsService::instance()->port,
+            $serviceContainer->getSettingsService()->protocol,
+            $serviceContainer->getSettingsService()->port,
             $retryConfig
         );
 
         try {
-            $response = NetworkManager::instance()->post($request);
+            $response = $serviceContainer->getNetworkManager()->post($request);
             $statusCode = $response->getStatusCode();
             
             // When shouldWaitForTrackingCalls is false, socket connections are used (fire-and-forget)
             // No status code is available, so we don't log success (we can't verify it)
             if ($statusCode === null) {
-                LogManager::instance()->info('Impression sent to VWO server via socket connection for ' . $eventCount . ' events.');
+                $serviceContainer->getLogManager()->info('Impression sent to VWO server via socket connection for ' . $eventCount . ' events.');
                 return true;
             }
             
             if ($statusCode == 200) {
-                LogManager::instance()->info('Impression sent successfully for ' . $eventCount . ' events.');
+                $serviceContainer->getLogManager()->info('Impression sent successfully for ' . $eventCount . ' events.');
                 return true;
             } else {
-                LogManager::instance()->error('Impression failed to send for ' . $eventCount . ' events');
+                $serviceContainer->getLogManager()->error('Impression failed to send for ' . $eventCount . ' events');
                 return false;
             }
         } catch (\Exception $e) {

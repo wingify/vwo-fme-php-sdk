@@ -22,11 +22,11 @@ use vwo\Enums\ApiEnum;
 use vwo\Enums\ErrorLogMessagesEnum;
 use vwo\Models\SettingsModel;
 use vwo\Models\User\ContextModel;
-use vwo\Packages\Logger\Core\LogManager;
 use vwo\Services\HooksService;
 use vwo\Utils\FunctionUtil as FunctionUtil;
 use vwo\Utils\NetworkUtil as NetworkUtil;
 use vwo\Utils\LogMessageUtil as LogMessageUtil;
+use vwo\Services\ServiceContainer;
 
 // Interface for tracking functionality
 interface ITrack
@@ -55,13 +55,13 @@ class TrackEvent implements ITrack
      * @param HooksService $hooksService Manager for handling hooks and callbacks.
      * @return array Returns an array indicating the success or failure of the event tracking.
      */
-    public function track(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties, HooksService $hooksService, bool $isDebuggerUsed = false): array
+    public function track(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties, HooksService $hooksService, bool $isDebuggerUsed = false, ServiceContainer $serviceContainer = null): array
     {
         if (FunctionUtil::doesEventBelongToAnyFeature($eventName, $settings)) {
             // Create an impression for the track event
             // if settings passed in init options is true, then we don't need to send an impression
             if (!$isDebuggerUsed) {
-                $this->createImpressionForTrack($settings, $eventName, $context, $eventProperties);
+                $this->createImpressionForTrack($settings, $eventName, $context, $eventProperties, $serviceContainer);
             }
 
             // Set and execute integration callback for the track event
@@ -72,7 +72,8 @@ class TrackEvent implements ITrack
         }
 
         // Log an error if the event does not exist
-        LogManager::instance()->error("Event '$eventName' not found in any of the features");
+        $logManager = $serviceContainer->getLogManager();
+        $logManager->error("Event '$eventName' not found in any of the features");
 
 
         return [$eventName => false];
@@ -84,10 +85,11 @@ class TrackEvent implements ITrack
      * @param string $eventName Name of the event to track.
      * @param ContextModel $context Contextual information like user details.
      * @param array $eventProperties Properties associated with the event.
+     * @param ServiceContainer $serviceContainer The service container (optional).
      */
-    private function createImpressionForTrack(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties)
+    private function createImpressionForTrack(SettingsModel $settings, string $eventName, ContextModel $context, array $eventProperties, ServiceContainer $serviceContainer = null)
     {
-        $networkUtil = new NetworkUtil();
+        $networkUtil = new NetworkUtil($serviceContainer);
 
         // Get base properties for the event
         $properties = $networkUtil->getEventsBaseProperties($eventName, $context->getUserAgent(), $context->getIpAddress());

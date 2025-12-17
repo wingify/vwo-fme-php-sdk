@@ -31,6 +31,7 @@ use vwo\Models\SettingsModel;
 use vwo\Services\SettingsService;
 use vwo\Utils\UsageStatsUtil;
 use vwo\Services\LoggerService;
+use vwo\Services\ServiceContainer;
 
 interface IVWOBuilder
 {
@@ -55,10 +56,12 @@ class VWOBuilder implements IVWOBuilder
     private $settings;
     private $storage;
     private $logManager;
+    private $networkManager;
     public $originalSettings;
     private $isSettingsFetchInProgress;
     private $settingsSetManually = false;
     private $vwoInstance;
+    public $serviceContainer;
 
     public function __construct($options = [])
     {
@@ -77,24 +80,30 @@ class VWOBuilder implements IVWOBuilder
             'retryConfig' => isset($this->options['retryConfig']) && is_array($this->options['retryConfig'])
                 ? $this->options['retryConfig']
                 : null,
+            'logManager' => $this->logManager,
         ];
 
-        $networkInstance = NetworkManager::instance($networkOptions);
-        $networkInstance->attachClient($this->options['network']['client'] ?? null, $networkOptions);
-        $networkInstance->getConfig()->setDevelopmentMode($this->options['isDevelopmentMode'] ?? null);
+        // Create instance-based NetworkManager instead of singleton
+        $this->networkManager = new NetworkManager();
+        $this->networkManager->attachClient($this->options['network']['client'] ?? null, $networkOptions);
+        $this->networkManager->getConfig()->setDevelopmentMode($this->options['isDevelopmentMode'] ?? null);
+        
+        // Attach NetworkManager to SettingsService (matching TypeScript pattern)
+        if ($this->settingFileManager) {
+            $this->settingFileManager->setNetworkManager($this->networkManager);
+        }
         return $this;
     }
 
     public function setSegmentation()
     {
-        SegmentationManager::instance()->attachEvaluator($this->options['segmentation'] ?? null);
         return $this;
     }
 
     public function fetchSettings($force = false)
     {
         if ($this->isSettingsFetchInProgress) {
-            LogManager::instance()->info('Settings fetch in progress, waiting...');
+            $this->logManager->info('Settings fetch in progress, waiting...');
             return;
         }
 
@@ -109,14 +118,14 @@ class VWOBuilder implements IVWOBuilder
         } catch (\Exception $error) {
             $this->isSettingsFetchInProgress = false;
             $errorMessage = $error instanceof \Exception ? $error->getMessage() : 'Unknown error';
-            LogManager::instance()->error("Error fetching settings: $errorMessage");
+            $this->logManager->error("Error fetching settings: $errorMessage");
             throw $error;
         }
     }
 
     public function setSettings($settings)
     {
-        LogManager::instance()->debug('API - setSettings called');
+        $this->logManager->debug('API - setSettings called');
         $this->originalSettings = $settings;
         $this->settings = new SettingsModel($settings);
         $this->settings = SettingsUtil::processSettings($this->settings);
@@ -126,14 +135,14 @@ class VWOBuilder implements IVWOBuilder
     public function getSettings($force = false)
     {
         if (!$force && $this->settings) {
-            LogManager::instance()->info('Using already fetched and cached settings');
+            $this->logManager->info('Using already fetched and cached settings');
             return $this->settings;
         } else {
             try {
                 return $this->fetchSettings($force);
             } catch (\Exception $error) {
                 $errorMessage = $error instanceof \Exception ? $error->getMessage() : 'Unknown error';
-                LogManager::instance()->error("Error getting settings: $errorMessage");
+                $this->logManager->error("Error getting settings: $errorMessage");
                 throw $error;
             }
         }
@@ -142,7 +151,8 @@ class VWOBuilder implements IVWOBuilder
     public function setStorage()
     {
         if (!empty($this->options['storage'])) {
-            $this->storage = Storage::instance()->attachConnector($this->options['storage']);
+            $storageInstance = new Storage();
+            $this->storage = $storageInstance->attachConnector($this->options['storage']);
         } else {
             $this->storage = null;
         }
@@ -151,7 +161,7 @@ class VWOBuilder implements IVWOBuilder
 
     public function setSettingsService()
     {
-        $this->settingFileManager = new SettingsService($this->options);
+        $this->settingFileManager = new SettingsService($this->options, $this->logManager);
         return $this;
     }
 
@@ -168,19 +178,28 @@ class VWOBuilder implements IVWOBuilder
             return $this;
         } catch (\Exception $error) {
             $errorMessage = $error instanceof \Exception ? $error->getMessage() : 'Unknown error';
-            LogManager::instance()->error("Error setting Logger Instance: $errorMessage");
+            $this->logManager->error("Error setting Logger Instance: $errorMessage");
         }
+    }
+
+    /**
+     * Returns the logger instance
+     * @return LogManager
+     */
+    public function getLogger()
+    {
+        return $this->logManager;
     }
 
     public function setAnalyticsCallback()
     {
         if (!is_object($this->options['analyticsEvent'])) {
-            LogManager::instance()->error('Analytics event should be an object');
+            $this->logManager->error('Analytics event should be an object');
             return $this;
         }
 
         if (!is_callable($this->options['analyticsEvent']['eventCallback'])) {
-            LogManager::instance()->error('Analytics event callback should be callable');
+            $this->logManager->error('Analytics event callback should be callable');
             return $this;
         }
 
@@ -188,7 +207,7 @@ class VWOBuilder implements IVWOBuilder
             isset($this->options['analyticsEvent']['isBatchingSupported']) &&
             !is_bool($this->options['analyticsEvent']['isBatchingSupported'])
         ) {
-            LogManager::instance()->error('Analytics event batching support should be a boolean');
+            $this->logManager->error('Analytics event batching support should be a boolean');
             return $this;
         }
         return $this;
@@ -212,7 +231,7 @@ class VWOBuilder implements IVWOBuilder
             ) ||
             !is_callable($this->options['batchEvents']['flushCallback'])
         ) {
-            LogManager::instance()->error('Invalid batchEvents config');
+            $this->logManager->error('Invalid batchEvents config');
             return $this;
         }
 
@@ -231,7 +250,7 @@ class VWOBuilder implements IVWOBuilder
         }
 
         if ($this->options['pollInterval'] < 0) {
-            LogManager::instance()->error('Poll interval should be greater than 1');
+            $this->logManager->error('Poll interval should be greater than 1');
             return $this;
         }
         if (!$this->settingsSetManually){
@@ -255,18 +274,33 @@ class VWOBuilder implements IVWOBuilder
                     $thisReference->originalSettings = $latestSettings;
                     $clonedSettings = FunctionUtil::cloneObject($latestSettings);
                     $thisReference->settings = SettingsUtil::processSettings($clonedSettings);
-                    LogManager::instance()->info('Settings file updated');
-                    SettingsUtil::setSettingsAndAddCampaignsToRules($clonedSettings, $this->vwoInstance);
+                    $this->logManager->info('Settings file updated');
+                    SettingsUtil::setSettingsAndAddCampaignsToRules($clonedSettings, $this->vwoInstance, $this->logManager);
                 }
             } catch (\Exception $error) {
-                LogManager::instance()->error('Error while fetching VWO settings with polling');
+                $this->logManager->error('Error while fetching VWO settings with polling');
             }
         }
     }
 
     public function build($settings)
     {
-        $this->vwoInstance = new VWOClient($this->settings, $this->options);
+        // Create ServiceContainer with all service instances
+        $this->serviceContainer = new ServiceContainer(
+            $this->logManager,
+            $this->settingFileManager,
+            $this->options,
+            $this->settings,
+            $this->networkManager,
+            $this->storage
+        );
+
+        // Attach evaluator to segmentation manager if provided
+        if (isset($this->options['segmentation'])) {
+            $this->serviceContainer->getSegmentationManager()->attachEvaluator($this->options['segmentation']);
+        }
+
+        $this->vwoInstance = new VWOClient($this->settings, $this->options, $this->serviceContainer);
         return $this->vwoInstance;
     }
 

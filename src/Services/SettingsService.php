@@ -47,9 +47,12 @@ class SettingsService implements ISettingsService {
     public $settingsSchemaValidator;
     public $settingsFetchTime;
     public $isSettingsValidOnInit;
+    private $networkManager; // Store instance-based NetworkManager
+    private $logManager;
 
     // Constructor
-    public function __construct($options) {
+    public function __construct($options, $logManager) {
+        $this->logManager = $logManager;
         // Assigning values to properties
         $this->sdkKey = $options['sdkKey'];
         $this->accountId = $options['accountId'];
@@ -71,13 +74,13 @@ class SettingsService implements ISettingsService {
             $this->hostname = Constants::HOST_NAME;
             $this->port = null;
         }
-        // // Pass the flag to NetworkManager
-        $this->initializeNetworkManager($options);
 
         $this->settingsSchemaValidator = new SettingsSchema(); // Initialize the schema validator
 
         self::$instance = $this;
-        LogManager::instance()->debug('Settings Manager initialized');
+        $this->logManager->debug('Settings Manager initialized');
+
+        $this->initializeNetworkManager($options);
     }
 
     private function initializeNetworkManager($options) {
@@ -96,6 +99,14 @@ class SettingsService implements ISettingsService {
         NetworkManager::instance($networkOptions); // Pass the options to the NetworkManager
     }
 
+    /**
+     * Sets the NetworkManager instance to use for network requests
+     * @param NetworkManager $networkManager The NetworkManager instance
+     */
+    public function setNetworkManager(NetworkManager $networkManager) {
+        $this->networkManager = $networkManager;
+    }
+
     public static function instance(): SettingsService {
         return self::$instance;
     }
@@ -109,25 +120,26 @@ class SettingsService implements ISettingsService {
             $settings = $this->fetchSettings();    
             if ($this->settingsSchemaValidator->isSettingsValid($settings)) { // Validate settings
                 $this->isSettingsValidOnInit = true;
-                LoggerService::info('SETTINGS_FETCH_SUCCESS');
+                $this->logManager->info('SETTINGS_FETCH_SUCCESS');
                 return $settings;
             } else {
-                LoggerService::error('SETTINGS_SCHEMA_INVALID');
+                $this->logManager->error('SETTINGS_SCHEMA_INVALID');
                 return null;
             }
         } catch (Exception $e) {
-            LoggerService::error('SETTINGS_FETCH_ERROR', ['err' => $e->getMessage()]);
+            $this->logManager->error('SETTINGS_FETCH_ERROR', ['err' => $e->getMessage()]);
             return null;
         }
     }
 
     public function fetchSettings() {
         if (!$this->sdkKey || !$this->accountId) {
-            LogManager::instance()->error('sdkKey is required for fetching account settings. Aborting!');
+            $this->serviceContainer->getLogManager()->error('sdkKey is required for fetching account settings. Aborting!');
             throw new Exception('sdkKey is required for fetching account settings. Aborting!');
         }
 
-        $networkInstance = NetworkManager::instance();
+        // Use instance-based NetworkManager if available, otherwise fall back to singleton
+        $networkInstance = $this->networkManager ? $this->networkManager : NetworkManager::instance();
         $options = (new NetworkUtil())->getSettingsPath($this->sdkKey, $this->accountId);
         $options['platform'] = 'server';
         $options['api-version'] = 1;
@@ -159,7 +171,7 @@ class SettingsService implements ISettingsService {
             $this->settingsFetchTime = (int)((microtime(true) * 1000) - $settingsFetchStartTime);
             return $response->getData();
         } catch (Exception $err) {
-            LogManager::instance()->error("Error occurred while fetching settings: {$err->getMessage()}");
+            $this->serviceContainer->getLogManager()->error("Error occurred while fetching settings: {$err->getMessage()}");
             throw $err;
         }
     }

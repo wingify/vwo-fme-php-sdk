@@ -23,6 +23,8 @@ use vwo\Packages\NetworkLayer\Models\RequestModel;
 use vwo\Services\LoggerService;
 use vwo\Enums\LogLevelEnum;
 use vwo\Constants\Constants;
+use vwo\Packages\NetworkLayer\Manager\NetworkManager;
+use vwo\Packages\Logger\Core\LogManager;
 
 class NetworkClient implements NetworkClientInterface
 {
@@ -31,6 +33,7 @@ class NetworkClient implements NetworkClientInterface
     private $isGatewayUrlNotSecure = false; // Flag to store the value
     private $shouldWaitForTrackingCalls = false;
     private $retryConfig = Constants::DEFAULT_RETRY_CONFIG;
+    private $logManager;
 
     // Constructor to accept options and store the flag
     public function __construct($options = []) {
@@ -42,6 +45,9 @@ class NetworkClient implements NetworkClientInterface
         }
         if(isset($options['retryConfig'])) {
             $this->retryConfig = $options['retryConfig'];
+        }
+        if(isset($options['logManager'])) {
+            $this->logManager = $options['logManager'];
         }
     }
 
@@ -268,7 +274,8 @@ class NetworkClient implements NetworkClientInterface
                 'GET',
                 $networkOptions['headers'],
                 null,
-                $networkOptions['timeout'] / 1000
+                $networkOptions['timeout'] / 1000,
+                $this->retryConfig
             );
             $rawResponse = $curlResponse['body'];
             $responseModel->setStatusCode($curlResponse['status_code']);
@@ -304,7 +311,7 @@ class NetworkClient implements NetworkClientInterface
                     $networkOptions['headers'],
                     $networkOptions['body'],
                     $networkOptions['timeout'] / 1000,
-                    $retryConfig
+                    $this->retryConfig
                 );
                 
                 $rawResponse = $curlResponse['body'];

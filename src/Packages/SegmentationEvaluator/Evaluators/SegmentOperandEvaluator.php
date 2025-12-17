@@ -22,10 +22,14 @@ use vwo\Utils\GatewayServiceUtil;
 use vwo\Enums\UrlEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandRegexEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandValueEnum;
-use vwo\Packages\Logger\Core\LogManager;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperatorValueEnum;
 
 class SegmentOperandEvaluator {
+    public $serviceContainer;
+
+    public function __construct($serviceContainer) {
+        $this->serviceContainer = $serviceContainer;
+    }
 
     public function evaluateCustomVariableDSL($dslOperandValue, $properties) {
         $keyValue = SegmentEvaluator::getKeyValue($dslOperandValue);
@@ -47,7 +51,7 @@ class SegmentOperandEvaluator {
         if (preg_match(SegmentOperandRegexEnum::IN_LIST, $operand)) {
             preg_match(SegmentOperandRegexEnum::IN_LIST, $operand, $matches);
             if (!$matches || count($matches) < 2) {
-                LogManager::instance()->error('Invalid inList operand format');
+                $this->serviceContainer->getLogManager()->error('Invalid inList operand format');
                 return false;
             }
 
@@ -61,13 +65,13 @@ class SegmentOperandEvaluator {
             ];
 
             try {
-                $res = GatewayServiceUtil::getFromGatewayService($queryParamsObj, UrlEnum::ATTRIBUTE_CHECK);
+                $res = GatewayServiceUtil::getFromGatewayService($this->serviceContainer, $queryParamsObj, UrlEnum::ATTRIBUTE_CHECK);
                 if (!$res || $res === null || $res === 'false') {
                     return false;
                 }
                 return $res;
             } catch (\Exception $error) {
-                LogManager::instance()->error('Error while fetching data:'. $error->getMessage());
+                $this->serviceContainer->getLogManager()->error('Error while fetching data:'. $error->getMessage());
                 return false;
             }
         } else {
@@ -94,7 +98,7 @@ class SegmentOperandEvaluator {
     public function evaluateUserAgentDSL($dslOperandValue, $context) {
         $operand = $dslOperandValue;
         if (!$context->getUserAgent() || $context->getUserAgent() === null) {
-            LogManager::instance()->info('To evaluate UserAgent segmentation, please provide userAgent in context');
+            $this->serviceContainer->getLogManager()->info('To evaluate UserAgent segmentation, please provide userAgent in context');
             return false;
         }
         $tagValue = urldecode($context->getUserAgent());
@@ -357,13 +361,13 @@ class SegmentOperandEvaluator {
     private function logMissingContextError($operandType) {
         switch ($operandType) {
             case SegmentOperatorValueEnum::IP:
-                LogManager::instance()->info('To evaluate IP segmentation, please provide ipAddress in context');
+                $this->serviceContainer->getLogManager()->info('To evaluate IP segmentation, please provide ipAddress in context');
                 break;
             case SegmentOperatorValueEnum::BROWSER_VERSION:
-                LogManager::instance()->info('To evaluate browser version segmentation, please provide userAgent in context');
+                $this->serviceContainer->getLogManager()->info('To evaluate browser version segmentation, please provide userAgent in context');
                 break;
             default:
-            LogManager::instance()->info('To evaluate OS version segmentation, please provide userAgent in context');
+            $this->serviceContainer->getLogManager()->info('To evaluate OS version segmentation, please provide userAgent in context');
                 break;
         }
     }
