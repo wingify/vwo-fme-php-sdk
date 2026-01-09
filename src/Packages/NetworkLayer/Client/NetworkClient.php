@@ -59,7 +59,7 @@ class NetworkClient implements NetworkClientInterface
         return false;
     }
 
-    private function makeCurlRequest($url, $method, $headers, $body = null, $timeout = 5, $retryConfig = [])
+    private function makeCurlRequest($url, $method, $headers, $body = null, $timeout = 5000, $retryConfig = [])
     {
         // Merge with defaults to ensure all keys are present
         $retryConfig = array_merge(Constants::DEFAULT_RETRY_CONFIG, $retryConfig);
@@ -81,7 +81,7 @@ class NetworkClient implements NetworkClientInterface
             curl_setopt_array($ch, [
                 CURLOPT_URL => $url,
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => $timeout,
+                CURLOPT_TIMEOUT_MS => $timeout,
                 CURLOPT_CUSTOMREQUEST => $method,
                 CURLOPT_SSL_VERIFYPEER => false,
                 CURLOPT_SSL_VERIFYHOST => false,
@@ -274,7 +274,7 @@ class NetworkClient implements NetworkClientInterface
                 'GET',
                 $networkOptions['headers'],
                 null,
-                $networkOptions['timeout'] / 1000,
+                $networkOptions['timeout'],
                 $this->retryConfig
             );
             $rawResponse = $curlResponse['body'];
@@ -310,7 +310,7 @@ class NetworkClient implements NetworkClientInterface
                     'POST',
                     $networkOptions['headers'],
                     $networkOptions['body'],
-                    $networkOptions['timeout'] / 1000,
+                    $networkOptions['timeout'],
                     $this->retryConfig
                 );
                 

@@ -56,8 +56,8 @@ class SettingsService implements ISettingsService {
         // Assigning values to properties
         $this->sdkKey = $options['sdkKey'];
         $this->accountId = $options['accountId'];
-        $this->expiry = isset($options['settings']['expiry']) ? $options['settings']['expiry'] : Constants::SETTINGS_EXPIRY;
-        $this->networkTimeout = isset($options['settings']['timeout']) ? $options['settings']['timeout'] : Constants::SETTINGS_TIMEOUT;
+        $this->expiry = isset($options['settingsConfig']['expiry']) ? $options['settingsConfig']['expiry'] : Constants::SETTINGS_EXPIRY;
+        $this->networkTimeout = isset($options['settingsConfig']['timeout']) ? $options['settingsConfig']['timeout'] : Constants::SETTINGS_TIMEOUT;
 
         // Parsing URL if provided
         if (isset($options['gatewayService']['url'])) {

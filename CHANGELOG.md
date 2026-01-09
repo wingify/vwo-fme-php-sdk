@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-01-09
+
+### Added
+
+- Added support for configurable ANSI color output in logging. ANSI colors in logging are now only applied when `isAnsiColorEnabled` is set to `true` in the logger configuration.
+
+Example:
+
+```php
+$vwoClient = VWO::init([
+    'accountId' => '123456',
+    'sdkKey' => '32-alpha-numeric-sdk-key',
+    'logger' => [
+        'level' => 'DEBUG',
+        'isAnsiColorEnabled' => true, // Enable colored log levels in terminal
+    ],
+]);
+```
+
+- Added support for configurable settings expiry and network timeout through `settingsConfig` option. The SDK now allows customization of settings cache expiration and network timeout for settings fetch requests.
+
+Example:
+
+```php
+$vwoClient = VWO::init([
+    'accountId' => '123456',
+    'sdkKey' => '32-alpha-numeric-sdk-key',
+    'settingsConfig' => [
+        'timeout' => 50000,       // Network timeout for settings fetch in milliseconds (default: 50000)
+    ],
+]);
+```
 
 ## [1.16.0] - 2025-12-12
 

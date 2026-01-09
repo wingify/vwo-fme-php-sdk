@@ -56,16 +56,20 @@ class LogMessageBuilder implements ILogMessageBuilder {
             'WHITE' => "\x1b[30m",
             'YELLOW' => "\x1b[33m"
         ];
-
-        $logLevelColorInfoEnum = [
-            LogLevelEnum::TRACE => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['WHITE']}{$upperCaseLevel}{$ansiColorEnum['RESET']}",
-            LogLevelEnum::DEBUG => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['LIGHTBLUE']}{$upperCaseLevel} {$ansiColorEnum['RESET']}",
-            LogLevelEnum::INFO => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['CYAN']}{$upperCaseLevel}  {$ansiColorEnum['RESET']}",
-            LogLevelEnum::WARN => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['YELLOW']}{$upperCaseLevel}  {$ansiColorEnum['RESET']}",
-            LogLevelEnum::ERROR => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['RED']}{$upperCaseLevel} {$ansiColorEnum['RESET']}"
-        ];
-
-        return $logLevelColorInfoEnum[$level] ?? "{$ansiColorEnum['BOLD']}{$ansiColorEnum['RED']}INVALID{$ansiColorEnum['RESET']}";
+        // if loggerConfig.isAnsiColorEnabled is true, then use the formatted level, otherwise return the level as it is
+        if(isset($this->loggerConfig['isAnsiColorEnabled']) && $this->loggerConfig['isAnsiColorEnabled']) {
+            $logLevelColorInfoEnum = [
+                LogLevelEnum::TRACE => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['WHITE']}{$upperCaseLevel}{$ansiColorEnum['RESET']}",
+                LogLevelEnum::DEBUG => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['LIGHTBLUE']}{$upperCaseLevel} {$ansiColorEnum['RESET']}",
+                LogLevelEnum::INFO => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['CYAN']}{$upperCaseLevel}  {$ansiColorEnum['RESET']}",
+                LogLevelEnum::WARN => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['YELLOW']}{$upperCaseLevel}  {$ansiColorEnum['RESET']}",
+                LogLevelEnum::ERROR => "{$ansiColorEnum['BOLD']}{$ansiColorEnum['RED']}{$upperCaseLevel} {$ansiColorEnum['RESET']}"
+            ];
+    
+            return $logLevelColorInfoEnum[$level] ?? "{$ansiColorEnum['BOLD']}{$ansiColorEnum['RED']}INVALID{$ansiColorEnum['RESET']}";
+        } else {
+            return $upperCaseLevel;
+        }
     }
 
     public function getFormattedDateTime(): string {

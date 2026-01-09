@@ -315,6 +315,7 @@ To gain more control over VWO's logging behaviour, you can use the `logger` para
 | ------------- | -------------------------------------- | ------------ | -------- | --------------------- |
 | `level`       | Log level to control verbosity of logs | Yes          | string   | `'DEBUG'`             |
 | `prefix`      | Custom prefix for log messages         | No           | string   | `'CUSTOM LOG PREFIX'` |
+| `isAnsiColorEnabled` | Enable ANSI color codes for log levels in terminal output | No | boolean | `true` |
 | `transport`   | Custom logger implementation           | No           | array    | See example below     |
 
 #### Example 1: Set log level to control verbosity of logs
@@ -342,7 +343,22 @@ $vwoClient2 = VWO::init([
 ]);
 ```
 
-#### Example 3: Implement custom transport to handle logs your way
+#### Example 3: Enable ANSI color codes for colored log levels in terminal
+
+```php
+$vwoClient3 = VWO::init([
+  'sdkKey' => '32-alpha-numeric-sdk-key',
+  'accountId' => '123456',
+  'logger' => [
+    'level' => 'DEBUG',
+    'isAnsiColorEnabled' => true, // Enable colored log levels (TRACE, DEBUG, INFO, WARN, ERROR)
+  ],
+]);
+```
+
+Note: ANSI color codes are only applied when `isAnsiColorEnabled` is explicitly set to `true`. This prevents unwanted color codes in log files or non-terminal outputs. When disabled or not set, log levels are displayed as plain text.
+
+#### Example 4: Implement custom transport to handle logs your way
 
 The `transport` parameter allows you to implement custom logging behavior by providing your own logging functions. You can define handlers for different log levels (`debug`, `info`, `warn`, `error`, `trace`) to process log messages according to your needs.
 
@@ -358,7 +374,7 @@ The transport object should implement handlers for the log levels you want to cu
 
 For single transport you can use the `transport` parameter. For example:
 ```php
-$vwoClient3 = VWO::init([
+$vwoClient4 = VWO::init([
   'sdkKey' => '32-alpha-numeric-sdk-key',
   'logger' => [
     'transport' => [
@@ -373,7 +389,7 @@ $vwoClient3 = VWO::init([
 
 For multiple transports you can use the `transports` parameter. For example:
 ```php
-$vwoClient3 = VWO::init([
+$vwoClient5 = VWO::init([
   'sdkKey' => '32-alpha-numeric-sdk-key',
   'logger' => [
     'transports' => [
