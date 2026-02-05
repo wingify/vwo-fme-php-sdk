@@ -142,6 +142,11 @@ class GetFlag
             return new GetFlagResultUtil(false, [], $ruleStatus);
         }
 
+        // Set session ID if not present
+        if ($context->getSessionId() === null) {
+            $context->setSessionId(FunctionUtil::getCurrentUnixTimestamp());
+        }
+
         $segmentationManager = $serviceContainer->getSegmentationManager();
         $segmentationManager->setContextualData($serviceContainer, $feature, $context);
 
@@ -369,7 +374,7 @@ class GetFlag
             ImpressionUtil::SendImpressionForVariationShownInBatch($batchPayload, $serviceContainer);
         }
     
-        return new GetFlagResultUtil($isEnabled, $variablesForEvaluatedFlag, $ruleStatus);
+        return new GetFlagResultUtil($isEnabled, $variablesForEvaluatedFlag, $ruleStatus, $context->getSessionId());
     }
 
     private function updateIntegrationsDecisionObject(CampaignModel $campaign, VariationModel $variation, array &$passedRulesInformation, array &$decision)

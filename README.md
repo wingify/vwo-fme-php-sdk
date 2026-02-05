@@ -169,6 +169,33 @@ $vwoClient->setAttribute($attributes, $userContext);
 
 See [Pushing Attributes](https://developers.vwo.com/v2/docs/fme-php-attributes#usage) documentation for additional information.
 
+### Generating UUID
+
+The `getUUID` method allows you to generate a UUID that gets stored on VWO by providing a `userId` and `accountId`. This UUID is generated using a deterministic algorithm based on the user and account identifiers, ensuring consistent UUID generation for the same user-account combination.
+
+| **Parameter** | **Description**                    | **Required** | **Type** | **Example**  |
+| ------------- | ---------------------------------- | ------------ | -------- | ------------ |
+| `userId`      | The unique identifier for the user | Yes          | String   | `'user-123'` |
+| `accountId`   | The account ID                     | Yes          | String   | `'123456'`   |
+
+#### Return Value
+
+Returns a UUID string formatted without dashes and in uppercase (e.g., `'CC25A368ADA0542699EAD62489811105'`).
+
+#### Example Usage
+
+```php
+use vwo\VWO;
+
+// Generate UUID for a user
+$userId = 'user-123';
+$accountId = '123456';
+$uuid = VWO::getUUID($userId, $accountId);
+
+echo 'Generated UUID:', $uuid;
+// Output: Generated UUID: CC25A368ADA0542699EAD62489811105
+```
+
 ### Polling Interval Adjustment
 
 The `pollInterval` is an optional parameter that allows the SDK to automatically fetch and update settings from the VWO server at specified intervals. Setting this parameter ensures your application always uses the latest configuration.

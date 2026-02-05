@@ -97,11 +97,9 @@ class TrackEvent implements ITrack
         // Prepare the payload for the track goal
         $payload = $networkUtil->getTrackGoalPayloadData(
             $settings,
-            $context->getId(),
+            $context,
             $eventName,
             $eventProperties,
-            $context->getUserAgent(),
-            $context->getIpAddress()
         );
 
         // Send the prepared payload via POST API request

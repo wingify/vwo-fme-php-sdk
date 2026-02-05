@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-02-05
+
+### Added
+
+- Added session management capabilities to enable integration with VWO's web client testing campaigns. The SDK now automatically generates and manages session IDs to connect server-side feature flag decisions with client-side user sessions.
+
+  Example usage:
+
+  ```php
+  use vwo\VWO;
+
+  $options = [
+      'sdkKey' => '32-alpha-numeric-sdk-key',
+      'accountId' => '123456',
+  ];
+
+  $vwoClient = VWO::init($options);
+
+  // Session ID is automatically generated if not provided
+  $context = ['id' => 'user-123'];
+  $flag = $vwoClient->getFlag('feature-key', $context);
+
+  // Access the session ID to pass to web client for session recording
+  $sessionId = $flag->getSessionId();
+  echo "Session ID for web client: " . $sessionId;
+  ```
+
+  You can also explicitly set a session ID to match a web client session:
+
+  ```php
+  use vwo\VWO;
+
+  $vwoClient = VWO::init($options);
+
+  $userContext = [
+      'id' => 'user-123',
+      'sessionId' => 1697123456  // Custom session ID matching web client
+  ];
+
+  $flag = $vwoClient->getFlag('feature-key', $userContext);
+  ```
+
+  This enhancement enables seamless integration between server-side feature flag decisions and client-side session recording, allowing for comprehensive user behavior analysis across both server and client environments.
+
 ## [1.17.0] - 2026-01-09
 
 ### Added

@@ -27,6 +27,7 @@ class ContextModel
     private $variationTargetingVariables = [];
     private $_vwo;
     private $postSegmentationVariables = [];
+    private $sessionId;
 
     public function modelFromDictionary($context)
     {
@@ -48,6 +49,10 @@ class ContextModel
 
         if (isset($context['postSegmentationVariables'])) {
             $this->postSegmentationVariables = $context['postSegmentationVariables'];
+        }
+
+        if (isset($context['sessionId'])) {
+            $this->sessionId = $context['sessionId'];
         }
 
         return $this;
@@ -106,6 +111,16 @@ class ContextModel
     public function setPostSegmentationVariables($postSegmentationVariables)
     {
         $this->postSegmentationVariables = $postSegmentationVariables;
+    }
+
+    public function getSessionId()
+    {
+        return $this->sessionId;
+    }
+
+    public function setSessionId($sessionId)
+    {
+        $this->sessionId = $sessionId;
     }
 }
 

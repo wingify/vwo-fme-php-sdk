@@ -71,11 +71,9 @@ class SetAttribute implements ISetAttribute
         // Construct payload data for multiple attributes
         $payload = $networkUtil->getAttributePayloadData(
             $settings,
-            $context->getId(),
+            $context,
             EventEnum::VWO_SYNC_VISITOR_PROP,
-            $attributes,
-            $context->getUserAgent(),
-            $context->getIpAddress()
+            $attributes
         );
 
         // Send the constructed payload via POST request

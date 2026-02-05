@@ -188,7 +188,7 @@ class NetworkUtil {
    * @param int|null $usageStatsAccountId The account ID for usage statistics (optional)
    * @return array Array containing the base event payload structure
    */
-  public function getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent = '', $ipAddress = '', $isUsageStatsEvent = false, $usageStatsAccountId = null) {
+  public function getEventBasePayload($settings, $userId, $sessionId, $eventName, $visitorUserAgent = '', $ipAddress = '', $isUsageStatsEvent = false, $usageStatsAccountId = null) {
         $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
         $accountId = $isUsageStatsEvent ? $usageStatsAccountId : $settingsService->accountId;
         $uuid = UuidUtil::getUUID($userId, $accountId);
@@ -210,12 +210,13 @@ class NetworkUtil {
             // set env key for standard sdk events
             $props['vwo_envKey'] = $settingsService->sdkKey;
         }
+        $sessionId = $sessionId !== null ? $sessionId : FunctionUtil::getCurrentUnixTimestamp();
 
         $properties = [
             'd' => [
                 'msgId' => "{$uuid}-" . FunctionUtil::getCurrentUnixTimestampInMillis(),
                 'visId' => $uuid,
-                'sessionId' => FunctionUtil::getCurrentUnixTimestamp(),
+                'sessionId' => $sessionId,
                 'event' => [
                     'props' => $props,
                     'name' => $eventName,
@@ -261,7 +262,7 @@ class NetworkUtil {
         $postSegmentationVariables = $context->getPostSegmentationVariables();
         $customVariables = $context->getCustomVariables();
 
-        $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
+        $properties = $this->getEventBasePayload($settings, $userId, $context->getSessionId(), $eventName, $visitorUserAgent, $ipAddress);
 
         $properties['d']['event']['props']['id'] = $campaignId;
         $properties['d']['event']['props']['variation'] = $variationId;
@@ -311,8 +312,8 @@ class NetworkUtil {
    * @param string $ipAddress The IP address of the visitor (optional)
    * @return array Array containing the track goal payload data
    */
-  public function getTrackGoalPayloadData($settings, $userId, $eventName, $eventProperties, $visitorUserAgent = '', $ipAddress = '' ) {
-        $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
+  public function getTrackGoalPayloadData($settings, $context, $eventName, $eventProperties) {
+    $properties = $this->getEventBasePayload($settings, $context->getId(), $context->getSessionId(), $eventName, $context->getUserAgent(), $context->getIpAddress());
         $properties['d']['event']['props']['isCustomEvent'] = true;
         $properties['d']['event']['props']['variation'] = 1;  // temporary value
         $properties['d']['event']['props']['id'] = 1;         // temporary value
@@ -324,7 +325,7 @@ class NetworkUtil {
         }
 
         $this->serviceContainer->getLogManager()->debug(
-            "IMPRESSION_FOR_TRACK_GOAL: Impression built for {$eventName} event for Account ID:{$settings->getAccountId()}, User ID:{$userId}"
+            "IMPRESSION_FOR_TRACK_GOAL: Impression built for {$eventName} event for Account ID:{$settings->getAccountId()}, User ID:{$context->getId()}"
         );
 
         return $properties;
@@ -341,8 +342,8 @@ class NetworkUtil {
    * @param string $ipAddress The IP address of the visitor (optional)
    * @return array Array containing the attribute payload data
    */
-  public function getAttributePayloadData($settings, $userId, $eventName, $attributes, $visitorUserAgent = '', $ipAddress = '') {
-        $properties = $this->getEventBasePayload($settings, $userId, $eventName, $visitorUserAgent, $ipAddress);
+  public function getAttributePayloadData($settings, $context, $eventName, $attributes) {
+    $properties = $this->getEventBasePayload($settings, $context->getId(), $context->getSessionId(), $eventName, $context->getUserAgent(), $context->getIpAddress());
         $properties['d']['event']['props']['isCustomEvent'] = true;
         $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settings->getSdkKey();
         // Iterate over the attributes map and append to the visitor properties
@@ -351,7 +352,7 @@ class NetworkUtil {
         }
     
         $this->serviceContainer->getLogManager()->debug(
-            "IMPRESSION_FOR_SYNC_VISITOR_PROP: Impression built for {$eventName} event for Account ID: {$settings->getAccountId()}, User ID: {$userId}"
+            "IMPRESSION_FOR_SYNC_VISITOR_PROP: Impression built for {$eventName} event for Account ID: {$settings->getAccountId()}, User ID: {$context->getId()}"
         );
 
         return $properties;
@@ -466,7 +467,7 @@ class NetworkUtil {
   public function getMessagingEventPayload($messageType, $message, $eventName) {
         $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
         $userId = $settingsService->accountId . '_' . $settingsService->sdkKey;
-        $properties = $this->getEventBasePayload(null, $userId, $eventName, null, null);
+        $properties = $this->getEventBasePayload(null, $userId, null, $eventName, null, null);
     
         // Set environment key
         $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settingsService->sdkKey;
@@ -556,7 +557,7 @@ class NetworkUtil {
     {
         $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
         $userId = $settingsService->accountId . '_' . $settingsService->sdkKey;
-        $properties = $this->getEventBasePayload(null, $userId, $eventName, null, null);
+        $properties = $this->getEventBasePayload(null, $userId, FunctionUtil::getCurrentUnixTimestamp(), $eventName, null, null);
 
         // Set the required fields as specified
         $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settingsService->sdkKey;
@@ -590,6 +591,7 @@ class NetworkUtil {
         $properties = $this->getEventBasePayload(
             null,
             $userId,
+            FunctionUtil::getCurrentUnixTimestamp(),
             $eventName,
             null,
             null,

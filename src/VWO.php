@@ -23,6 +23,7 @@ use vwo\Models\SettingsModel;
 use Exception;
 use vwo\Services\LoggerService;
 use vwo\Utils\SdkInitAndUsageStatsUtil;
+use vwo\Utils\UuidUtil;
 
 class VWO
 {
@@ -153,6 +154,42 @@ class VWO
             }
 
             return $instance;
+        } catch (\Throwable $error) {
+            $msg = sprintf('API - %s failed to execute. Trace: %s. ', $apiName, $error->getMessage());
+            $logMessage = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $msg);
+            file_put_contents("php://stdout", $logMessage . PHP_EOL);
+            return null;
+        }
+    }
+
+    /**
+     * Generate a deterministic UUID for a given user and account combination.
+     *
+     * @param string $userId
+     * @param string $accountId
+     * @return string|null UUID without dashes in uppercase, or null on invalid input
+     */
+    public static function getUUID($userId, $accountId)
+    {
+        $apiName = 'getUUID';
+        
+        try {
+            $logMessage = sprintf('[DEBUG]: VWO-SDK %s API Called: %s', (new \DateTime())->format(DATE_ISO8601), $apiName);
+            file_put_contents("php://stdout", $logMessage . PHP_EOL);
+            
+            if (!is_string($userId) || $userId === '') {
+                $logMessage = sprintf('[ERROR]: VWO-SDK %s userId passed to %s API is not of valid type.', (new \DateTime())->format(DATE_ISO8601), $apiName);
+                file_put_contents("php://stdout", $logMessage . PHP_EOL);
+                return null;
+            }
+            
+            if (!is_string($accountId) || $accountId === '') {
+                $logMessage = sprintf('[ERROR]: VWO-SDK %s accountId passed to %s API is not of valid type.', (new \DateTime())->format(DATE_ISO8601), $apiName);
+                file_put_contents("php://stdout", $logMessage . PHP_EOL);
+                return null;
+            }
+
+            return UuidUtil::getUUID($userId, $accountId);
         } catch (\Throwable $error) {
             $msg = sprintf('API - %s failed to execute. Trace: %s. ', $apiName, $error->getMessage());
             $logMessage = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $msg);
