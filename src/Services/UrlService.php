@@ -54,21 +54,6 @@ class UrlService
         }
     }
 
-    public static function getBaseUrl(): string
-    {
-        $baseUrl = UrlEnum::BASE_URL; // Assuming you have defined the base URL elsewhere
-
-        if (self::$gatewayServiceUrl !== null) {
-            return self::$gatewayServiceUrl;
-        }
-
-        if (self::$collectionPrefix !== null) {
-            return $baseUrl . '/' . self::$collectionPrefix;
-        }
-
-        return $baseUrl;
-    }
-
     public static function getPort(): int
     {
         return (int)self::$port;
@@ -80,6 +65,21 @@ class UrlService
     public static function getProtocol() {
         return self::$gatewayServiceProtocol;
     }
+
+    /**
+    * Retrieves the endpoint with collection prefix.
+    *
+    * @param string $endpoint The endpoint path (e.g., "/batch")
+    * @return string The endpoint prefixed with the collection prefix if set; otherwise, the original endpoint.
+    */
+    public static function getEndpointWithCollectionPrefix(string $endpoint): string
+    {
+        if (!empty(self::$collectionPrefix)) {
+            return '/' . ltrim(self::$collectionPrefix, '/') . $endpoint;
+        }
+        return $endpoint;
+    }
+    
 }
 
 ?>

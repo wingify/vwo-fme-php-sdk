@@ -31,6 +31,7 @@ class NetworkManager {
     private $client;
     private static $instance;
     private $isGatewayUrlNotSecure = false; // Store the flag here
+    private $isProxyUrlNotSecure = false; // Store the flag here
     private $shouldWaitForTrackingCalls = false;
     private $retryConfig = Constants::DEFAULT_RETRY_CONFIG;
     private $logManager;
@@ -43,6 +44,9 @@ class NetworkManager {
         $this->config = new GlobalRequestModel(null, null, null, null);
         if(isset($options['isGatewayUrlNotSecure'])) {
             $this->isGatewayUrlNotSecure = $options['isGatewayUrlNotSecure'];
+        }
+        if(isset($options['isProxyUrlNotSecure'])) {
+            $this->isProxyUrlNotSecure = $options['isProxyUrlNotSecure'];
         }
         if(isset($options['shouldWaitForTrackingCalls'])) {
             $this->shouldWaitForTrackingCalls = $options['shouldWaitForTrackingCalls'];
@@ -63,6 +67,7 @@ class NetworkManager {
             'shouldWaitForTrackingCalls' => $this->shouldWaitForTrackingCalls,
             'retryConfig' => $this->retryConfig,
             'logManager' => $this->logManager,
+            'isProxyUrlNotSecure' => $this->isProxyUrlNotSecure,
         ];
         $this->client = $client ?: new NetworkClient($clientOptions);
     }

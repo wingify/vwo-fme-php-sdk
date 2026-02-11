@@ -367,7 +367,7 @@ class SegmentOperandEvaluator {
                 $this->serviceContainer->getLogManager()->info('To evaluate browser version segmentation, please provide userAgent in context');
                 break;
             default:
-            $this->serviceContainer->getLogManager()->info('To evaluate OS version segmentation, please provide userAgent in context');
+                $this->serviceContainer->getLogManager()->info('To evaluate OS version segmentation, please provide userAgent in context');
                 break;
         }
     }

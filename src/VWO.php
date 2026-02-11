@@ -148,7 +148,6 @@ class VWO
             } else {
                 $usageStatsAccountId = null;
             }
-
             if($usageStatsAccountId) {
                 SdkInitAndUsageStatsUtil::sendSDKUsageStatsEvent($usageStatsAccountId, $vwoBuilder->serviceContainer);
             }

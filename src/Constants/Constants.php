@@ -40,7 +40,7 @@ class Constants {
     const DEFAULT_EVENTS_PER_REQUEST = 100;
     const SDK_NAME = 'vwo-fme-php-sdk';
 
-    const SDK_VERSION = '1.18.0';
+    const SDK_VERSION = '1.19.0';
     const AP = 'server';
 
     const SETTINGS = 'settings';

@@ -30,21 +30,21 @@ class VWOGatewayServiceUtil {
 
         $networkInstance = $serviceContainer ? $serviceContainer->getNetworkManager() : NetworkManager::Instance();
 
-        if (UrlService::getBaseUrl() === UrlEnum::BASE_URL) {
+        if ($serviceContainer->getSettingsService()->hostname === UrlEnum::BASE_URL) {
             $serviceContainer->getLogManager()->info('Invalid URL. Please provide a valid URL for vwo helper VWOGatewayService');
             return false;
         }
 
         try {
             $request = new RequestModel(
-                UrlService::getBaseUrl(),
+                $serviceContainer->getSettingsService()->hostname,
                 'GET',
-                $endpoint,
+                UrlService::getEndpointWithCollectionPrefix($endpoint),
                 $queryParams,
                 null,
                 null,
-                UrlService::getProtocol(),
-                UrlService::getPort()
+                $serviceContainer->getSettingsService()->protocol,
+                $serviceContainer->getSettingsService()->port
             );
 
             $response = $networkInstance->get($request);

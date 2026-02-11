@@ -49,7 +49,7 @@ class GatewayServiceUtil {
             $request = new RequestModel(
                 $serviceContainer->getSettingsService()->hostname,
                 'GET',
-                $endpoint,
+                UrlService::getEndpointWithCollectionPrefix($endpoint),
                 $queryParams,
                 null,
                 null,

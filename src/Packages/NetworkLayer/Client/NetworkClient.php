@@ -31,6 +31,7 @@ class NetworkClient implements NetworkClientInterface
     const HTTPS = 'HTTPS';
     const DEFAULT_TIMEOUT = 5; // seconds
     private $isGatewayUrlNotSecure = false; // Flag to store the value
+    private $isProxyUrlNotSecure = false; // Flag to store the value
     private $shouldWaitForTrackingCalls = false;
     private $retryConfig = Constants::DEFAULT_RETRY_CONFIG;
     private $logManager;
@@ -39,6 +40,9 @@ class NetworkClient implements NetworkClientInterface
     public function __construct($options = []) {
         if (isset($options['isGatewayUrlNotSecure'])) {
             $this->isGatewayUrlNotSecure = $options['isGatewayUrlNotSecure'];
+        }
+        if (isset($options['isProxyUrlNotSecure'])) {
+            $this->isProxyUrlNotSecure = $options['isProxyUrlNotSecure'];
         }
         if (isset($options['shouldWaitForTrackingCalls'])) {
             $this->shouldWaitForTrackingCalls = $options['shouldWaitForTrackingCalls'];
@@ -53,7 +57,7 @@ class NetworkClient implements NetworkClientInterface
 
     private function shouldUseCurl($networkOptions)
     {
-        if ($this->isGatewayUrlNotSecure || $this->shouldWaitForTrackingCalls) {
+        if ($this->isGatewayUrlNotSecure || $this->shouldWaitForTrackingCalls || $this->isProxyUrlNotSecure) {
             return true;
         }
         return false;
@@ -109,11 +113,9 @@ class NetworkClient implements NetworkClientInterface
                     curl_setopt($ch, CURLOPT_POSTREDIR, 3); // keep POST on 301/302 redirects
                 }
             }
-
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $error = curl_error($ch);
-            
             curl_close($ch);
 
             // Check if request was successful
@@ -126,11 +128,11 @@ class NetworkClient implements NetworkClientInterface
 
             // Store the error for potential re-throwing
             $lastError = $error ? "cURL error: $error" : "HTTP error: $httpCode";
-            
+
             // If this is not the last attempt, wait before retrying
             if ($attempt < $maxRetries ) {
                 $delay = $retryDelays[$attempt] ?? $baseDelay;
-                
+            
                 LoggerService::error('NETWORK_CALL_RETRY_ATTEMPT', [
                     'endPoint' => $url,
                     'err' => $lastError,
@@ -279,7 +281,6 @@ class NetworkClient implements NetworkClientInterface
             );
             $rawResponse = $curlResponse['body'];
             $responseModel->setStatusCode($curlResponse['status_code']);
-            
 
             $parsedData = json_decode($rawResponse, false);
             if ($parsedData === null && json_last_error() !== JSON_ERROR_NONE) {

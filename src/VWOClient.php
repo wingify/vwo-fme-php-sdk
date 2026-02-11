@@ -65,8 +65,10 @@ class VWOClient implements IVWOClient {
     private function initialize(array $options, $settings) {
         $collectionPrefix = $this->settings->getCollectionPrefix();
         $gatewayServiceUrl = $options['gatewayService']['url'] ?? null;
+        $proxyUrl = $options['proxy']['url'] ?? null;
+        
         $logManager = $this->serviceContainer->getLogManager();
-        UrlService::init(compact('collectionPrefix', 'gatewayServiceUrl'));
+        UrlService::init(compact('collectionPrefix', 'gatewayServiceUrl', 'proxyUrl'));
 
         foreach ($this->settings->getCampaigns() as $campaign) {
             CampaignUtil::setVariationAllocation($campaign, $logManager);

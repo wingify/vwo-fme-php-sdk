@@ -172,7 +172,7 @@ class NetworkUtil {
             $properties['a'] = $usageStatsAccountId;
         }
 
-        $properties['url'] = Constants::HTTPS_PROTOCOL . UrlService::getBaseUrl() . UrlEnum::EVENTS;
+        $properties['url'] = Constants::HTTPS_PROTOCOL . $settingsService->hostname . UrlService::getEndpointWithCollectionPrefix(UrlEnum::EVENTS);
         return $properties;
     }
 
@@ -384,11 +384,11 @@ class NetworkUtil {
         $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
         $networkManager = $this->serviceContainer ? $this->serviceContainer->getNetworkManager() : NetworkManager::instance();
         $logManager = $this->serviceContainer->getLogManager();
-        
+
         $request = new RequestModel(
             $settingsService->hostname,
             'POST',
-            UrlEnum::EVENTS,
+            UrlService::getEndpointWithCollectionPrefix(UrlEnum::EVENTS),
             $properties,
             $payload,
             $headers,
@@ -401,7 +401,8 @@ class NetworkUtil {
             // Ensure NetworkManager has client attached if using singleton fallback
             if (!$this->serviceContainer && $networkManager) {
                 $networkOptions = [
-                    'isGatewayUrlNotSecure' => false
+                    'isGatewayUrlNotSecure' => false,
+                    'isProxyUrlNotSecure' => false
                 ];
                 $networkManager->attachClient(null, $networkOptions);
             }
@@ -430,7 +431,7 @@ class NetworkUtil {
         $request = new RequestModel(
             $settingsService->hostname,
             'Get',
-            $endpoint,
+            UrlService::getEndpointWithCollectionPrefix($endpoint),
             $properties,
             null,
             null,
@@ -441,7 +442,8 @@ class NetworkUtil {
             // Ensure NetworkManager has client attached if using singleton fallback
             if (!$this->serviceContainer && $networkManager) {
                 $networkOptions = [
-                    'isGatewayUrlNotSecure' => false
+                    'isGatewayUrlNotSecure' => false,
+                    'isProxyUrlNotSecure' => false
                 ];
                 // Ensure singleton has client attached
                 $networkManager->attachClient(null, $networkOptions);
@@ -500,23 +502,22 @@ class NetworkUtil {
         if($eventName == EventEnum::VWO_ERROR){
             $retryConfig['shouldRetry'] = false;
         }
-        
+        $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
         if($eventName == EventEnum::VWO_ERROR || $eventName == EventEnum::VWO_USAGE_STATS_EVENT) {
             $baseUrl = Constants::HOST_NAME;
             $protocol = Constants::HTTPS_PROTOCOL;
             $port = null;
         } else {
-            $baseUrl = UrlService::getBaseUrl();
+            $baseUrl = $settingsService->hostname;
             $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
             $protocol = $settingsService->protocol ?? Constants::HTTPS_PROTOCOL;
             $port = $settingsService->port ?? null;
         }
-        
         try {
             $request = new RequestModel(
                 $baseUrl,
                 'POST',
-                UrlEnum::EVENTS,
+                UrlService::getEndpointWithCollectionPrefix(UrlEnum::EVENTS),
                 $properties,
                 $payload,
                 null,
@@ -527,16 +528,15 @@ class NetworkUtil {
     
             // Perform the network POST request synchronously
             $networkManager = $this->serviceContainer ? $this->serviceContainer->getNetworkManager() : NetworkManager::instance();
-            
             // Ensure NetworkManager has client attached if using singleton fallback
             if (!$this->serviceContainer && $networkManager) {
                 $networkOptions = [
-                    'isGatewayUrlNotSecure' => false
+                    'isGatewayUrlNotSecure' => false,
+                    'isProxyUrlNotSecure' => false
                 ];
                 // Ensure singleton has client attached
                 $networkManager->attachClient(null, $networkOptions);
             }
-            
             $response = $networkManager->post($request);
             return $response;
         } catch (Exception $e) {

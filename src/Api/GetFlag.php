@@ -171,8 +171,8 @@ class GetFlag
                     $payload = $evaluateRuleResult['payload'];
 
                     if(!$isDebuggerUsed) {
-                        if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
+                        if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
                         } else {
                             if($payload !== null) {
                                 $batchPayload[] = $payload;
@@ -215,8 +215,8 @@ class GetFlag
                             $context
                         );
 
-                        if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
+                        if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
                         } else {
                             //push this payload to the batch payload
                             if($payload !== null) {
@@ -256,8 +256,8 @@ class GetFlag
                     } else {
                         $isEnabled = true;
                         $payload = $evaluateRuleResult['payload'];
-                        if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
+                        if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
                         } else {
                             if($payload !== null) {
                                 $batchPayload[] = $payload;
@@ -300,8 +300,8 @@ class GetFlag
                              $context
                          );
 
-                        if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
+                        if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
                         } else {
                             //push this payload to the batch payload
                             if($payload !== null) {
@@ -351,8 +351,8 @@ class GetFlag
                     $context
                 );
 
-                if($serviceContainer->getSettingsService()->isGatewayServiceProvided && $payload !== null) {
-                    ImpressionUtil::SendImpressionForVariationShown($serviceContainer->getSettings(), $payload, $context);
+                if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
+                    ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
                 } else {
                     //push this payload to the batch payload
                     if($payload !== null) {
@@ -370,7 +370,7 @@ class GetFlag
             $variablesForEvaluatedFlag = $rolloutVariationToReturn->getVariables();
         }
         
-        if(!$serviceContainer->getSettingsService()->isGatewayServiceProvided) {
+        if(!$serviceContainer->getSettingsService()->isGatewayServiceProvided && !$serviceContainer->getSettingsService()->isProxyUrlProvided) {
             ImpressionUtil::SendImpressionForVariationShownInBatch($batchPayload, $serviceContainer);
         }
     

@@ -61,16 +61,15 @@ class SegmentationManager {
             return;
         }
 
-        $baseUrl = UrlService::getBaseUrl();
+        $baseUrl = $serviceContainer->getSettingsService()->hostname;
         $isDefaultHost = strpos($baseUrl, Constants::HOST_NAME) !== false;
 
-        // Call gateway service if required for segmentation OR if gateway service is provided and user agent/IP is available
-        $shouldCallGatewayService = (
-            ($feature->getIsGatewayServiceRequired() === true && !$isDefaultHost) ||
-            (!$isDefaultHost && ($context->getUserAgent() !== null || $context->getIpAddress() !== null))
-        );
-
-        if ($shouldCallGatewayService && $context->getVwo() === null) {
+       
+        if (
+            $feature->getIsGatewayServiceRequired() && 
+            $serviceContainer->getSettingsService()->isGatewayServiceProvided && 
+            $context->getVwo() === null
+        ) {
             // if both user agent and ip address are not available, return
             if ($context->getUserAgent() === null && $context->getIpAddress() === null) {
                 return;

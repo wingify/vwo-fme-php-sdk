@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-02-11
+
+### Added
+
+- Added support for redirecting all network calls through a custom proxy URL. This feature allows users to route all SDK network requests (settings, tracking, etc.) through their own proxy server.
+
+```php
+$vwoClient = VWO::init([
+    'sdkKey' => '32-alpha-numeric-sdk-key',
+    'accountId' => 123456,
+    'proxy' => [
+        'url' => 'http://custom.proxy.com',
+        'isUrlNotSecure' => true
+    ],
+]);
+```
+
 ## [1.18.0] - 2026-02-05
 
 ### Added

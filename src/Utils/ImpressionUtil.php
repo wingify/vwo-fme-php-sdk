@@ -94,11 +94,11 @@ class ImpressionUtil
             'ev' => $batchPayload
         ];
 
-
+        $settingsService = $serviceContainer->getSettingsService();
         $request = new RequestModel(
-            UrlService::getBaseUrl(),
+            $settingsService->hostname,
             'POST',
-            UrlEnum::BATCH_EVENTS,
+            UrlService::getEndpointWithCollectionPrefix(UrlEnum::BATCH_EVENTS),
             $properties,
             $batchPayload,
             $headers,

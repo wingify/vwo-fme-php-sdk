@@ -64,6 +64,7 @@ To customize the SDK further, additional parameters can be passed to the `init()
 | `accountId`                  | VWO Account ID for authentication.                                                                                                                          | Yes          | string    | `'123456'`                      |
 | `pollInterval`               | Time interval for fetching updates from VWO servers (in milliseconds).                                                                                      | No           | integer   | `60000`                         |
 | `gatewayService`             | An object representing configuration for integrating VWO Gateway Service.                                                                                   | No           | array     | see [Gateway](#gateway) section |
+| `proxy`                    | An object representing configuration for routing all SDK network requests through a custom proxy server.                                                                                   | No           | array     | See [Proxy](#proxy) section |
 | `storage`                    | Custom storage connector for persisting user decisions and campaign data.                                                                                   | No           | array     | See [Storage](#storage) section |
 | `logger`                     | Toggle log levels for more insights or for debugging purposes. You can also customize your own transport in order to have better control over log messages. | No           | array     | See [Logger](#logger) section   |
 | `Integrations`         | Callback function for integrating with third-party analytics services.                                              | No           | object      | See [Integrations](#integrations) section |
@@ -235,6 +236,28 @@ $vwoClient = VWO::init([
 ```
 
 Refer to the [Gateway Documentation](https://developers.vwo.com/v2/docs/gateway-service) for further details.
+
+### Proxy
+
+The `proxy` parameter allows you to redirect all SDK network calls through a custom proxy URL. This feature enables you to route all SDK network requests (settings, tracking, etc.) through your own proxy server, providing better control over network traffic and security.
+
+```php
+$vwoClient = VWO::init([
+    'sdkKey' => '32-alpha-numeric-sdk-key',
+    'accountId' => 123456,
+    'proxy' => [
+        'url' => 'http://custom.proxy.com',
+        'isUrlNotSecure' => false // be default, it should be true
+    ],
+]);
+```
+
+The `proxy` object accepts the following parameters:
+
+| **Parameter**         | **Description**                                                                 | **Required** | **Type** | **Example**                     |
+| --------------------- | ------------------------------------------------------------------------------- | ------------ | -------- | ------------------------------- |
+| `url`                 | The proxy server URL to route all SDK network requests through                 | Yes          | string   | `'http://localhost:8000'`      |
+| `isUrlNotSecure` | Set to `true` if the proxy URL uses HTTP (not HTTPS). Defaults to `false` (HTTPS) | No           | boolean  | `true`                          |
 
 ### Synchronous network calls
 

@@ -144,24 +144,8 @@ class ServiceContainer
         $this->settingsModel = $settingsModel;
     }
 
-    /**
-     * Gets the base URL for API calls
-     * @return string
-     */
-    public function getBaseUrl(): string
-    {
-        $baseUrl = $this->settingsService->hostname;
-
-        // If collection prefix is set, return the base url with the collection prefix
-        if (
-            $baseUrl == Constants::HOST_NAME &&
-            $this->settingsModel->getCollectionPrefix() &&
-            DataTypeUtil::isString($this->settingsModel->getCollectionPrefix())
-        ) {
-            return $baseUrl . '/' . $this->settingsModel->getCollectionPrefix();
-        }
-
-        return $baseUrl;
+    public function getBaseUrl(): string {
+        return $this->settingsService->getBaseUrl();
     }
 
     /**

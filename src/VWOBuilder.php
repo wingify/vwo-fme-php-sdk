@@ -71,8 +71,8 @@ class VWOBuilder implements IVWOBuilder
     public function setNetworkManager()
     {
         $networkOptions = [
-            'isGatewayUrlNotSecure' => isset($this->options['gatewayService']['isGatewayUrlNotSecure']) 
-                ? $this->options['gatewayService']['isGatewayUrlNotSecure'] 
+            'isGatewayUrlNotSecure' => isset($this->options['gatewayService']['isUrlNotSecure']) 
+                ? $this->options['gatewayService']['isUrlNotSecure'] 
                 : false,
             'shouldWaitForTrackingCalls' => isset($this->options['shouldWaitForTrackingCalls'])
                 ? $this->options['shouldWaitForTrackingCalls']
@@ -81,6 +81,7 @@ class VWOBuilder implements IVWOBuilder
                 ? $this->options['retryConfig']
                 : null,
             'logManager' => $this->logManager,
+            'isProxyUrlNotSecure' => isset($this->options['proxy']['isUrlNotSecure']) ? $this->options['proxy']['isUrlNotSecure'] : false,
         ];
 
         // Create instance-based NetworkManager instead of singleton

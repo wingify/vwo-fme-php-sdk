@@ -25,6 +25,7 @@ use vwo\Constants\Constants;
 use vwo\Packages\NetworkLayer\Models\RequestModel;
 use Exception;
 use vwo\Models\Schemas\SettingsSchema;
+use vwo\Services\LoggerService;
 
 // Defining interface ISettingsService
 interface ISettingsService {
@@ -39,9 +40,9 @@ class SettingsService implements ISettingsService {
     public $accountId;
     public $expiry;
     public $networkTimeout;
-    public $hostname;
+    public $hostname = Constants::HOST_NAME;
     public $port;
-    public $protocol;
+    public $protocol = Constants::HTTPS_PROTOCOL;
     public $isGatewayServiceProvided = false;
     private static $instance;
     public $settingsSchemaValidator;
@@ -49,7 +50,9 @@ class SettingsService implements ISettingsService {
     public $isSettingsValidOnInit;
     private $networkManager; // Store instance-based NetworkManager
     private $logManager;
-
+    public $isProxyUrlProvided = false;
+    public $proxyUrl = "";
+    public static $collectionPrefix;
     // Constructor
     public function __construct($options, $logManager) {
         $this->logManager = $logManager;
@@ -59,6 +62,41 @@ class SettingsService implements ISettingsService {
         $this->expiry = isset($options['settingsConfig']['expiry']) ? $options['settingsConfig']['expiry'] : Constants::SETTINGS_EXPIRY;
         $this->networkTimeout = isset($options['settingsConfig']['timeout']) ? $options['settingsConfig']['timeout'] : Constants::SETTINGS_TIMEOUT;
 
+        // check if proxy url is provided and gateway service is also provided
+        if (isset($options['proxy']['url']) && !empty($options['proxy']['url']) && isset($options['gatewayService']) && !empty($options['gatewayService'])) {
+            $this->logManager->info('PROXY_AND_GATEWAY_SERVICE_PROVIDED');
+            $this->isGatewayServiceProvided = true;
+        }
+
+        // check if proxy url is provided and gateway service is not provided
+        if (isset($options['proxy']['url']) && !empty($options['proxy']['url']) && !$this->isGatewayServiceProvided) {
+            $this->isProxyUrlProvided = true;
+            try {
+                $parsedUrl = parse_url($options['proxy']['url']);
+
+                if ($parsedUrl !== false && isset($parsedUrl['host'])) {
+                    $this->hostname = $parsedUrl['host'];
+                    $this->protocol = isset($parsedUrl['scheme']) ? $parsedUrl['scheme'] : 'https';
+                    $this->proxyUrl = $options['proxy']['url'];
+                    if (isset($parsedUrl['port'])) {
+                        $this->port = intval($parsedUrl['port']);
+                    }
+                } else {
+                    throw new Exception("Invalid proxy url");
+                }
+
+            } catch (Exception $e) {
+                if (isset($this->logManager) && $this->logManager) {
+                    $this->logManager->error('ERROR_PARSING_PROXY_URL', [
+                        'err' => $e->getMessage(),
+                        'accountId' => strval($this->accountId),
+                        'sdkKey' => $this->sdkKey,
+                        'an' => 'init'
+                    ]);
+                }
+                $this->hostname = Constants::HOST_NAME;
+            }
+        }
         // Parsing URL if provided
         if (isset($options['gatewayService']['url'])) {
             $this->isGatewayServiceProvided = true;
@@ -70,9 +108,6 @@ class SettingsService implements ISettingsService {
             $this->hostname = $parsedUrl['host'];
             $this->protocol = isset($parsedUrl['scheme']) ? $parsedUrl['scheme'] : 'https';
             $this->port = isset($parsedUrl['port']) ? intval($parsedUrl['port']) : null;
-        } else {
-            $this->hostname = Constants::HOST_NAME;
-            $this->port = null;
         }
 
         $this->settingsSchemaValidator = new SettingsSchema(); // Initialize the schema validator
@@ -85,8 +120,8 @@ class SettingsService implements ISettingsService {
 
     private function initializeNetworkManager($options) {
         $networkOptions = [
-            'isGatewayUrlNotSecure' => isset($options['gatewayService']['isGatewayUrlNotSecure'])
-                                      ? $options['gatewayService']['isGatewayUrlNotSecure']
+            'isGatewayUrlNotSecure' => isset($options['gatewayService']['isUrlNotSecure'])
+                                      ? $options['gatewayService']['isUrlNotSecure']
                                       : false, 
             'shouldWaitForTrackingCalls' => isset($options['shouldWaitForTrackingCalls'])
                                       ? $options['shouldWaitForTrackingCalls']
@@ -94,6 +129,7 @@ class SettingsService implements ISettingsService {
             'retryConfig' => isset($options['retryConfig']) && is_array($options['retryConfig'])
                                       ? $options['retryConfig']
                                       : null,
+            'isProxyUrlNotSecure' => isset($options['proxy']['isUrlNotSecure']) ? $options['proxy']['isUrlNotSecure'] : false,
         ];
 
         NetworkManager::instance($networkOptions); // Pass the options to the NetworkManager
@@ -157,7 +193,7 @@ class SettingsService implements ISettingsService {
             $request = new RequestModel(
                 $this->hostname,
                 'GET',
-                Constants::SETTINGS_ENDPOINT,
+                UrlService::getEndpointWithCollectionPrefix(Constants::SETTINGS_ENDPOINT),
                 $options,
                 null,
                 null,
@@ -171,7 +207,9 @@ class SettingsService implements ISettingsService {
             $this->settingsFetchTime = (int)((microtime(true) * 1000) - $settingsFetchStartTime);
             return $response->getData();
         } catch (Exception $err) {
-            $this->serviceContainer->getLogManager()->error("Error occurred while fetching settings: {$err->getMessage()}");
+            if (isset($this->logManager) && $this->logManager) {
+                $this->logManager->error("Error occurred while fetching settings: {$err->getMessage()}");
+            }
             throw $err;
         }
     }
@@ -184,4 +222,5 @@ class SettingsService implements ISettingsService {
             return $this->fetchSettingsAndCacheInStorage();
         }
     }
+
 }
