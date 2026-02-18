@@ -65,7 +65,8 @@ class SetAttribute implements ISetAttribute
         $properties = $networkUtil->getEventsBaseProperties(
             EventEnum::VWO_SYNC_VISITOR_PROP,
             $context->getUserAgent(),
-            $context->getIpAddress()
+            $context->getIpAddress(),
+            $context->getSessionId()
         );
 
         // Construct payload data for multiple attributes
@@ -77,6 +78,6 @@ class SetAttribute implements ISetAttribute
         );
 
         // Send the constructed payload via POST request
-        $networkUtil->sendPostApiRequest($properties, $payload);
+        $networkUtil->sendPostApiRequest($properties, $payload, $context->getId());
     }
 }

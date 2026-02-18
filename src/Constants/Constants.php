@@ -40,7 +40,7 @@ class Constants {
     const DEFAULT_EVENTS_PER_REQUEST = 100;
     const SDK_NAME = 'vwo-fme-php-sdk';
 
-    const SDK_VERSION = '1.19.0';
+    const SDK_VERSION = '1.20.0';
     const AP = 'server';
 
     const SETTINGS = 'settings';
@@ -71,6 +71,18 @@ class Constants {
         self::RETRY_INITIAL_DELAY => 2,
         self::RETRY_BACKOFF_MULTIPLIER => 2,
     ];
+
+    // Debugger constants
+    const V2_SETTINGS = 'v2-settings';
+    const POLLING = 'polling';
+    const FLAG_DECISION_GIVEN = 'FLAG_DECISION_GIVEN';
+    const NETWORK_CALL_FAILURE_AFTER_MAX_RETRIES = 'NETWORK_CALL_FAILURE_AFTER_MAX_RETRIES';
+    const NETWORK_CALL_SUCCESS_WITH_RETRIES = 'NETWORK_CALL_SUCCESS_WITH_RETRIES';
+    const IMPACT_ANALYSIS = "IMPACT_ANALYSIS";
+
+    const HTTP_SUCCESS_MIN = 200;
+    const HTTP_SUCCESS_MAX = 299;
+    const HTTP_SUCCESS_UPPER_BOUND = 300;
 }
 
 ?>

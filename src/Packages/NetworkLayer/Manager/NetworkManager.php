@@ -35,6 +35,7 @@ class NetworkManager {
     private $shouldWaitForTrackingCalls = false;
     private $retryConfig = Constants::DEFAULT_RETRY_CONFIG;
     private $logManager;
+    private $serviceContainer;
 
     // public function __construct() {
     //     $this->config = new GlobalRequestModel(null, null, null, null);
@@ -57,6 +58,9 @@ class NetworkManager {
         if(isset($options['logManager'])) {
             $this->logManager = $options['logManager'];
         }
+        if(isset($options['serviceContainer'])) {
+            $this->serviceContainer = $options['serviceContainer'];
+        }
         // Normalize retry config from options (if any)
         $providedRetry = isset($options['retryConfig']) && is_array($options['retryConfig']) ? $options['retryConfig'] : [];
         $this->retryConfig = $this->validateRetryConfig($providedRetry);
@@ -66,6 +70,8 @@ class NetworkManager {
             'isGatewayUrlNotSecure' => $this->isGatewayUrlNotSecure,
             'shouldWaitForTrackingCalls' => $this->shouldWaitForTrackingCalls,
             'retryConfig' => $this->retryConfig,
+            'isProxyUrlNotSecure' => $this->isProxyUrlNotSecure,
+            'serviceContainer' => $this->serviceContainer,
             'logManager' => $this->logManager,
             'isProxyUrlNotSecure' => $this->isProxyUrlNotSecure,
         ];
@@ -181,10 +187,33 @@ class NetworkManager {
         }
 
         if ($invalid) {
-            LoggerService::error('INVALID_RETRY_CONFIG', [ 'retryConfig' => json_encode($retryConfig) ]);
+            $this->serviceContainer->getLoggerService()->error('INVALID_RETRY_CONFIG', [ 'retryConfig' => json_encode($retryConfig) ]);
         }
 
         return $validated;
+    }
+
+    /**
+     * Sets the service container for this network manager instance
+     * This allows the service container to be injected after initialization
+     * @param mixed $serviceContainer The service container instance
+     */
+    public function setServiceContainer($serviceContainer) {
+        $this->serviceContainer = $serviceContainer;
+        
+        // Update the client with the service container if client exists
+        if ($this->client) {
+            // Re-attach client with updated options including serviceContainer
+            $clientOptions = [
+                'isGatewayUrlNotSecure' => $this->isGatewayUrlNotSecure,
+                'shouldWaitForTrackingCalls' => $this->shouldWaitForTrackingCalls,
+                'retryConfig' => $this->retryConfig,
+                'logManager' => $this->logManager,
+                'isProxyUrlNotSecure' => $this->isProxyUrlNotSecure,
+                'serviceContainer' => $this->serviceContainer,
+            ];
+            $this->client = new NetworkClient($clientOptions);
+        }
     }
 }
 

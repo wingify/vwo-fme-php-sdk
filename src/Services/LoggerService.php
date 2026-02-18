@@ -22,6 +22,8 @@ use vwo\Packages\Logger\Core\LogManager;
 use vwo\Enums\LogLevelEnum;
 use vwo\Utils\LogMessageUtil;
 use vwo\LogMessages;
+use vwo\Enums\DebuggerCategoryEnum;
+use vwo\Utils\DebuggerServiceUtil;
 
 class LoggerService {
     public static $debugMessages = [];
@@ -33,17 +35,17 @@ class LoggerService {
     /**
      * Constructor initializes LogManager and loads message files
      * 
-     * @param array $config Configuration for the logger
+     * @param LogManager $logManager
      */
-    public function __construct($config = []) {
-        $this->logManager = LogManager::instance();
+    public function __construct($logManager) {
+        $this->logManager = $logManager;
 
         // Load the log messages from centralized repository
         $logMessages = LogMessages::get();
         
         self::$debugMessages = $logMessages['debugLogs'] ?? [];
         self::$infoMessages = $logMessages['infoLogs'] ?? [];
-        self::$errorMessages = $logMessages['errorLogs'] ?? [];
+        self::$errorMessages = $logMessages['errorLogsV2'] ?? [];
         self::$warningMessages = $logMessages['warnLogs'] ?? [];
         self::$traceMessages = $logMessages['traceLogs'] ?? [];
     }
@@ -55,7 +57,7 @@ class LoggerService {
      * @param string $key The message key to look up
      * @param array $map Associative array of parameters to replace in the message
      */
-    public static function log($level, $key, $map = []) {
+    public function log($level, $key, $map = [], $shouldLogToVWO = true) {
         $logManager = $this->logManager;
         $messageTemplate = '';
 
@@ -76,10 +78,14 @@ class LoggerService {
                 $messageTemplate = isset(self::$warningMessages[$key]) ? self::$warningMessages[$key] : $key;
                 $logManager->warn(LogMessageUtil::buildMessage($messageTemplate, $map));
                 break;
-            default:
+           default:
                 $messageTemplate = isset(self::$errorMessages[$key]) ? self::$errorMessages[$key] : $key; 
-                $logManager->error(LogMessageUtil::buildMessage($messageTemplate, $map));
-                break;
+                $message = LogMessageUtil::buildMessage($messageTemplate, $map);
+                $logManager->error($message);
+                if($shouldLogToVWO) {
+                    self::errorLogToVWO($key, $map, $message);
+                }
+                break; 
         }
     }
 
@@ -89,7 +95,7 @@ class LoggerService {
      * @param string $level The log level
      * @param string $message The message to log
      */
-    public static function logMessage($level, $message) {
+    public function logMessage($level, $message) {
         $logManager = $this->logManager;
         
         switch ($level) {
@@ -114,46 +120,66 @@ class LoggerService {
     /**
      * Convenience methods for different log levels with key and parameters
      */
-    public static function debug($key, $map = []) {
-        self::log(LogLevelEnum::DEBUG, $key, $map);
+    public function debug($key, $map = []) {
+        $this->log(LogLevelEnum::DEBUG, $key, $map, false);
     }
 
-    public static function info($key, $map = []) {
-        self::log(LogLevelEnum::INFO, $key, $map);
+    public function info($key, $map = []) {
+        $this->log(LogLevelEnum::INFO, $key, $map, false);
     }
 
-    public static function trace($key, $map = []) {
-        self::log(LogLevelEnum::TRACE, $key, $map);
+    public function trace($key, $map = []) {
+        $this->log(LogLevelEnum::TRACE, $key, $map, false);
     }
 
-    public static function warn($key, $map = []) {
-        self::log(LogLevelEnum::WARN, $key, $map);
+    public function warn($key, $map = []) {
+        $this->log(LogLevelEnum::WARN, $key, $map, false);
     }
 
-    public static function error($key, $map = []) {
-        self::log(LogLevelEnum::ERROR, $key, $map);
+    public function error($key, $map = [], $shouldLogToVWO = true) {
+        $this->log(LogLevelEnum::ERROR, $key, $map, $shouldLogToVWO);
     }
 
     /**
      * Convenience methods for different log levels with direct messages
      */
-    public static function debugMessage($message) {
-        self::logMessage(LogLevelEnum::DEBUG, $message);
+    public function debugMessage($message) {
+        $this->logMessage(LogLevelEnum::DEBUG, $message, false);
     }
 
-    public static function infoMessage($message) {
-        self::logMessage(LogLevelEnum::INFO, $message);
+    public function infoMessage($message) {
+        $this->logMessage(LogLevelEnum::INFO, $message, false);
     }
 
-    public static function traceMessage($message) {
-        self::logMessage(LogLevelEnum::TRACE, $message);
+    public function traceMessage($message) {
+        $this->logMessage(LogLevelEnum::TRACE, $message, false);
     }
 
-    public static function warnMessage($message) {
-        self::logMessage(LogLevelEnum::WARN, $message);
+    public function warnMessage($message) {
+        $this->logMessage(LogLevelEnum::WARN, $message, false);
     }
 
-    public static function errorMessage($message) {
-        self::logMessage(LogLevelEnum::ERROR, $message);
+    public function errorMessage($message) {
+        $this->logMessage(LogLevelEnum::ERROR, $message, false);
+    }
+
+    /**
+     * This method is used to send an error event to VWO.
+     * @param string $template The template of the message.
+     * @param array $debugProps The map of the debug props.
+     */
+    private static function errorLogToVWO($template, $debugProps = [], $message = '') {
+        // check if current environment is test then early return
+        // in case of test environment, we don't want to send debug events to VWO
+        if(getenv('APP_ENV') === 'test') {
+            return;
+        }
+        $debugProps['msg_t'] = $template;
+        $debugProps['cg'] = DebuggerCategoryEnum::ERROR;
+        $debugProps['lt'] = LogLevelEnum::ERROR;
+        $debugProps['msg'] = $message;
+
+        // send debug event to VWO
+        DebuggerServiceUtil::sendDebugEventToVWO($debugProps);
     }
 } 

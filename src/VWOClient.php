@@ -92,28 +92,35 @@ class VWOClient implements IVWOClient {
 
 
         try {
-            $logManager = $this->serviceContainer->getLogManager();
+
+            $loggerService = $this->serviceContainer->getLoggerService();
             $hookManager = $this->serviceContainer ? $this->serviceContainer->getHooksService() : new HooksService($this->options);
 
-            $logManager->debug("API Called: $apiName");
+            $loggerService->debug("API Called: $apiName");
 
             if (!DataTypeUtil::isString($featureKey) || $featureKey == null) {
-                $logManager->error(
-                    sprintf('FeatureKey passed to %s API is not of valid type.', $apiName));
+                $loggerService->error('INVALID_PARAM', ['an' => $apiName, 'apiName' => $apiName, 'key' => 'featureKey', 'type' => gettype($featureKey), 'correctType' => 'string'], false);
                 throw new \TypeError('TypeError: variableSpecifier should be a valid string');
             }
 
             if (!$this->settings) {
-                $logManager->error(sprintf('settings are not valid. Got %s', gettype($this->settings)));
+                $loggerService->error('INVALID_SETTINGS_SCHEMA', ['an' => $apiName, 'apiName' => $apiName], false);
                 throw new \Error('Invalid Settings');
             }
 
             if (!isset($context['id']) || empty($context['id'])) {
-                $logManager->error('Context must contain a valid user ID.');
+                $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => $apiName, 'apiName' => $apiName, 'context' => $context], false);
                 throw new \Error('TypeError: Invalid context');
             }
             //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
             $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled, $this->serviceContainer);
+            if($this->isAliasingEnabled) {
+                if($userId != $context['id']) {
+                    $loggerService->info('ALIAS_ENABLED', ['userId' => $userId]);
+                } else {
+                     $loggerService->error('GATEWAY_URL_ERROR', ['an' => $apiName, 'apiName' => $apiName, 'context' => $context]);
+                }
+            }
             $context['id'] = $userId;
 
             $contextModel = new ContextModel();
@@ -121,8 +128,7 @@ class VWOClient implements IVWOClient {
 
             return (new GetFlag())->get($featureKey, $contextModel, $this->serviceContainer, $isDebuggerUsed);
         } catch (\Throwable $error) {
-            $logManager = $this->serviceContainer->getLogManager();
-            $logManager->error("API - $apiName failed to execute. Error: " . $error->getMessage());
+            $loggerService->error('EXECUTION_FAILED', ['an' => $apiName, 'apiName' => $apiName, 'err' => $error->getMessage()]);
             return $defaultReturnValue;
         }
     }
@@ -133,33 +139,40 @@ class VWOClient implements IVWOClient {
         $isDebuggerUsed = isset($this->options['isDebuggerUsed']);
 
         try {
-            $logManager = $this->serviceContainer->getLogManager();
+            $loggerService = $this->serviceContainer->getLoggerService();
             $hookManager = $this->serviceContainer ? $this->serviceContainer->getHooksService() : new HooksService($this->options);
 
-            $logManager->debug("API Called: $apiName");
+            $loggerService->debug("API Called: $apiName");
 
             if (!DataTypeUtil::isString($eventName)) {
-                $logManager->error("Event name passed to $apiName API is not a valid string.");
+                $loggerService->error('INVALID_PARAM', ['key' => $eventName, 'an'=> ApiEnum::TRACK_EVENT, 'apiName' => $apiName, 'type' => gettype($eventName), 'correctType' => 'string'], false);
                 throw new \TypeError('TypeError: eventName should be a valid string');
             }
 
             if (!DataTypeUtil::isArray($eventProperties)) {
-                $logManager->error("Event properties passed to $apiName API are not valid.");
+                $loggerService->error('INVALID_PARAM', ['key' => $eventProperties, 'an'=> ApiEnum::TRACK_EVENT, 'apiName' => $apiName, 'type' => gettype($eventProperties), 'correctType' => 'array'], false);
                 throw new \TypeError('TypeError: eventProperties should be an array');
             }
 
             if (!$this->settings) {
-                $logManager->error('Invalid settings detected.');
+                $loggerService->error('INVALID_SETTINGS_SCHEMA', ['an' => ApiEnum::TRACK_EVENT, 'apiName' => $apiName], false);
                 throw new \Error('Invalid Settings');
             }
 
             if (!isset($context['id']) || empty($context['id'])) {
-                $logManager->error('Context must contain a valid user ID.');
+                $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::TRACK_EVENT, 'apiName' => $apiName], false);
                 throw new \Error('TypeError: Invalid context');
             }
 
             //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
             $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled, $this->serviceContainer);
+            if($this->isAliasingEnabled) {
+                if($userId != $context['id']) {
+                    $loggerService->info('ALIAS_ENABLED', ['userId' => $userId]);
+                } else {
+                     $loggerService->error('GATEWAY_URL_ERROR', ['an' => ApiEnum::TRACK_EVENT, 'apiName' => $apiName]);
+                }
+            }
             $context['id'] = $userId;
 
             $contextModel = new ContextModel();
@@ -167,8 +180,7 @@ class VWOClient implements IVWOClient {
 
             return (new TrackEvent())->track($this->settings, $eventName, $contextModel, $eventProperties, $hookManager, $isDebuggerUsed, $this->serviceContainer);
         } catch (\Throwable $error) {
-            $logManager = $this->serviceContainer->getLogManager();
-            $logManager->error("API - $apiName failed to execute. Error: " . $error->getMessage());
+            $loggerService->error('EXECUTION_FAILED', ['an' => ApiEnum::TRACK_EVENT, 'apiName' => $apiName, 'err' => $error->getMessage()]);
             return [$eventName => false];
         }
     }
@@ -180,13 +192,13 @@ class VWOClient implements IVWOClient {
         $isDebuggerUsed = isset($this->options['isDebuggerUsed']);
         
         try {
-            $logManager = $this->serviceContainer->getLogManager();
-            $logManager->debug("API Called: $apiName");
+            $loggerService = $this->serviceContainer->getLoggerService();
+            $loggerService->debug("API Called: $apiName");
 
             if (DataTypeUtil::isString($attributesOrAttributeValue)) {
                 // Validate attributeKey is a string
                 if (!DataTypeUtil::isString($attributesOrAttributeValue)) {
-                    $logManager->error("Attribute key passed to $apiName API is not valid.");
+                    $loggerService->error("INVALID_PARAM", ['key' => $attributesOrAttributeValue, 'an'=> ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName, 'type' => gettype($attributesOrAttributeValue), 'correctType' => 'string'], false);
                     throw new \TypeError('TypeError: attributeKey should be a valid string');
                 }
 
@@ -194,18 +206,25 @@ class VWOClient implements IVWOClient {
                 if (!DataTypeUtil::isString($attributeValueOrContext) && 
                     !DataTypeUtil::isNumber($attributeValueOrContext) && 
                     !DataTypeUtil::isBoolean($attributeValueOrContext)) {
-                    $logManager->error("Attribute value passed to $apiName API is not valid.");
+                    $loggerService->error("INVALID_PARAM", ['key' => $attributeValueOrContext, 'an'=> ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName, 'type' => gettype($attributeValueOrContext), 'correctType' => 'string'], false);
                 throw new \TypeError('TypeError: attributeValue should be a valid string, number, or boolean');
                 }
     
                 // Ensure context is valid
                 if (!isset($context['id']) || empty($context['id'])) {
-                    $logManager->error('Context must contain a valid user ID.');
+                    $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName], false);
                     throw new \Error('TypeError: Invalid context');
                 }
     
                 //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
                 $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled, $this->serviceContainer);
+                if($this->isAliasingEnabled) {
+                    if($userId != $context['id']) {
+                        $loggerService->info('ALIAS_ENABLED', ['userId' => $userId]);
+                    } else {
+                        $loggerService->error('GATEWAY_URL_ERROR', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName]);
+                    }
+                }
                 $context['id'] = $userId;
 
                 $contextModel = new ContextModel();
@@ -221,37 +240,44 @@ class VWOClient implements IVWOClient {
     
                 // Validate attributes is an array
                 if (!DataTypeUtil::isArray($attributes)) {
-                    $logManager->error("Attributes passed to $apiName API is not valid.");
+                    $loggerService->error("INVALID_PARAM", ['key' => $attributes, 'an'=> ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName, 'type' => gettype($attributes), 'correctType' => 'array'], false);
                     throw new \TypeError('TypeError: attributes should be an array');
                 }
 
                 // Validate attributes is not empty
                 if (empty($attributes)) {
-                    $logManager->error("Key 'attributesMap' passed to setAttribute API is not of valid type. Got type: null or empty array, should be: a non-empty array.");
+                    $loggerService->error("INVALID_PARAM", ['key' => $attributes, 'an'=> ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName, 'type' => gettype($attributes), 'correctType' => 'array'], false);
                     throw new \TypeError('TypeError: attributes should be a non-empty array');
                 }
                     
                 // Validate that each attribute value is of a supported type (string, number, or boolean)
                 foreach ($attributes as $key => $value) {
                     if (!is_string($key)) {
-                        $logManager->error("Attribute key in attributesMap is not valid. Got type: '" . gettype($key) . "', should be: string.");
+                        $loggerService->error("INVALID_PARAM", ['key' => $key, 'an'=> ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName, 'type' => gettype($key), 'correctType' => 'string'], false);
                         throw new \TypeError("TypeError: attribute key '$key' should only be a string");
                     }
 
                     if (!DataTypeUtil::isString($value) && !DataTypeUtil::isNumber($value) && !DataTypeUtil::isBoolean($value)) {
-                        $logManager->error("Attribute value for key '$key' is not valid.");
+                        $loggerService->error("INVALID_PARAM", ['key' => $value, 'an'=> ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName, 'type' => gettype($value), 'correctType' => 'string'], false);
                         throw new \TypeError("TypeError: attributeValue for key '$key' should be a valid string, number, or boolean");
                     }
                 }
                 $context = $attributeValueOrContext;
                 // Ensure context is valid
                 if (!isset($context['id']) || empty($context['id'])) {
-                    $logManager->error('Context must contain a valid user ID.');
+                    $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName], false);
                     throw new \Error('TypeError: Invalid context');
                 }
                 
                 //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
                 $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled, $this->serviceContainer);
+                if($this->isAliasingEnabled) {
+                    if($userId != $context['id']) {
+                        $loggerService->info('ALIAS_ENABLED', ['userId' => $userId]);
+                    } else {
+                        $loggerService->error('GATEWAY_URL_ERROR', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName]);
+                    }
+                }
                 $context['id'] = $userId;
 
                 $contextModel = new ContextModel();
@@ -261,8 +287,7 @@ class VWOClient implements IVWOClient {
                 (new SetAttribute())->setAttribute($this->settings, $attributes, $contextModel, $isDebuggerUsed, $this->serviceContainer);
             }
         } catch (\Throwable $error) {
-            $logManager = $this->serviceContainer->getLogManager();
-            $logManager->error("API - $apiName failed to execute. Error: " . $error->getMessage());
+            $loggerService->error('EXECUTION_FAILED', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName, 'err' => $error->getMessage()]);
         }
     }
 
@@ -276,27 +301,27 @@ class VWOClient implements IVWOClient {
         $apiName = ApiEnum::SET_ALIAS;
 
         try {
-            $logManager = $this->serviceContainer->getLogManager();
-            $logManager->debug("API Called: $apiName");
+            $loggerService = $this->serviceContainer->getLoggerService();
+            $loggerService->debug("API Called: $apiName");
 
             if (!$this->isAliasingEnabled) {
-                $logManager->error('Aliasing is not enabled.');
+                $loggerService->error('ALIAS_CALLED_BUT_NOT_PASSED', ['an' => ApiEnum::SET_ALIAS, 'apiName' => $apiName]);
                 return false;
             }
 
             $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
             if (!$settingsService->isGatewayServiceProvided) {
-                $logManager->error('Gateway URL is not provided.');
+                $loggerService->error('INVALID_GATEWAY_URL', ['an' => ApiEnum::SET_ALIAS, 'apiName' => $apiName]);
                 return false;
             }
 
             if ($aliasId === null || $aliasId === '') {
-                $logManager->error('TypeError: Invalid aliasId');
+                $loggerService->error('INVALID_PARAM', ['key' => $aliasId, 'an'=> ApiEnum::SET_ALIAS, 'apiName' => $apiName, 'type' => gettype($aliasId), 'correctType' => 'string'], false);
                 throw new \TypeError('TypeError: Invalid aliasId');
             }
 
             if (is_array($aliasId)) {
-                $logManager->error('TypeError: aliasId cannot be an array');
+                $loggerService->error('INVALID_PARAM', ['key' => $aliasId, 'an'=> ApiEnum::SET_ALIAS, 'apiName' => $apiName, 'type' => gettype($aliasId), 'correctType' => 'string'], false);
                 throw new \TypeError('TypeError: aliasId cannot be an array');
             }
 
@@ -309,17 +334,15 @@ class VWOClient implements IVWOClient {
 
             if (is_string($contextOrUserId)) {
                 if ($contextOrUserId === null || $contextOrUserId === '') {
-                    $logManager->error('Invalid userId passed to setAlias API.');
+                    $loggerService->error('INVALID_PARAM', ['key' => $contextOrUserId, 'an'=> ApiEnum::SET_ALIAS, 'apiName' => $apiName, 'type' => gettype($contextOrUserId), 'correctType' => 'string'], false);
                     throw new \TypeError('TypeError: Invalid userId');
                 }
 
                 if ($contextOrUserId === $aliasId) {
-                    $logManager->error('UserId and aliasId cannot be the same.');
-                    return false;
+                    throw new \TypeError('UserId and aliasId cannot be the same.');
                 }
 
                 if (is_array($contextOrUserId)) {
-                    $logManager->error('TypeError: userId cannot be an array');
                     throw new \TypeError('TypeError: userId cannot be an array');
                 }
 
@@ -327,17 +350,15 @@ class VWOClient implements IVWOClient {
                 $userId = $contextOrUserId;
             } else {
                 if (!is_array($contextOrUserId) || !isset($contextOrUserId['id']) || empty($contextOrUserId['id'])) {
-                    $logManager->error('Invalid context passed to setAlias API.');
+                    $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::SET_ALIAS, 'apiName' => $apiName], false);
                     throw new \TypeError('TypeError: Invalid context');
                 }
 
                 if ($contextOrUserId['id'] === $aliasId) {
-                    $logManager->error('UserId and aliasId cannot be the same.');
-                    return false;
+                    throw new \TypeError('UserId and aliasId cannot be the same.');
                 }
 
                 if(is_array($contextOrUserId['id'])) {
-                    $logManager->error('TypeError: userId cannot be an array');
                     throw new \TypeError('TypeError: userId cannot be an array');
                 }
 
@@ -348,8 +369,7 @@ class VWOClient implements IVWOClient {
             $result = AliasingUtil::setAlias($userId, $aliasId, $this->serviceContainer);
             return $result !== false;
         } catch (\Throwable $error) {
-            $logManager = $this->serviceContainer->getLogManager();
-            $logManager->error("API - $apiName failed to execute. Error: " . $error->getMessage());
+            $loggerService->error('EXECUTION_FAILED', ['an' => ApiEnum::SET_ALIAS, 'apiName' => $apiName, 'err' => $error->getMessage()]);
             return false;
         }
     }

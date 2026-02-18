@@ -23,6 +23,7 @@ use vwo\Enums\UrlEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandRegexEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperandValueEnum;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperatorValueEnum;
+use vwo\Enums\ApiEnum;
 
 class SegmentOperandEvaluator {
     public $serviceContainer;
@@ -31,7 +32,7 @@ class SegmentOperandEvaluator {
         $this->serviceContainer = $serviceContainer;
     }
 
-    public function evaluateCustomVariableDSL($dslOperandValue, $properties) {
+    public function evaluateCustomVariableDSL($dslOperandValue, $properties, $context) {
         $keyValue = SegmentEvaluator::getKeyValue($dslOperandValue);
         $operandKey = $keyValue['key'];
         $operand = $keyValue['value'];
@@ -51,7 +52,7 @@ class SegmentOperandEvaluator {
         if (preg_match(SegmentOperandRegexEnum::IN_LIST, $operand)) {
             preg_match(SegmentOperandRegexEnum::IN_LIST, $operand, $matches);
             if (!$matches || count($matches) < 2) {
-                $this->serviceContainer->getLogManager()->error('Invalid inList operand format');
+                $this->serviceContainer->getLoggerService()->error('INVALID_ATTRIBUTE_LIST_FORMAT');
                 return false;
             }
 
@@ -65,13 +66,13 @@ class SegmentOperandEvaluator {
             ];
 
             try {
-                $res = GatewayServiceUtil::getFromGatewayService($this->serviceContainer, $queryParamsObj, UrlEnum::ATTRIBUTE_CHECK);
+                $res = GatewayServiceUtil::getFromGatewayService($this->serviceContainer, $queryParamsObj, UrlEnum::ATTRIBUTE_CHECK, $context);
                 if (!$res || $res === null || $res === 'false') {
                     return false;
                 }
                 return $res;
             } catch (\Exception $error) {
-                $this->serviceContainer->getLogManager()->error('Error while fetching data:'. $error->getMessage());
+                $this->serviceContainer->getLoggerService()->error('ERROR_FETCHING_DATA_FROM_GATEWAY', ['err' => $error->getMessage(), 'an' => ApiEnum::GET_FLAG]);
                 return false;
             }
         } else {
@@ -98,7 +99,7 @@ class SegmentOperandEvaluator {
     public function evaluateUserAgentDSL($dslOperandValue, $context) {
         $operand = $dslOperandValue;
         if (!$context->getUserAgent() || $context->getUserAgent() === null) {
-            $this->serviceContainer->getLogManager()->info('To evaluate UserAgent segmentation, please provide userAgent in context');
+            $this->serviceContainer->getLoggerService()->error('INVALID_USER_AGENT_IN_CONTEXT_FOR_PRE_SEGMENTATION', ['an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
             return false;
         }
         $tagValue = urldecode($context->getUserAgent());

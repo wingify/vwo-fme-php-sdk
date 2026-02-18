@@ -26,6 +26,7 @@ use vwo\Services\StorageService;
 use vwo\Packages\SegmentationEvaluator\Enums\SegmentOperatorValueEnum;
 use vwo\Packages\SegmentationEvaluator\Evaluators\SegmentOperandEvaluator;
 use vwo\Utils\DataTypeUtil;
+use vwo\Enums\ApiEnum;
 
 class SegmentEvaluator implements Segmentation
 {
@@ -56,7 +57,7 @@ class SegmentEvaluator implements Segmentation
             case SegmentOperatorValueEnum::OR:
                 return $this->some($subDsl, $properties);
             case SegmentOperatorValueEnum::CUSTOM_VARIABLE:
-                return $this->segmentOperandEvaluator->evaluateCustomVariableDSL($subDsl, $properties);
+                return $this->segmentOperandEvaluator->evaluateCustomVariableDSL($subDsl, $properties, $this->context);
             case SegmentOperatorValueEnum::USER:
                 return $this->segmentOperandEvaluator->evaluateUserDSL($subDsl, $properties);
             case SegmentOperatorValueEnum::UA:
@@ -118,7 +119,12 @@ class SegmentEvaluator implements Segmentation
                             }
                             return $result;
                         } else {
-                            $this->serviceContainer->getLogManager()->error("Feature not found with featureIdKey: $featureIdKey");
+                            $this->serviceContainer->getLoggerService()->error('FEATURE_NOT_FOUND_WITH_ID', [
+                                'featureId' => $feature->getKey(), 
+                                'an' => ApiEnum::GET_FLAG,
+                                'uuid' => $this->context->getId(),
+                                'sId' => $this->context->getSessionId()
+                            ]);
                             return false;
                         }
                     }
@@ -130,7 +136,12 @@ class SegmentEvaluator implements Segmentation
                     $uaParserResult = $this->checkUserAgentParser($uaParserMap);
                     return $uaParserResult;
                 } catch (\Exception $err) {
-                    $this->serviceContainer->getLogManager()->error($err->getMessage());
+                    $this->serviceContainer->getLoggerService()->error('USER_AGENT_VALIDATION_ERROR', [
+                        'error' => $err->getMessage(),
+                        'an' => ApiEnum::GET_FLAG,
+                        'uuid' => $this->context->getId(),
+                        'sId' => $this->context->getSessionId()
+                    ]);
                 }
             }
 
@@ -177,7 +188,7 @@ class SegmentEvaluator implements Segmentation
         $ipAddress = $this->context->getIpAddress(); // Use the getter method
 
         if (empty($ipAddress)) {
-            $this->serviceContainer->getLogManager()->info('To evaluate location pre-segmentation, please pass ipAddress in the context object');
+            $this->serviceContainer->getLoggerService()->error('INVALID_IP_ADDRESS_IN_CONTEXT_FOR_PRE_SEGMENTATION', ['an' => ApiEnum::GET_FLAG, 'uuid' => $this->context->getVwoUuid(), 'sId' => $this->context->getSessionId()]);
             return false;
         }
 
@@ -193,7 +204,7 @@ class SegmentEvaluator implements Segmentation
         $userAgent = $this->context->getUserAgent(); // Use the getter method
 
         if (empty($userAgent)) {
-            $this->serviceContainer->getLogManager()->info('To evaluate user agent related segments, please pass userAgent in the context object');
+            $this->serviceContainer->getLoggerService()->error('INVALID_USER_AGENT_IN_CONTEXT_FOR_PRE_SEGMENTATION', ['an' => ApiEnum::GET_FLAG, 'uuid' => $this->context->getVwoUuid(), 'sId' => $this->context->getSessionId()]);
             return false;
         }
 

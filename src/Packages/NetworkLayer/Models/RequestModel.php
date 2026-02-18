@@ -29,6 +29,11 @@ class RequestModel {
     private $body;
     private $headers;
     private $retryConfig;
+    private $eventName; // Event name
+    private $uuid; // UUID
+    private $campaignId; // Campaign ID
+    private $eventProperties; // Event properties
+    private $lastError;
 
     public function __construct(
         $url,
@@ -170,6 +175,46 @@ class RequestModel {
 
         $options['retryConfig'] = $this->retryConfig;
         return $options;
+    }
+
+    public function setEventName($eventName) {
+        $this->eventName = $eventName;
+    }
+
+    public function getEventName() {
+        return $this->eventName;
+    }
+
+    public function setUuid($uuid) {
+        $this->uuid = $uuid;
+    }
+
+    public function getUuid() {
+        return $this->uuid;
+    }
+
+    public function setCampaignId($campaignId) {
+        $this->campaignId = $campaignId;
+    }
+
+    public function getCampaignId() {
+        return $this->campaignId;
+    }
+
+    public function setEventProperties($eventProperties) {
+        $this->eventProperties = $eventProperties;
+    }
+
+    public function getEventProperties() {
+        return $this->eventProperties;
+    }   
+
+    public function getLastError() {
+        return $this->lastError;
+    }
+
+    public function setLastError($lastError) {
+        $this->lastError = $lastError;
     }
 }
 

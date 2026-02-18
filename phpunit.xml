@@ -9,4 +9,7 @@
             <directory>./src</directory>
         </whitelist>
     </filter>
+    <php>
+        <env name="APP_ENV" value="test"/>
+    </php>
 </phpunit>

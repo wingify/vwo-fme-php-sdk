@@ -19,7 +19,6 @@
 namespace vwo\Api;
 
 use vwo\Enums\ApiEnum;
-use vwo\Enums\ErrorLogMessagesEnum;
 use vwo\Models\SettingsModel;
 use vwo\Models\User\ContextModel;
 use vwo\Services\HooksService;
@@ -65,16 +64,20 @@ class TrackEvent implements ITrack
             }
 
             // Set and execute integration callback for the track event
-            $hooksService->set(['eventName' => $eventName, 'api' => ApiEnum::TRACK]);
+            $hooksService->set(['eventName' => $eventName, 'api' => ApiEnum::TRACK_EVENT]);
             $hooksService->execute($hooksService->get());
 
             return [$eventName => true];
         }
 
         // Log an error if the event does not exist
-        $logManager = $serviceContainer->getLogManager();
-        $logManager->error("Event '$eventName' not found in any of the features");
-
+        $loggerService = $serviceContainer->getLoggerService();
+        $loggerService->error('EVENT_NOT_FOUND',[
+            'eventName' => $eventName, 
+            'an' => ApiEnum::TRACK_EVENT,
+            'uuid' => $context->getVwoUuid(),
+            'sId' => $context->getSessionId(),
+        ]);
 
         return [$eventName => false];
     }
@@ -92,7 +95,7 @@ class TrackEvent implements ITrack
         $networkUtil = new NetworkUtil($serviceContainer);
 
         // Get base properties for the event
-        $properties = $networkUtil->getEventsBaseProperties($eventName, $context->getUserAgent(), $context->getIpAddress());
+        $properties = $networkUtil->getEventsBaseProperties($eventName, $context->getUserAgent(), $context->getIpAddress(), $context->getSessionId());
 
         // Prepare the payload for the track goal
         $payload = $networkUtil->getTrackGoalPayloadData(
@@ -103,7 +106,7 @@ class TrackEvent implements ITrack
         );
 
         // Send the prepared payload via POST API request
-        $networkUtil->sendPostApiRequest($properties, $payload);
+        $networkUtil->sendPostApiRequest($properties, $payload, $context->getId(), $eventProperties);
     }
 }
 ?>

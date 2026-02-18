@@ -40,7 +40,7 @@ class SdkInitAndUsageStatsUtil
 
             $networkUtil->sendEvent($properties, $payload, EventEnum::VWO_SDK_INIT_EVENT);
         } catch (\Exception $e) {
-            $serviceContainer->getLogManager()->error('SDK_INIT_EVENT_ERROR', ['error' => $e->getMessage()]);
+            $serviceContainer->getLoggerService()->error('SDK_INIT_EVENT_ERROR', ['error' => $e->getMessage()]);
         }
     }
 
@@ -65,7 +65,7 @@ class SdkInitAndUsageStatsUtil
             $networkUtil->sendEvent($properties, $payload, EventEnum::VWO_USAGE_STATS_EVENT);
         } catch (\Exception $e) {
             // Silently catch the exception as per the original TypeScript code
-            $serviceContainer->getLogManager()->error('SDK_USAGE_STATS_EVENT_ERROR', ['error' => $e->getMessage()]);
+            $serviceContainer->getLoggerService()->error('SDK_USAGE_STATS_EVENT_ERROR', ['error' => $e->getMessage(), 'an' => ApiEnum::GET_FLAG, 'uuid' => $this->context->getId(), 'sId' => $this->context->getSessionId()]);
         }
     }
 } 

@@ -26,6 +26,10 @@ use vwo\Packages\NetworkLayer\Models\RequestModel;
 use Exception;
 use vwo\Models\Schemas\SettingsSchema;
 use vwo\Services\LoggerService;
+use vwo\Enums\ApiEnum;
+use vwo\Packages\NetworkLayer\Models\ResponseModel;
+use vwo\Utils\DebuggerServiceUtil;
+
 
 // Defining interface ISettingsService
 interface ISettingsService {
@@ -53,9 +57,11 @@ class SettingsService implements ISettingsService {
     public $isProxyUrlProvided = false;
     public $proxyUrl = "";
     public static $collectionPrefix;
+    
     // Constructor
-    public function __construct($options, $logManager) {
+    public function __construct($options, $logManager, $loggerService) {
         $this->logManager = $logManager;
+        $this->loggerService = $loggerService;
         // Assigning values to properties
         $this->sdkKey = $options['sdkKey'];
         $this->accountId = $options['accountId'];
@@ -159,18 +165,17 @@ class SettingsService implements ISettingsService {
                 $this->logManager->info('SETTINGS_FETCH_SUCCESS');
                 return $settings;
             } else {
-                $this->logManager->error('SETTINGS_SCHEMA_INVALID');
+                $this->loggerService->error('INVALID_SETTINGS_SCHEMA', ['an' => ApiEnum::INIT]);
                 return null;
             }
         } catch (Exception $e) {
-            $this->logManager->error('SETTINGS_FETCH_ERROR', ['err' => $e->getMessage()]);
+            $this->loggerService->error('ERROR_FETCHING_SETTINGS', ['err' => $e->getMessage()], false);
             return null;
         }
     }
 
     public function fetchSettings() {
         if (!$this->sdkKey || !$this->accountId) {
-            $this->serviceContainer->getLogManager()->error('sdkKey is required for fetching account settings. Aborting!');
             throw new Exception('sdkKey is required for fetching account settings. Aborting!');
         }
 
@@ -205,10 +210,42 @@ class SettingsService implements ISettingsService {
             $response = $networkInstance->get($request);
 
             $this->settingsFetchTime = (int)((microtime(true) * 1000) - $settingsFetchStartTime);
+
+            if($response != null) {
+                
+                // if attempt is more that 0
+                if($response->getTotalAttempts() > 0) {
+                    $debugEventProps = NetworkUtil::createNetworkAndRetryDebugEvent($response, null, ApiEnum::INIT, UrlService::getEndpointWithCollectionPrefix(Constants::SETTINGS_ENDPOINT));
+                    $debugEventProps["uuid"] = $request->getUuid();
+                    
+                    //send debug event
+                    DebuggerServiceUtil::sendDebugEventToVWO($debugEventProps);
+                }    
+            }
+            // Create a response model for error handling if response is null
+            if($response == null) {
+                $response = new ResponseModel();
+                $response->setError(new Exception("Network request failed: response is null"));
+                $response->setStatusCode($response->getStatusCode());
+                $response->setTotalAttempts(0);
+
+                $debugEventProps = NetworkUtil::createNetworkAndRetryDebugEvent(
+                    $response,
+                    null,
+                    ApiEnum::INIT,
+                    UrlService::getEndpointWithCollectionPrefix(Constants::SETTINGS_ENDPOINT)
+                );
+                $debugEventProps["uuid"] = $request->getUuid();
+
+                //send debug event
+                DebuggerServiceUtil::sendDebugEventToVWO($debugEventProps);
+            }
+
             return $response->getData();
+           
         } catch (Exception $err) {
             if (isset($this->logManager) && $this->logManager) {
-                $this->logManager->error("Error occurred while fetching settings: {$err->getMessage()}");
+                $this->logManager->error('ERROR_FETCHING_SETTINGS', ['err' => $err->getMessage(), 'an' => ApiEnum::INIT], false);
             }
             throw $err;
         }

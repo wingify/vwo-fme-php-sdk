@@ -37,11 +37,8 @@ class UserIdUtil
       $settingsService = $serviceContainer ? $serviceContainer->getSettingsService() : SettingsService::instance();
       if ($settingsService->isGatewayServiceProvided) {
         $aliasId = AliasingUtil::getAlias($userId, $serviceContainer);
-
-        $serviceContainer->getLogManager()->info('ALIAS_ENABLED', ['userId' => $aliasId]);
         return $aliasId;
       } else {
-        $serviceContainer->getLogManager()->error('GATEWAY_URL_ERROR');
         return $userId;
       }
     } else {

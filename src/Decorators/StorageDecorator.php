@@ -24,6 +24,9 @@ use vwo\Models\FeatureModel;
 use vwo\Models\VariationModel;
 use vwo\Models\User\ContextModel;
 use vwo\Services\ServiceContainer;
+use vwo\Services\LoggerService;
+use vwo\Packages\Logger\Enums\LogLevelEnum;
+use vwo\Enums\ApiEnum;
 
 interface IStorageDecorator
 {
@@ -67,25 +70,25 @@ class StorageDecorator implements IStorageDecorator
         $experimentKey = $data['experimentKey'] ?? null;
         $experimentVariationId = $data['experimentVariationId'] ?? null;
 
-        $logManager = $serviceContainer->getLogManager();
+        $loggerService = $serviceContainer->getLoggerService();
 
         if (!$featureKey) {
-            $logManager->error("Error storing data: featureKey is invalid.");
+            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["featureKey" => $featureKey, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
             return false;
         }
 
         if ($context->getId() == null) {
-            $logManager->error("Error storing data: Context or Context.id is invalid.");
+            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["context" => $context, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
             return false;
         }
 
         if ($rolloutKey && !$experimentKey && !$rolloutVariationId) {
-            $logManager->error("Error storing data: Variation (rolloutKey, experimentKey or rolloutVariationId) is invalid.");
+            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["rolloutKey" => $rolloutKey, "experimentKey" => $experimentKey, "rolloutVariationId" => $rolloutVariationId, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
             return false;
         }
 
         if ($experimentKey && !$experimentVariationId) {
-            $logManager->error("Error storing data: Variation (experimentKey or experimentVariationId) is invalid.");
+            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["experimentKey" => $experimentKey, "experimentVariationId" => $experimentVariationId, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
             return false;
         }
 

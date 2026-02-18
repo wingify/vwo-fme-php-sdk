@@ -23,6 +23,7 @@ class ResponseModel {
     private $error;
     private $headers;
     private $data;
+    private $totalAttempts;
 
     public function setStatusCode($statusCode) {
         $this->statusCode = $statusCode;
@@ -54,6 +55,14 @@ class ResponseModel {
 
     public function getError() {
         return $this->error;
+    }
+
+    public function setTotalAttempts($totalAttempts) {
+        $this->totalAttempts = $totalAttempts;
+    }
+
+    public function getTotalAttempts() {
+        return $this->totalAttempts;
     }
 }
 ?>

@@ -64,7 +64,6 @@ class UsageStatsUtil
         $storage = $options['storage'] ?? null;
         $logger = $options['logger'] ?? null;
         $integrations = $options['integrations'] ?? null;
-        $pollInterval = $options['pollInterval'] ?? null;
         $vwoMeta = $options['_vwo_meta'] ?? null;
         $gatewayService = $options['gatewayService'] ?? null;
         $data = [];
@@ -91,10 +90,6 @@ class UsageStatsUtil
 
         if (isset($logger['level'])) {
             $data['ll'] = LogLevelNumberEnum::fromString($logger['level']) ?? -1;
-        }
-
-        if ($pollInterval) {
-            $data['pi'] = 1;
         }
 
         if ($vwoMeta && isset($vwoMeta['ea'])) {

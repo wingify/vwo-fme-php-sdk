@@ -18,11 +18,10 @@
 
 namespace vwo\Enums;
 
-class ApiEnum {
-    const GET_FLAG = 'getFlag';
-    const TRACK_EVENT = 'trackEvent';
-    const SET_ATTRIBUTE = 'setAttribute';
-    const INIT = 'init';
-    const SET_ALIAS = 'setAlias';
+class DebuggerCategoryEnum {
+    const NETWORK = 'network';
+    const DECISION = 'decision';
+    const INITIALIZATION = 'initialization';
+    const RETRY = 'retry';
+    const ERROR = 'error';
 }
-?>

@@ -34,7 +34,7 @@ class NetworkClient implements NetworkClientInterface
     private $isProxyUrlNotSecure = false; // Flag to store the value
     private $shouldWaitForTrackingCalls = false;
     private $retryConfig = Constants::DEFAULT_RETRY_CONFIG;
-    private $logManager;
+    private $serviceContainer;
 
     // Constructor to accept options and store the flag
     public function __construct($options = []) {
@@ -50,8 +50,8 @@ class NetworkClient implements NetworkClientInterface
         if(isset($options['retryConfig'])) {
             $this->retryConfig = $options['retryConfig'];
         }
-        if(isset($options['logManager'])) {
-            $this->logManager = $options['logManager'];
+        if(isset($options['serviceContainer'])) {
+            $this->serviceContainer = $options['serviceContainer'];
         }
     }
 
@@ -63,7 +63,7 @@ class NetworkClient implements NetworkClientInterface
         return false;
     }
 
-    private function makeCurlRequest($url, $method, $headers, $body = null, $timeout = 5000, $retryConfig = [])
+    private function makeCurlRequest($request, $url, $method, $headers, $body = null, $timeout = 5000, $retryConfig = [])
     {
         // Merge with defaults to ensure all keys are present
         $retryConfig = array_merge(Constants::DEFAULT_RETRY_CONFIG, $retryConfig);
@@ -79,7 +79,7 @@ class NetworkClient implements NetworkClientInterface
         }
         $lastError = null;
 
-        for ($attempt = 0; $attempt < $maxRetries && $shouldRetry === true; $attempt++) {
+        for ($attempt = 0; $attempt <= $maxRetries && $shouldRetry === true; $attempt++) {
             $ch = curl_init();
             
             curl_setopt_array($ch, [
@@ -118,39 +118,63 @@ class NetworkClient implements NetworkClientInterface
             $error = curl_error($ch);
             curl_close($ch);
 
+            $responseModel = new ResponseModel($response, $httpCode, $error);
+
             // Check if request was successful
             if (!$error && $httpCode >= 200 && $httpCode < 300) {
+                if($attempt > 0 && $request->getLastError() !== null) {
+                    $this->serviceContainer->getLoggerService()->info("NETWORK_CALL_SUCCESS_WITH_RETRIES", 
+                                        [
+                                            "extraData" => "{$method} {$url}",
+                                            "attempts" => $attempt,
+                                            "err" => $request->getLastError()
+                                        ]);
+
+                    // set total attempts in response
+                    $responseModel->setTotalAttempts($attempt);
+                    $responseModel->setError($request->getLastError());
+                }
                 return [
                     'body' => $response,
-                    'status_code' => $httpCode
+                    'statusCode' => $httpCode,
+                    'responseModel' => $responseModel
                 ];
             }
 
             // Store the error for potential re-throwing
             $lastError = $error ? "cURL error: $error" : "HTTP error: $httpCode";
+            $request->setLastError($lastError);
 
             // If this is not the last attempt, wait before retrying
             if ($attempt < $maxRetries ) {
                 $delay = $retryDelays[$attempt] ?? $baseDelay;
-            
-                LoggerService::error('NETWORK_CALL_RETRY_ATTEMPT', [
+                $this->serviceContainer->getLoggerService()->error('ATTEMPTING_RETRY_FOR_FAILED_NETWORK_CALL', [
                     'endPoint' => $url,
-                    'err' => $lastError,
+                    'err' => $request->getLastError(),
                     'delay' => $delay,
                     'attempt' => $attempt + 1,
                     'maxRetries' => $maxRetries
-                ]);
+                ], false);
+                
                 sleep($delay);
             } else {
-                LoggerService::error('NETWORK_CALL_RETRY_FAILED', [
-                    'endPoint' => $url,
-                    'err' => $lastError
-                ]);
+                $this->serviceContainer->getLoggerService()->error('NETWORK_CALL_FAILURE_AFTER_MAX_RETRIES', [
+                    'extraData' => "{$method} {$url}",
+                    'attempts' => $attempt + 1,
+                    'err' => $request->getLastError()
+                ], false);
             }
         }
 
-        // If we get here, all retries failed
-        throw new \Exception($lastError);
+        $responseModel = new ResponseModel();
+        $responseModel->setError($lastError);
+        $responseModel->setStatusCode(0);
+        $responseModel->setTotalAttempts($maxRetries);
+        return [
+            'body' => null,
+            'statusCode' => 0,
+            'responseModel' => $responseModel
+        ];
     }
 
     private function createSocketConnection($url, $timeout)
@@ -226,6 +250,7 @@ class NetworkClient implements NetworkClientInterface
         $body = '';
         $contentLength = 0;
         $isReadingHeaders = true;
+        $statusCode = null;
 
         // Read headers first
         while ($isReadingHeaders && !feof($socket)) {
@@ -235,6 +260,12 @@ class NetworkClient implements NetworkClientInterface
             }
             
             $headers .= $line;
+
+            // Extract status code from first line (HTTP/1.1 200 OK)
+            if ($statusCode === null && preg_match('/^HTTP\/\d\.\d\s+(\d+)/', $line, $matches)) {
+                $statusCode = (int)$matches[1];
+            }
+
             // Check for Content-Length header
             if (stripos($line, 'Content-Length:') === 0) {
                 $contentLength = (int)trim(substr($line, 16));
@@ -261,7 +292,8 @@ class NetworkClient implements NetworkClientInterface
 
         return [
             'headers' => $headers,
-            'body' => $body
+            'body' => $body,
+            'statusCode' => $statusCode
         ];
     }
 
@@ -272,6 +304,7 @@ class NetworkClient implements NetworkClientInterface
 
         try {
             $curlResponse = $this->makeCurlRequest(
+                $request,
                 $networkOptions['url'],
                 'GET',
                 $networkOptions['headers'],
@@ -280,7 +313,9 @@ class NetworkClient implements NetworkClientInterface
                 $this->retryConfig
             );
             $rawResponse = $curlResponse['body'];
-            $responseModel->setStatusCode($curlResponse['status_code']);
+            $responseModel->setStatusCode($curlResponse['statusCode']); 
+            $responseModel->setTotalAttempts($curlResponse['responseModel']->getTotalAttempts());
+
 
             $parsedData = json_decode($rawResponse, false);
             if ($parsedData === null && json_last_error() !== JSON_ERROR_NONE) {
@@ -307,6 +342,7 @@ class NetworkClient implements NetworkClientInterface
             // Check if we should use cURL (either for synchronous or gateway fallback)
             if ($this->shouldUseCurl($networkOptions)) {
                 $curlResponse = $this->makeCurlRequest(
+                    $request,
                     $networkOptions['url'],
                     'POST',
                     $networkOptions['headers'],
@@ -316,7 +352,8 @@ class NetworkClient implements NetworkClientInterface
                 );
                 
                 $rawResponse = $curlResponse['body'];
-                $responseModel->setStatusCode($curlResponse['status_code']);
+                $responseModel->setStatusCode($curlResponse['statusCode']);
+                $responseModel->setTotalAttempts($curlResponse['responseModel']->getTotalAttempts());
                 
                 // If body is empty or whitespace, don't attempt JSON parse
                 if (is_string($rawResponse) && trim($rawResponse) === '') {
@@ -331,6 +368,7 @@ class NetworkClient implements NetworkClientInterface
                         $responseModel->setData($parsedData);
                     }
                 }
+                return $responseModel;
             } else {
                 // Use socket connection (existing logic)
                 $socket = $this->createSocketConnection(
@@ -345,6 +383,7 @@ class NetworkClient implements NetworkClientInterface
                 $rawResponse = $this->readResponse($socket);
                 fclose($socket);
                 
+                $responseModel->setStatusCode($rawResponse['statusCode']);
                 $parsedBody = $rawResponse['body'];
                 if (is_string($parsedBody) && trim($parsedBody) === '') {
                     $responseModel->setData(null);
@@ -357,6 +396,7 @@ class NetworkClient implements NetworkClientInterface
                         $responseModel->setData($parsedData);
                     }
                 }
+                return $responseModel;
             }
 
         } catch (\Exception $e) {

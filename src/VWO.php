@@ -23,6 +23,9 @@ use vwo\Models\SettingsModel;
 use Exception;
 use vwo\Services\LoggerService;
 use vwo\Utils\SdkInitAndUsageStatsUtil;
+use vwo\Enums\LogMessagesEnum;
+use vwo\Utils\LogMessageUtil;
+use vwo\Enums\ApiEnum;
 use vwo\Utils\UuidUtil;
 
 class VWO
@@ -48,11 +51,11 @@ class VWO
             ->setNetworkManager()
             ->setSegmentation()
             ->initBatching()
-            ->initPolling()
             ->initUsageStats();
 
         // Get logManager from builder for logging
         $logManager = $vwoBuilder->getLogger();
+        $loggerService = $vwoBuilder->getLoggerService();
 
         if (isset($options['settings'])) {
             $settingsObject = json_decode($options['settings']);
@@ -67,8 +70,8 @@ class VWO
             } else {
                 $vwoBuilder->getSettingsService()->isSettingsValidOnInit = false;
                 $vwoBuilder->getSettingsService()->settingsFetchTime = 0;
-                if ($logManager) {
-                    $logManager->error('SETTINGS_SCHEMA_INVALID');
+                if ($loggerService) {
+                    $loggerService->error('INVALID_SETTINGS_SCHEMA', ['an' => ApiEnum::INIT]);
                 }
                 $settingsObject = json_decode('{}');
                 $vwoBuilder->setSettings($settingsObject);
@@ -101,14 +104,17 @@ class VWO
         $apiName = 'init';
         try {
             if (!DataTypeUtil::isObject($options)) {
+                self::logErrorMessage(LogMessageUtil::buildMessage(LogMessagesEnum::getErrorMessages()['INVALID_OPTIONS']));
                 throw new Exception('Options should be of type object.');
             }
 
             if (!isset($options['sdkKey']) || !is_string($options['sdkKey'])) {
+                self::logErrorMessage(LogMessageUtil::buildMessage(LogMessagesEnum::getErrorMessages()['INVALID_SDK_KEY_IN_OPTIONS']));
                 throw new Exception('Please provide the sdkKey in the options and should be of type string');
             }
 
             if (!isset($options['accountId'])) {
+                self::logErrorMessage(LogMessageUtil::buildMessage(LogMessagesEnum::getErrorMessages()['INVALID_ACCOUNT_ID_IN_OPTIONS']));
                 throw new Exception('Please provide VWO account ID in the options and should be of type string|number');
             }
 
@@ -153,10 +159,14 @@ class VWO
             }
 
             return $instance;
-        } catch (\Throwable $error) {
-            $msg = sprintf('API - %s failed to execute. Trace: %s. ', $apiName, $error->getMessage());
-            $logMessage = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $msg);
-            file_put_contents("php://stdout", $logMessage . PHP_EOL);
+        } catch (\Throwable $err) {
+            $msg = LogMessageUtil::buildMessage(LogMessagesEnum::getErrorMessages()['EXECUTION_FAILED'], [
+                'apiName' => $apiName,
+                'err' => $err,
+                'an' => ApiEnum::INIT,
+            ]);
+
+            self::logErrorMessage($msg);
             return null;
         }
     }
@@ -195,5 +205,16 @@ class VWO
             file_put_contents("php://stdout", $logMessage . PHP_EOL);
             return null;
         }
+    }
+
+    /**
+     * Common method to log error messages to stdout with a standard prefix and timestamp.
+     *
+     * @param string $message The error message to log.
+     */
+    private static function logErrorMessage($message)
+    {
+        $errorLog = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $message);
+        file_put_contents("php://stdout", $errorLog . PHP_EOL);
     }
 }

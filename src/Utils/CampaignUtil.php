@@ -151,6 +151,59 @@ class CampaignUtil
     }
 
     /**
+     * Retrieves the key of a campaign by its ID.
+     * @param SettingsModel $settings The settings model containing all campaigns.
+     * @param int $campaignId The ID of the campaign to retrieve.
+     * @return string|null The key of the campaign or null if not found.
+     */
+    public static function getCampaignKeyFromCampaignId($settings, $campaignId)
+    {
+        foreach ($settings->getCampaigns() as $campaign) {
+            if ($campaign->getId() === $campaignId) {
+                return $campaign->getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves the name of a variation by its ID within a specific campaign identified by its ID.
+     * @param SettingsModel $settings The settings model containing all campaigns.
+     * @param int $campaignId The ID of the campaign.
+     * @param int $variationId The ID of the variation to retrieve.
+     * @return string|null The name of the variation or null if not found.
+     */
+    public static function getVariationNameFromCampaignIdAndVariationId($settings, $campaignId, $variationId)
+    {
+        foreach ($settings->getCampaigns() as $campaign) {
+            if ($campaign->getId() === $campaignId) {
+                foreach ($campaign->getVariations() as $variation) {
+                    if ($variation->getId() === $variationId) {
+                        return $variation->getKey();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves the type of a campaign by its ID.
+     * @param SettingsModel $settings The settings model containing all campaigns.
+     * @param int $campaignId The ID of the campaign to retrieve.
+     * @return string|null The type of the campaign or null if not found.
+     */
+    public static function GetCampaignTypeFromCampaignId($settings, $campaignId)
+    {
+        // find the campaign by id
+        // return the type of the campaign
+        $campaign = array_values(array_filter($settings->getCampaigns(), function ($campaign) use ($campaignId) {
+            return $campaign->getId() === $campaignId;
+        }))[0] ?? null;
+        return $campaign->getType();
+    }
+
+    /**
      * Sets the allocation ranges for a list of campaigns.
      * @param array $campaigns The list of campaigns to set allocations for.
      */

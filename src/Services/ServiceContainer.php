@@ -43,31 +43,61 @@ class ServiceContainer
     private $settingsModel;
     private $networkManager;
     private $storage;
+    private $loggerService;
 
     /**
      * Constructor for ServiceContainer
-     * @param LogManager $logManager The log manager instance
-     * @param SettingsService $settingsService The settings service instance
      * @param array $vwoOptions The VWO options
-     * @param SettingsModel $settingsModel The settings model
-     * @param NetworkManager $networkManager The network manager instance
-     * @param Storage|null $storage The storage instance (optional)
      */
-    public function __construct(
-        LogManager $logManager,
-        SettingsService $settingsService,
-        array $vwoOptions,
-        SettingsModel $settingsModel,
-        NetworkManager $networkManager,
-        $storage = null
-    ) {
-        $this->logManager = $logManager;
-        $this->settingsService = $settingsService;
+    public function __construct(array $vwoOptions)
+    {
         $this->vwoOptions = $vwoOptions;
         $this->hooksService = new HooksService($vwoOptions);
         $this->segmentationManager = new SegmentationManager();
-        $this->settingsModel = $settingsModel;
+    }
+
+    /**
+     * Sets the log manager instance
+     * @param LogManager $logManager
+     */
+    public function setLogManager(LogManager $logManager)
+    {
+        $this->logManager = $logManager;
+    }
+
+    /**
+     * Sets the logger service instance
+     * @param LoggerService $loggerService
+     */
+    public function setLoggerService(LoggerService $loggerService)
+    {
+        $this->loggerService = $loggerService;
+    }
+
+    /**
+     * Sets the settings service instance
+     * @param SettingsService $settingsService
+     */
+    public function setSettingsService(SettingsService $settingsService)
+    {
+        $this->settingsService = $settingsService;
+    }
+
+    /**
+     * Sets the network manager instance
+     * @param NetworkManager $networkManager
+     */
+    public function setNetworkManager(NetworkManager $networkManager)
+    {
         $this->networkManager = $networkManager;
+    }
+
+    /**
+     * Sets the storage instance
+     * @param Storage $storage
+     */
+    public function setStorage(Storage $storage)
+    {
         $this->storage = $storage;
     }
 
@@ -78,6 +108,15 @@ class ServiceContainer
     public function getLogManager(): LogManager
     {
         return $this->logManager;
+    }
+
+    /**
+     * Gets the logger service instance
+     * @return LoggerService
+     */
+    public function getLoggerService(): LoggerService
+    {
+        return $this->loggerService;
     }
 
     /**

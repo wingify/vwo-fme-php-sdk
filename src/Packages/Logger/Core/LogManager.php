@@ -22,8 +22,6 @@ use vwo\Packages\Logger\Enums\LogLevelEnum;
 use Ramsey\Uuid\Uuid;
 use vwo\Packages\Logger\Core\LogTransportManager;
 use vwo\Packages\Logger\Core\Logger;
-use vwo\Utils\NetworkUtil as NetworkUtil;
-use vwo\Enums\EventEnum;
 
 interface ILogManager {
     public function handleTransports();
@@ -123,29 +121,6 @@ class LogManager extends Logger implements ILogManager {
     public function error($message) {
         // Log the error to the transport manager
         $this->transportManager->log(LogLevelEnum::ERROR, $message);
-        
-        // Skip logging if TEST_ENV is true
-        if (getenv('TEST_ENV') === 'true') {
-            return;
-        }
-
-        // Construct the message with SDK details
-        $messageToSend = $message . '-' . getenv('SDK_NAME') . '-' . getenv('SDK_VERSION');
-
-        // Check if the message has already been logged
-        if (!isset($this->storedMessages[$messageToSend])) {
-            // Add the message to the "set" (array as a set)
-            $this->storedMessages[$messageToSend] = true;
-
-            $networkUtil = new NetworkUtil();
-            $properties = $networkUtil->getEventsBaseProperties(EventEnum::VWO_ERROR);
-
-            // Create the payload for the messaging event
-            $payload = $networkUtil->getMessagingEventPayload('error', $message, EventEnum::VWO_ERROR);
-
-            // Send the constructed payload via POST request
-            $networkUtil->sendEvent($properties, $payload, EventEnum::VWO_ERROR);
-        }
     }
 }
 ?>

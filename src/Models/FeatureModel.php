@@ -34,6 +34,7 @@ class FeatureModel
     private $impactCampaign = null;
     private $rulesLinkedCampaign = [];
     private $isGatewayServiceRequired = false;
+    private $isDebuggerEnabled = false;
 
     public function modelFromDictionary($feature)
     {
@@ -42,6 +43,7 @@ class FeatureModel
         $this->name = isset($feature->name) ? $feature->name : null;
         $this->type = isset($feature->type) ? $feature->type : null;
         $this->isGatewayServiceRequired = isset($feature->isGatewayServiceRequired) ?  $feature->isGatewayServiceRequired : false;
+        $this->isDebuggerEnabled = isset($feature->isDebuggerEnabled) ?  $feature->isDebuggerEnabled : false;
 
         if (isset($feature->impactCampaign)) {
             $this->impactCampaign = (new ImpactCapmaignModel())->modelFromDictionary($feature->impactCampaign);
@@ -134,6 +136,16 @@ class FeatureModel
     public function setIsGatewayServiceRequired($isGatewayServiceRequired)
     {
         $this->isGatewayServiceRequired = $isGatewayServiceRequired;
+    }
+
+    public function getIsDebuggerEnabled()
+    {
+        return $this->isDebuggerEnabled;
+    }
+
+    public function setIsDebuggerEnabled($isDebuggerEnabled)
+    {
+        $this->isDebuggerEnabled = $isDebuggerEnabled;
     }
 }
 ?>

@@ -21,6 +21,7 @@ namespace vwo\Services;
 use vwo\Enums\StorageEnum;
 use vwo\Packages\Storage\Storage;
 use vwo\Packages\Logger\Core\LogManager;
+use vwo\Enums\ApiEnum;
 
 class StorageService
 {
@@ -49,7 +50,7 @@ class StorageService
                     return StorageEnum::NO_DATA_FOUND;
                 }
             } catch (\Exception $e) {
-                $serviceContainer->getLogManager()->error("Error occurred while retrieving data: " . $e->getMessage());
+                $serviceContainer->getLoggerService()->error('ERROR_READING_STORED_DATA_IN_STORAGE', ['err' => $e->getMessage(), 'an' => ApiEnum::GET_FLAG]);
                 return StorageEnum::NO_DATA_FOUND;
             }
         }
@@ -71,7 +72,6 @@ class StorageService
             try {
                 return $storageInstance->set($data);
             } catch (\Exception $e) {
-                $serviceContainer->getLogManager()->error("Error occurred while storing data: " . $e->getMessage());
                 return false;
             }
         }

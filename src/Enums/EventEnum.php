@@ -24,5 +24,6 @@ class EventEnum {
     const VWO_ERROR = 'vwo_log';
     const VWO_SDK_INIT_EVENT = 'vwo_fmeSdkInit';
     const VWO_USAGE_STATS_EVENT = 'vwo_sdkUsageStats';
+    const VWO_DEBUGGER_EVENT = 'vwo_sdkDebug';
 }
 ?>

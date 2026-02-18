@@ -40,6 +40,11 @@ use vwo\Services\ServiceContainer;
 use vwo\Utils\NetworkUtil;
 use vwo\Enums\EventEnum;
 use vwo\Services\SettingsService;
+use vwo\Utils\DebuggerServiceUtil;
+use vwo\Enums\DebuggerCategoryEnum;
+use vwo\Services\LoggerService;
+use vwo\Packages\Logger\Enums\LogLevelEnum;
+use vwo\Constants\Constants;
 
 class GetFlag
 {
@@ -64,6 +69,7 @@ class GetFlag
 
         $hooksService = $serviceContainer->getHooksService();
         $logManager = $serviceContainer->getLogManager();
+        $loggerService = $serviceContainer->getLoggerService();
 
         // Get feature object from feature key
         $feature = FunctionUtil::getFeatureFromKey($serviceContainer->getSettings(), $featureKey);
@@ -73,6 +79,14 @@ class GetFlag
             'featureKey' => $feature ? $feature->getKey() : null,
             'userId' => $context ? $context->getId() : null,
             'api' => ApiEnum::GET_FLAG,
+        ];
+
+        // create debug event props
+        $debugEventProps = [
+            'an' => ApiEnum::GET_FLAG,
+            'uuid' => $context ? $context->getVwoUuid() : null,
+            'fk' => $feature ? $feature->getKey() : null,
+            'sId' => $context ? $context->getSessionId() : null,
         ];
 
         // Retrieve stored data
@@ -134,10 +148,10 @@ class GetFlag
     }
 
         if (!DataTypeUtil::isObject($feature)) {
-            $logManager->error(sprintf(
-                "Feature not found for the key: %s",
-                $featureKey
-            ));
+            $loggerService->error('FEATURE_NOT_FOUND', 
+            array_merge([
+                'featureKey' => $featureKey,
+            ], $debugEventProps));
 
             return new GetFlagResultUtil(false, [], $ruleStatus);
         }
@@ -172,7 +186,7 @@ class GetFlag
 
                     if(!$isDebuggerUsed) {
                         if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context, $featureKey);
                         } else {
                             if($payload !== null) {
                                 $batchPayload[] = $payload;
@@ -216,7 +230,7 @@ class GetFlag
                         );
 
                         if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context, $featureKey);
                         } else {
                             //push this payload to the batch payload
                             if($payload !== null) {
@@ -257,7 +271,7 @@ class GetFlag
                         $isEnabled = true;
                         $payload = $evaluateRuleResult['payload'];
                         if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context, $featureKey);
                         } else {
                             if($payload !== null) {
                                 $batchPayload[] = $payload;
@@ -301,7 +315,7 @@ class GetFlag
                          );
 
                         if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
-                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context, $featureKey);
                         } else {
                             //push this payload to the batch payload
                             if($payload !== null) {
@@ -330,6 +344,22 @@ class GetFlag
         $hooksService->set($decision);
         $hooksService->execute($hooksService->get());
 
+         // send debug event, if debugger is enabled
+        if ($feature->getIsDebuggerEnabled()) {
+            
+            $debugEventProps['cg'] = DebuggerCategoryEnum::DECISION;
+            // debugEventProps.msg_t = Constants.FLAG_DECISION;
+            $debugEventProps['msg_t'] = Constants::FLAG_DECISION_GIVEN;
+
+            $debugEventProps['lt'] = LogLevelEnum::INFO;
+
+            // Update debug event props with decision keys
+            $this->updateDebugEventPropsWithDecisionKeys($debugEventProps, $decision);
+
+            // Send debug event
+            DebuggerServiceUtil::sendDebugEventToVWO($debugEventProps);
+       }
+
         // Send data for Impact Campaign, if defined
         if ($feature->getImpactCampaign()->getCampaignId()) {
             $status = $isEnabled ? 'enabled' : 'disabled';
@@ -352,7 +382,7 @@ class GetFlag
                 );
 
                 if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
-                    ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context);
+                    ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context, $featureKey);
                 } else {
                     //push this payload to the batch payload
                     if($payload !== null) {
@@ -394,5 +424,31 @@ class GetFlag
         }
 
         $decision = array_merge($decision, $passedRulesInformation);
+    }
+
+    /**
+     * Update debug event props with decision keys.
+     *
+     * @param array &$debugEventProps Debug event props (passed by reference)
+     * @param array $decision Decision array
+     * @return void
+     */
+    private function updateDebugEventPropsWithDecisionKeys(array &$debugEventProps, array $decision)
+    {
+        $decisionKeys = DebuggerServiceUtil::extractDecisionKeys($decision);
+        $message = "Flag decision given for feature:{$decision['featureKey']}.";
+        
+        if (isset($decision['rolloutKey']) && isset($decision['rolloutVariationId'])) {
+            $rolloutKeySuffix = substr($decision['rolloutKey'], strlen($decision['featureKey'] . '_'));
+            $message .= " Got rollout:{$rolloutKeySuffix} with variation:{$decision['rolloutVariationId']}";
+        }
+        
+        if (isset($decision['experimentKey']) && isset($decision['experimentVariationId'])) {
+            $experimentKeySuffix = substr($decision['experimentKey'], strlen($decision['featureKey'] . '_'));
+            $message .= " and experiment:{$experimentKeySuffix} with variation:{$decision['experimentVariationId']}";
+        }
+        
+        $debugEventProps['msg'] = $message;
+        $debugEventProps = array_merge($debugEventProps, $decisionKeys);
     }
 }

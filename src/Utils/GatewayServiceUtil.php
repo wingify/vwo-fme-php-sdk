@@ -27,6 +27,7 @@ use vwo\Packages\NetworkLayer\Models\ResponseModel;
 use vwo\Services\SettingsService;
 use vwo\Services\UrlService;
 use vwo\Packages\Logger\Core\LogManager;
+use vwo\Enums\ApiEnum;
 
 class GatewayServiceUtil {
 
@@ -36,12 +37,12 @@ class GatewayServiceUtil {
      * @param string $endpoint The endpoint URL to which the request is sent.
      * @return mixed The response data or false if an error occurs.
      */
-    public static function getFromGatewayService($serviceContainer, $queryParams, $endpoint) {
+    public static function getFromGatewayService($serviceContainer, $queryParams, $endpoint, $context) {
         $networkInstance = $serviceContainer->getNetworkManager();
 
         // Check if the base URL is correctly set
         if (!$serviceContainer->getSettingsService()->isGatewayServiceProvided) {
-            $serviceContainer->getLogManager()->error('Invalid URL. Please provide a valid URL for vwo helper gatewayService');
+            $serviceContainer->getLoggerService()->error('INVALID_GATEWAY_URL', ['an' => ApiEnum::GET_FLAG]);
             return false;
         }
 
@@ -62,11 +63,19 @@ class GatewayServiceUtil {
             if ($response instanceof ResponseModel) {
                 return $response->getData();
             } else {
-                $serviceContainer->getLogManager()->error('Failed to get a valid response from the network request.');
+                $serviceContainer->getLoggerService()->error('ERROR_SETTING_SEGMENTATION_CONTEXT', [
+                    'an' => ApiEnum::GET_FLAG,
+                    'uuid' => $context->getId(),
+                    'sId' => $context->getSessionId()
+                ], false);
                 return false;
             }
         } catch (\Exception $err) {
-            $serviceContainer->getLogManager()->error('Error occurred while sending GET request: ' . $err->getMessage());
+            $serviceContainer->getLoggerService()->error('ERROR_SETTING_SEGMENTATION_CONTEXT', [
+                'an' => ApiEnum::GET_FLAG,
+                'uuid' => $context->getId(),
+                'sId' => $context->getSessionId()
+            ], false);
             return false;
         }
     }

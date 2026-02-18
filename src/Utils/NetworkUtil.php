@@ -35,6 +35,13 @@ use vwo\Utils\UsageStatsUtil;
 use vwo\Enums\EventEnum;
 use vwo\Services\LoggerService;
 use vwo\Services\ServiceContainer;
+use vwo\Enums\DebuggerCategoryEnum;
+use vwo\Packages\Logger\Enums\LogLevelEnum;
+use vwo\Utils\LogMessageUtil;
+use vwo\Enums\ApiEnum;
+use vwo\Packages\NetworkLayer\Models\ResponseModel;
+use vwo\Utils\DebuggerServiceUtil;
+use vwo\Enums\CampaignTypeEnum;
 
 class NetworkUtil {
   private $serviceContainer;
@@ -88,7 +95,6 @@ class NetworkUtil {
         try {
             $sdkVersion = ComposerUtil::getSdkVersion();
         } catch (Exception $e) {
-            $this->serviceContainer->getLogManager()->error($e->getMessage());
             $sdkVersion = Constants::SDK_VERSION; // Use the constant as a fallback
         }
 
@@ -119,7 +125,6 @@ class NetworkUtil {
         try {
             $sdkVersion = ComposerUtil::getSdkVersion();
         } catch (Exception $e) {
-            $this->serviceContainer->getLogManager()->error($e->getMessage());
             $sdkVersion = Constants::SDK_VERSION; // Use the constant as a fallback
         }
         $settingsService = $this->serviceContainer->getSettingsService();
@@ -188,16 +193,15 @@ class NetworkUtil {
    * @param int|null $usageStatsAccountId The account ID for usage statistics (optional)
    * @return array Array containing the base event payload structure
    */
-  public function getEventBasePayload($settings, $userId, $sessionId, $eventName, $visitorUserAgent = '', $ipAddress = '', $isUsageStatsEvent = false, $usageStatsAccountId = null) {
+  public function getEventBasePayload($settings, $userId, $sessionId, $eventName, $visitorUserAgent = '', $ipAddress = '', $isUsageStatsEvent = false, $usageStatsAccountId = null, $shouldGenerateUuid = true) {
         $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
         $accountId = $isUsageStatsEvent ? $usageStatsAccountId : $settingsService->accountId;
-        $uuid = UuidUtil::getUUID($userId, $accountId);
+        $uuid = $shouldGenerateUuid ? UuidUtil::getUUID($userId, $accountId) : $userId;
   
 
         try {
             $sdkVersion = ComposerUtil::getSdkVersion();
         } catch (Exception $e) {
-            $this->serviceContainer->getLogManager()->error($e->getMessage());
             $sdkVersion = Constants::SDK_VERSION; // Use the constant as a fallback
         }
 
@@ -255,13 +259,18 @@ class NetworkUtil {
    * @param ContextModel $context The context object
    * @return array Array containing the track user payload data
    */
-  public function getTrackUserPayloadData($settings, $eventName, $campaignId, $variationId, $context ) {
+    public function getTrackUserPayloadData($settings, $eventName, $campaignId, $variationId, $context, $sessionId = 0 ) {
         $userId = $context->getId();
         $visitorUserAgent = $context->getUserAgent();
         $ipAddress = $context->getIpAddress();
         $postSegmentationVariables = $context->getPostSegmentationVariables();
         $customVariables = $context->getCustomVariables();
 
+        $properties = $this->getEventBasePayload($settings, $userId, $context->getSessionId(), $eventName, $visitorUserAgent, $ipAddress, false, null);
+
+        if($sessionId != 0) {
+            $properties['d']['sessionId'] = $sessionId;
+        }
         $properties = $this->getEventBasePayload($settings, $userId, $context->getSessionId(), $eventName, $visitorUserAgent, $ipAddress);
 
         $properties['d']['event']['props']['id'] = $campaignId;
@@ -289,7 +298,11 @@ class NetworkUtil {
                 $properties['d']['visitor']['props']['vwo_bv'] = $uaInfo->browser_version;
             }
             else {
-                $this->serviceContainer->getLogManager()->error('To pass user agent related details as standard attributes, please set gateway as well in init method');
+                $this->serviceContainer->getLoggerService()->error('INVALID_USER_AGENT_FOR_STANDARD_ATTRIBUTES', [
+                    'an' => ApiEnum::GET_FLAG,
+                    'uuid' => $context->getId(),
+                    'sId' => $context->getSessionId()
+                ]);
             }
         }
         
@@ -313,10 +326,14 @@ class NetworkUtil {
    * @return array Array containing the track goal payload data
    */
   public function getTrackGoalPayloadData($settings, $context, $eventName, $eventProperties) {
-    $properties = $this->getEventBasePayload($settings, $context->getId(), $context->getSessionId(), $eventName, $context->getUserAgent(), $context->getIpAddress());
+        $properties = $this->getEventBasePayload($settings, $context->getId(), $context->getSessionId(), $eventName, $context->getUserAgent(), $context->getIpAddress(), false, null);
         $properties['d']['event']['props']['isCustomEvent'] = true;
         $properties['d']['event']['props']['variation'] = 1;  // temporary value
         $properties['d']['event']['props']['id'] = 1;         // temporary value
+
+        if($context->getSessionId() != 0) {
+            $properties['d']['sessionId'] = $context->getSessionId();
+        }
 
         if ($eventProperties && DataTypeUtil::isObject($eventProperties) && count($eventProperties) > 0) {
             foreach ($eventProperties as $prop => $value) {
@@ -342,10 +359,15 @@ class NetworkUtil {
    * @param string $ipAddress The IP address of the visitor (optional)
    * @return array Array containing the attribute payload data
    */
-  public function getAttributePayloadData($settings, $context, $eventName, $attributes) {
-    $properties = $this->getEventBasePayload($settings, $context->getId(), $context->getSessionId(), $eventName, $context->getUserAgent(), $context->getIpAddress());
+    public function getAttributePayloadData($settings, $context, $eventName, $attributes) {
+        $properties = $this->getEventBasePayload($settings, $context->getId(), $context->getSessionId(), $eventName, $context->getUserAgent(), $context->getIpAddress(), false, null);
+  
         $properties['d']['event']['props']['isCustomEvent'] = true;
         $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settings->getSdkKey();
+        
+        if($context->getSessionId() != 0) {
+            $properties['d']['sessionId'] = $context->getSessionId();
+        }
         // Iterate over the attributes map and append to the visitor properties
         foreach ($attributes as $key => $value) {
             $properties['d']['visitor']['props'][$key] = $value;
@@ -365,7 +387,7 @@ class NetworkUtil {
    * @param array $payload The payload data to send
    * @return mixed The response from the API call or null on failure
    */
-  public function sendPostApiRequest($properties, $payload) {
+  public function sendPostApiRequest($properties, $payload, $userId, $eventProperties = [], $campaignInfo = []) {
 
         $retryConfig = NetworkManager::Instance()->getRetryConfig();
         $headers = [];
@@ -397,6 +419,58 @@ class NetworkUtil {
             $retryConfig
         );
 
+        $request->setEventName($properties['en']);
+        $request->setUuid($payload['d']['visId']);
+
+        $apiName = null;
+        $extraDataForMessage = null;
+
+        if ($properties['en'] === EventEnum::VWO_VARIATION_SHOWN) {
+            $apiName = ApiEnum::GET_FLAG;
+
+            if (
+                isset($campaignInfo['campaignType']) &&
+                (
+                    $campaignInfo['campaignType'] === CampaignTypeEnum::ROLLOUT ||
+                    $campaignInfo['campaignType'] === CampaignTypeEnum::PERSONALIZE
+                )
+            ) {
+                $extraDataForMessage =
+                    'feature: ' . ($campaignInfo['featureKey'] ?? null) .
+                    ', rule: ' . ($campaignInfo['variationName'] ?? null);
+            } else {
+                $extraDataForMessage =
+                    'feature: ' . ($campaignInfo['featureKey'] ?? null) .
+                    ', rule: ' . ($campaignInfo['campaignKey'] ?? null) .
+                    ' and variation: ' . ($campaignInfo['variationName'] ?? null);
+            }
+
+            // Set campaignId if present in payload
+            if (
+                isset($payload['d']['event']['props']['id']) &&
+                is_numeric($payload['d']['event']['props']['id'])
+            ) {
+                $request->setCampaignId((string) $payload['d']['event']['props']['id']);
+            }
+
+        } else if ($properties['en'] === EventEnum::VWO_SYNC_VISITOR_PROP) {
+
+            $apiName = ApiEnum::SET_ATTRIBUTE;
+            $extraDataForMessage = $apiName;
+
+        } else if (
+            $properties['en'] !== EventEnum::VWO_DEBUGGER_EVENT &&
+            $properties['en'] !== EventEnum::VWO_SDK_INIT_EVENT
+        ) {
+
+            $apiName = ApiEnum::TRACK_EVENT;
+            $extraDataForMessage = 'event: ' . ($properties['en'] ?? '');
+
+            if (!empty($eventProperties)) {
+                $request->setEventProperties($eventProperties);
+            }
+        }
+
         try {
             // Ensure NetworkManager has client attached if using singleton fallback
             if (!$this->serviceContainer && $networkManager) {
@@ -408,11 +482,56 @@ class NetworkUtil {
             }
             
             $response = $networkManager->post($request);
-            return $response;
+            
+            if ($response->getStatusCode() !== 0 && $response->getTotalAttempts() > 0) {
+                $debugEventProps = NetworkUtil::createNetworkAndRetryDebugEvent($response, $payload, $apiName, $extraDataForMessage);
+                $debugEventProps["uuid"] = $request->getUuid();
+
+                DebuggerServiceUtil::sendDebugEventToVWO($debugEventProps);
+                $this->serviceContainer->getLoggerService()->info("NETWORK_CALL_SUCCESS_WITH_RETRIES", [
+                    "extraData" => "POST " . UrlService::getEndpointWithCollectionPrefix(UrlEnum::EVENTS),
+                    "attempts" => $response->getTotalAttempts(),
+                    "err" => $response->getError()
+                ]);
+            }
+            
+            // Fire-and-forget (socket-based) case:
+            //No HTTP response was received (statusCode is null) because we didn't wait for one.
+            //In this case, treat the call as a success, not a failure.
+            //If the response is null or the status code is null, then the call was successful.
+            $accountId = $this->serviceContainer->getSettingsService()->accountId;
+            $uuid = $request->getUuid();
+            if($response->getStatusCode() == 0 && $response->getTotalAttempts() == 0) {
+                $this->serviceContainer->getLoggerService()->info("NETWORK_CALL_SUCCESS", [
+                    'event' => $properties['en'],
+                    'endPoint' => UrlService::getEndpointWithCollectionPrefix(UrlEnum::EVENTS),
+                    'accountId' => $accountId,
+                    'userId' => $userId,
+                    'uuid' => $uuid
+                ]);
+            }
+
+            // Log error if status code is not 2xx (regardless of retries)
+            if(($response->getStatusCode() < Constants::HTTP_SUCCESS_MIN || $response->getStatusCode() > Constants::HTTP_SUCCESS_MAX) && $response->getTotalAttempts() > 0) {
+                $responseModel = new ResponseModel();
+                $responseModel->setError(new Exception("Network request failed: response is null"));
+                $responseModel->setStatusCode($response->getStatusCode());
+                
+                $debugEventProps = NetworkUtil::createNetworkAndRetryDebugEvent($responseModel, $payload, $apiName, $extraDataForMessage);
+                $debugEventProps["uuid"] = $request->getUuid();
+
+                DebuggerServiceUtil::sendDebugEventToVWO($debugEventProps);
+
+                $this->serviceContainer->getLoggerService()->error("NETWORK_CALL_FAILED", [
+                    'method' => 'POST',
+                    'err' => $response->getError()
+                ], false);
+            }
         } catch (Exception $err) {
-            $errorMessage = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
-            $logManager->error("Error occurred while sending POST request: $errorMessage");
-            return null;
+            $this->serviceContainer->getLoggerService()->error("NETWORK_CALL_FAILED", [
+                'method' => 'POST',
+                'err' => $err->getMessage()
+            ], false);
         }
     }
 
@@ -426,7 +545,7 @@ class NetworkUtil {
   public function sendGetApiRequest($properties, $endpoint) {
         $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
         $networkManager = $this->serviceContainer ? $this->serviceContainer->getNetworkManager() : NetworkManager::instance();
-        $logManager = $this->serviceContainer->getLogManager();
+        $loggerService = $this->serviceContainer->getLoggerService();
         
         $request = new RequestModel(
             $settingsService->hostname,
@@ -453,40 +572,11 @@ class NetworkUtil {
             return $response; // Return the response model
         } catch (Exception $err) {
             $errorMessage = $err instanceof \Exception ? $err->getMessage() : 'Unknown error';
-            $logManager->error("Error occurred while sending GET request: $errorMessage");
+            $loggerService->error("Error occurred while sending GET request: $errorMessage");
             return null;
         }
     }
-
-  /**
-   * Constructs payload data for messaging events.
-   *
-   * @param string $messageType The type of message
-   * @param string $message The message content
-   * @param string $eventName The name of the event
-   * @return array Array containing the messaging event payload
-   */
-  public function getMessagingEventPayload($messageType, $message, $eventName) {
-        $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
-        $userId = $settingsService->accountId . '_' . $settingsService->sdkKey;
-        $properties = $this->getEventBasePayload(null, $userId, null, $eventName, null, null);
-    
-        // Set environment key
-        $properties['d']['event']['props'][Constants::VWO_FS_ENVIRONMENT] = $settingsService->sdkKey;
-        $properties['d']['event']['props']['product'] = 'fme';
-    
-        $data = [
-            'type' => $messageType,
-            'content' => [
-                'title' => $message,
-                'dateTime' => FunctionUtil::getCurrentUnixTimestampInMillis(),
-            ],
-        ];
-    
-        $properties['d']['event']['props']['data'] = $data;
-    
-        return $properties;
-    }    
+   
 
     /**
      * Sends an event to the VWO server.
@@ -503,7 +593,7 @@ class NetworkUtil {
             $retryConfig['shouldRetry'] = false;
         }
         $settingsService = $this->serviceContainer ? $this->serviceContainer->getSettingsService() : SettingsService::instance();
-        if($eventName == EventEnum::VWO_ERROR || $eventName == EventEnum::VWO_USAGE_STATS_EVENT) {
+        if($eventName == EventEnum::VWO_ERROR || $eventName == EventEnum::VWO_USAGE_STATS_EVENT || $eventName == EventEnum::VWO_DEBUGGER_EVENT) {
             $baseUrl = Constants::HOST_NAME;
             $protocol = Constants::HTTPS_PROTOCOL;
             $port = null;
@@ -540,7 +630,9 @@ class NetworkUtil {
             $response = $networkManager->post($request);
             return $response;
         } catch (Exception $e) {
-            $this->serviceContainer->getLogManager()->error('NETWORK_CALL_FAILED', ['method' => 'POST', 'error' => $e->getMessage()]);
+            $this->serviceContainer->getLoggerService()->error('NETWORK_CALL_FAILED', [
+                'method' => 'POST', 'error' => $e->getMessage()
+            ]);
             return false;
         }
     }    
@@ -605,5 +697,131 @@ class NetworkUtil {
 
         return $properties;
     }
+
+        /**
+     * Creates network and retry debug event properties
+     *
+     * @param ResponseModel $response The response model
+     * @param array $payload The payload data
+     * @param string $apiName The API name
+     * @param string $extraData Extra data for the message
+     * @return array Debug event properties
+     */
+    public static function createNetworkAndRetryDebugEvent($response, $payload, $apiName, $extraData) {
+        try {
+            // Set category, if call got success then category is retry, otherwise network
+            $category = DebuggerCategoryEnum::RETRY;
+            $msg_t = Constants::NETWORK_CALL_SUCCESS_WITH_RETRIES;
+            $lt = LogLevelEnum::INFO;
+
+            $msgTemplate = LoggerService::$infoMessages['NETWORK_CALL_SUCCESS_WITH_RETRIES'] ?? 'NETWORK_CALL_SUCCESS_WITH_RETRIES';
+
+            if ($response->getStatusCode() !== Constants::HTTP_SUCCESS_MIN) {
+                $category = DebuggerCategoryEnum::NETWORK;
+                $msg_t = Constants::NETWORK_CALL_FAILURE_AFTER_MAX_RETRIES;
+
+                $msgTemplate = LoggerService::$errorMessages['NETWORK_CALL_FAILURE_AFTER_MAX_RETRIES'] ?? 'NETWORK_CALL_FAILURE_AFTER_MAX_RETRIES';
+                $lt = LogLevelEnum::ERROR;
+            }
+
+            $msg = LogMessageUtil::buildMessage(
+                $msgTemplate,
+                [
+                    'extraData' => $extraData,
+                    'attempts' => method_exists($response, 'getTotalAttempts') ? $response->getTotalAttempts() : -1,
+                    'err' => $response->getError()->getMessage()
+                ]
+            );
+
+            $debugEventProps = [
+                'cg' => $category,
+                'msg_t' => $msg_t,
+                'msg' => $msg,
+                'lt' => $lt
+            ];
+
+            if ($apiName) {
+                $debugEventProps['an'] = $apiName;
+            }
+
+            // Extract sessionId from payload.d.sessionId
+            if (isset($payload['d']['sessionId'])) {
+                $debugEventProps['sId'] = $payload['d']['sessionId'];
+            } else {
+                $debugEventProps['sId'] = FunctionUtil::getCurrentUnixTimestamp();
+            }
+
+            return $debugEventProps;
+
+        } catch (Exception $err) {
+            return [
+                'cg' => DebuggerCategoryEnum::NETWORK,
+                'an' => $apiName,
+                'msg_t' => 'NETWORK_CALL_FAILED',
+                'msg' => LogMessageUtil::buildMessage(
+                    LoggerService::$errorMessages['NETWORK_CALL_FAILED'] ?? 'NETWORK_CALL_FAILED',
+                    [
+                        'method' => $extraData,
+                        'err' => $err->getMessage()
+                    ]
+                ),
+                'lt' => LogLevelEnum::ERROR,
+                'sId' => FunctionUtil::getCurrentUnixTimestamp()
+            ];
+        }
+    }
+
+    /**
+     * Constructs the payload for debugger event.
+     *
+     * @param array $eventProps The properties for the event
+     * @return array The constructed payload
+     */
+    public static function getDebuggerEventPayload($eventProps = []) {
+        $uuid = '';
+        $accountId = SettingsService::instance()->accountId;
+        $sdkKey = SettingsService::instance()->sdkKey;
+        
+        if (!isset($eventProps['uuid'])) {
+            $uuid = UuidUtil::getUUID($accountId . '_' . $sdkKey, $accountId);
+            $eventProps['uuid'] = $uuid;
+        } else {
+            $uuid = $eventProps['uuid'];
+        }
+
+        $networkUtil = new NetworkUtil();
+        $properties = $networkUtil->getEventBasePayload(
+            null,
+            $uuid,
+            FunctionUtil::getCurrentUnixTimestamp(),
+            EventEnum::VWO_DEBUGGER_EVENT,
+            null,
+            null,
+            false,
+            null,
+            false
+        );
+
+        $properties['d']['event']['props'] = [];
+        
+        // add session id to the event props if not present
+        if (isset($eventProps['sId'])) {
+            $properties['d']['sessionId'] = $eventProps['sId'];
+        } else {
+            $eventProps['sId'] = $properties['d']['sessionId'];
+        }
+        
+        $properties['d']['event']['props']['vwoMeta'] = array_merge($eventProps, [
+            'a' => $accountId,
+            'product' => Constants::FME,
+            'sn' => Constants::SDK_NAME,
+            'sv' => Constants::SDK_VERSION,
+            'eventId' => UuidUtil::getRandomUUID($sdkKey),
+        ]);
+
+        return $properties;
+    }
+
 }
+
 ?>
