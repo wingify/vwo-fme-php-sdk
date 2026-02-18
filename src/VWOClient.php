@@ -36,6 +36,7 @@ use vwo\Services\SettingsService;
 use vwo\Utils\AliasingUtil;
 use vwo\Enums\ApiEnum;
 use vwo\Services\ServiceContainer;
+use vwo\Utils\UuidUtil;
 
 interface IVWOClient {
     public function getFlag(string $featureKey, $context);
@@ -80,11 +81,29 @@ class VWOClient implements IVWOClient {
 
     public function getFlag(string $featureKey, $context) {
         $apiName = 'getFlag';
+        $sessionId = $context['sessionId'] ?? FunctionUtil::getCurrentUnixTimestamp();
+        $uuid = null;
+        try {
+            $this->serviceContainer->getLogManager()->debug("API Called: $apiName");
+            $uuid = $this->getUUIDFromContext($context, $apiName);
+        } catch (\Throwable $error) {
+            $logManager = $this->serviceContainer->getLogManager();
+            $logManager->error("API - $apiName failed to execute. Error: " . $error->getMessage());
+            return new GetFlagResultUtil(
+                false,
+                [], // No variables
+                [],
+                $sessionId,
+                $uuid
+            );
+        }
 
         $defaultReturnValue = new GetFlagResultUtil(
             false,
             [], // No variables
-            []
+            [],
+            $sessionId,
+            $uuid
         );
 
         //check if isDebuggerUsed is set in options
@@ -96,7 +115,12 @@ class VWOClient implements IVWOClient {
             $loggerService = $this->serviceContainer->getLoggerService();
             $hookManager = $this->serviceContainer ? $this->serviceContainer->getHooksService() : new HooksService($this->options);
 
-            $loggerService->debug("API Called: $apiName");
+            if (!isset($context['id']) || empty($context['id'])) {
+                $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => $apiName, 'apiName' => $apiName, 'context' => $context], false);
+                throw new \Error('TypeError: Invalid context');
+            }
+            // set uuid in context 
+            $context['uuid'] = $uuid;
 
             if (!DataTypeUtil::isString($featureKey) || $featureKey == null) {
                 $loggerService->error('INVALID_PARAM', ['an' => $apiName, 'apiName' => $apiName, 'key' => 'featureKey', 'type' => gettype($featureKey), 'correctType' => 'string'], false);
@@ -106,11 +130,6 @@ class VWOClient implements IVWOClient {
             if (!$this->settings) {
                 $loggerService->error('INVALID_SETTINGS_SCHEMA', ['an' => $apiName, 'apiName' => $apiName], false);
                 throw new \Error('Invalid Settings');
-            }
-
-            if (!isset($context['id']) || empty($context['id'])) {
-                $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => $apiName, 'apiName' => $apiName, 'context' => $context], false);
-                throw new \Error('TypeError: Invalid context');
             }
             //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
             $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled, $this->serviceContainer);
@@ -143,6 +162,12 @@ class VWOClient implements IVWOClient {
             $hookManager = $this->serviceContainer ? $this->serviceContainer->getHooksService() : new HooksService($this->options);
 
             $loggerService->debug("API Called: $apiName");
+            if (!isset($context['id']) || empty($context['id'])) {
+                $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::TRACK_EVENT, 'apiName' => $apiName], false);
+                throw new \Error('TypeError: Invalid context');
+            }
+            // set uuid in context 
+            $context['uuid'] = $this->getUUIDFromContext($context, $apiName);
 
             if (!DataTypeUtil::isString($eventName)) {
                 $loggerService->error('INVALID_PARAM', ['key' => $eventName, 'an'=> ApiEnum::TRACK_EVENT, 'apiName' => $apiName, 'type' => gettype($eventName), 'correctType' => 'string'], false);
@@ -157,11 +182,6 @@ class VWOClient implements IVWOClient {
             if (!$this->settings) {
                 $loggerService->error('INVALID_SETTINGS_SCHEMA', ['an' => ApiEnum::TRACK_EVENT, 'apiName' => $apiName], false);
                 throw new \Error('Invalid Settings');
-            }
-
-            if (!isset($context['id']) || empty($context['id'])) {
-                $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::TRACK_EVENT, 'apiName' => $apiName], false);
-                throw new \Error('TypeError: Invalid context');
             }
 
             //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
@@ -194,6 +214,13 @@ class VWOClient implements IVWOClient {
         try {
             $loggerService = $this->serviceContainer->getLoggerService();
             $loggerService->debug("API Called: $apiName");
+            // Ensure context is valid
+            if (!isset($context['id']) || empty($context['id'])) {
+                $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName], false);
+                throw new \Error('TypeError: Invalid context');
+            }
+            // set uuid in context 
+            $context['uuid'] = $this->getUUIDFromContext($context, $apiName);
 
             if (DataTypeUtil::isString($attributesOrAttributeValue)) {
                 // Validate attributeKey is a string
@@ -208,12 +235,6 @@ class VWOClient implements IVWOClient {
                     !DataTypeUtil::isBoolean($attributeValueOrContext)) {
                     $loggerService->error("INVALID_PARAM", ['key' => $attributeValueOrContext, 'an'=> ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName, 'type' => gettype($attributeValueOrContext), 'correctType' => 'string'], false);
                 throw new \TypeError('TypeError: attributeValue should be a valid string, number, or boolean');
-                }
-    
-                // Ensure context is valid
-                if (!isset($context['id']) || empty($context['id'])) {
-                    $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName], false);
-                    throw new \Error('TypeError: Invalid context');
                 }
     
                 //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
@@ -371,6 +392,35 @@ class VWOClient implements IVWOClient {
         } catch (\Throwable $error) {
             $loggerService->error('EXECUTION_FAILED', ['an' => ApiEnum::SET_ALIAS, 'apiName' => $apiName, 'err' => $error->getMessage()]);
             return false;
+        }
+    }
+    /**
+     * Gets the UUID from the context
+     * @param array $context The context
+     * @param string $apiName The name of the API
+     * @return string The UUID
+     */
+    private function getUUIDFromContext($context, $apiName) {
+        if ($this->settings->isWebConnectivityEnabled() != false) {
+            // if web connectivity is enabled, check if context ID is a valid web UUID
+            if (UuidUtil::isWebUuid($context['id'])) {
+                // if context ID is a valid web UUID, set it as uuid
+                $this->serviceContainer->getLoggerService()->debug("WEB_UUID_FOUND", array_merge([
+                    'apiName' => $apiName,
+                    'uuid' => $context['id'],
+                ]));
+                return $context['id'];
+            } else {
+                // if context["useIdForWeb"] is true and context ID is not a valid web UUID, throw error
+                if (isset($context['useIdForWeb']) && $context['useIdForWeb'] == true) {
+                    throw new \TypeError('UUID passed in context.id is not a valid UUID');
+                }
+                // if context?.useIdForWeb is false, fallback to server‑side UUID derivation
+                return UuidUtil::getUUID($context['id'], $this->settings->getAccountId());
+            }
+        } else {
+            // if web connectivity is disabled, fallback to server‑side UUID derivation
+            return UuidUtil::getUUID($context['id'], $this->settings->getAccountId());
         }
     }
 }

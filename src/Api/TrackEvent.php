@@ -75,7 +75,7 @@ class TrackEvent implements ITrack
         $loggerService->error('EVENT_NOT_FOUND',[
             'eventName' => $eventName, 
             'an' => ApiEnum::TRACK_EVENT,
-            'uuid' => $context->getVwoUuid(),
+            'uuid' => $context->getUUID(),
             'sId' => $context->getSessionId(),
         ]);
 

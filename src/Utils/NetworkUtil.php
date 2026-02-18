@@ -266,13 +266,16 @@ class NetworkUtil {
         $postSegmentationVariables = $context->getPostSegmentationVariables();
         $customVariables = $context->getCustomVariables();
 
-        $properties = $this->getEventBasePayload($settings, $userId, $context->getSessionId(), $eventName, $visitorUserAgent, $ipAddress, false, null);
-
+        $properties = $this->getEventBasePayload($settings, $userId, $context->getSessionId(), $eventName, $visitorUserAgent, $ipAddress);
         if($sessionId != 0) {
             $properties['d']['sessionId'] = $sessionId;
         }
-        $properties = $this->getEventBasePayload($settings, $userId, $context->getSessionId(), $eventName, $visitorUserAgent, $ipAddress);
 
+        // use uuid from context if available
+        if ($context->getUUID() !== null) {
+            $properties['d']['visId'] = $context->getUUID();
+            $properties['d']['msgId'] = "{$context->getUUID()}-" . FunctionUtil::getCurrentUnixTimestampInMillis();
+        }
         $properties['d']['event']['props']['id'] = $campaignId;
         $properties['d']['event']['props']['variation'] = $variationId;
         $properties['d']['event']['props']['isFirst'] = 1;
@@ -335,6 +338,12 @@ class NetworkUtil {
             $properties['d']['sessionId'] = $context->getSessionId();
         }
 
+        // use uuid from context if available
+        if ($context->getUUID() !== null) {
+            $properties['d']['visId'] = $context->getUUID();
+            $properties['d']['msgId'] = "{$context->getUUID()}-" . FunctionUtil::getCurrentUnixTimestampInMillis();
+        }
+
         if ($eventProperties && DataTypeUtil::isObject($eventProperties) && count($eventProperties) > 0) {
             foreach ($eventProperties as $prop => $value) {
                 $properties['d']['event']['props'][$prop] = $value;
@@ -367,6 +376,11 @@ class NetworkUtil {
         
         if($context->getSessionId() != 0) {
             $properties['d']['sessionId'] = $context->getSessionId();
+        }
+        // use uuid from context if available
+        if ($context->getUUID() !== null) {
+            $properties['d']['visId'] = $context->getUUID();
+            $properties['d']['msgId'] = "{$context->getUUID()}-" . FunctionUtil::getCurrentUnixTimestampInMillis();
         }
         // Iterate over the attributes map and append to the visitor properties
         foreach ($attributes as $key => $value) {

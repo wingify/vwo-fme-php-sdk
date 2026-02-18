@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.0] - 2025-02-18
+
+### Added
+
+- Added support to use the context `id` as the visitor UUID instead of auto-generating one. You can read the visitor UUID from the flag result via `flag->getUUID()` (e.g. to pass to the web client).
+    ```php
+    use vwo\VWO;
+
+    $vwoClient = VWO::init([
+        'accountId' => '123456',
+        'sdkKey' => '32-alpha-numeric-sdk-key',
+    ]);
+
+    // Default: SDK generates a UUID from id and account
+    $contextWithGeneratedUuid = ['id' => 'user-123'];
+    $flag1 = $vwoClient->getFlag('feature-key', $contextWithGeneratedUuid);
+
+    // Use your web client UUID by passing it in context.id
+    $contextWithWebUuid = [
+        'id' => 'D7E2EAA667909A2DB8A6371FF0975C2A5' // your existing UUID
+    ];
+    $flag2 = $vwoClient->getFlag('feature-key', $contextWithWebUuid);
+
+    // Get the UUID from the flag result (e.g. to pass to web client)
+    $uuid = $flag1->getUUID();
+    echo 'Visitor UUID: ' . $uuid;
+    ```
+
 ## [1.20.0] - 2026-02-18
 
 ### Added

@@ -188,7 +188,7 @@ class SegmentEvaluator implements Segmentation
         $ipAddress = $this->context->getIpAddress(); // Use the getter method
 
         if (empty($ipAddress)) {
-            $this->serviceContainer->getLoggerService()->error('INVALID_IP_ADDRESS_IN_CONTEXT_FOR_PRE_SEGMENTATION', ['an' => ApiEnum::GET_FLAG, 'uuid' => $this->context->getVwoUuid(), 'sId' => $this->context->getSessionId()]);
+            $this->serviceContainer->getLoggerService()->error('INVALID_IP_ADDRESS_IN_CONTEXT_FOR_PRE_SEGMENTATION', ['an' => ApiEnum::GET_FLAG, 'uuid' => $this->context->getUUID(), 'sId' => $this->context->getSessionId()]);
             return false;
         }
 
@@ -204,7 +204,7 @@ class SegmentEvaluator implements Segmentation
         $userAgent = $this->context->getUserAgent(); // Use the getter method
 
         if (empty($userAgent)) {
-            $this->serviceContainer->getLoggerService()->error('INVALID_USER_AGENT_IN_CONTEXT_FOR_PRE_SEGMENTATION', ['an' => ApiEnum::GET_FLAG, 'uuid' => $this->context->getVwoUuid(), 'sId' => $this->context->getSessionId()]);
+            $this->serviceContainer->getLoggerService()->error('INVALID_USER_AGENT_IN_CONTEXT_FOR_PRE_SEGMENTATION', ['an' => ApiEnum::GET_FLAG, 'uuid' => $this->context->getUUID(), 'sId' => $this->context->getSessionId()]);
             return false;
         }
 

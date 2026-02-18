@@ -31,12 +31,14 @@ class SettingsModel {
   private $accountId;
   private $version;
   private $collectionPrefix;
+  private $isWebConnectivityEnabled;
 
   public function __construct($settings) {    
     $this->sdkKey = isset($settings->sK) ? $settings->sK : (isset($settings->sdkKey) ? $settings->sdkKey : null);
     $this->accountId = isset($settings->a) ? $settings->a : (isset($settings->accountId) ? $settings->accountId : null);
     $this->version = isset($settings->v) ? $settings->v : (isset($settings->version) ? $settings->version : null);
     $this->collectionPrefix = isset($settings->collectionPrefix) ? $settings->collectionPrefix : null;
+    $this->isWebConnectivityEnabled = isset($settings->isWebConnectivityEnabled) ? $settings->isWebConnectivityEnabled : true;
 
     if (isset($settings->f) || isset($settings->features)) {
       $featureList = isset($settings->f) ? $settings->f : $settings->features;
@@ -86,6 +88,10 @@ class SettingsModel {
 
   public function getGroups() {
     return $this->groups;
+  }
+
+  public function isWebConnectivityEnabled() {
+    return $this->isWebConnectivityEnabled;
   }
   
   public function toArray(): array {

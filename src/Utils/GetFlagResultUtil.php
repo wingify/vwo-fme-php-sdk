@@ -25,18 +25,25 @@ class GetFlagResultUtil
     private $variables;
     private $ruleStatus;
     private $sessionId;
+    private $uuid;
 
-    public function __construct($isEnabled, $variables, $ruleStatus, $sessionId = null)
+    public function __construct($isEnabled, $variables, $ruleStatus, $sessionId = null, $uuid = null)
     {
         $this->isEnabled = $isEnabled;
         $this->variables = $variables;
         $this->ruleStatus = $ruleStatus;
         $this->sessionId = $sessionId;
+        $this->uuid = $uuid;
     }
 
     public function getSessionId()
     {
         return $this->sessionId;
+    }
+
+    public function getUuid()
+    {
+        return $this->uuid;
     }
 
     public function isEnabled()

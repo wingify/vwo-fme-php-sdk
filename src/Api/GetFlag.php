@@ -84,7 +84,7 @@ class GetFlag
         // create debug event props
         $debugEventProps = [
             'an' => ApiEnum::GET_FLAG,
-            'uuid' => $context ? $context->getVwoUuid() : null,
+            'uuid' => $context ? $context->getUUID() : null,
             'fk' => $feature ? $feature->getKey() : null,
             'sId' => $context ? $context->getSessionId() : null,
         ];
@@ -113,7 +113,7 @@ class GetFlag
                         $context->getId(),
                         $storedData['experimentKey']
                     ));
-                    return new GetFlagResultUtil(true, $variation->getVariables(), $ruleStatus);
+                    return new GetFlagResultUtil(true, $variation->getVariables(), $ruleStatus, $context->getSessionId(), $context->getUUID());
                 }
             }
         } elseif (isset($storedData['rolloutKey']) && isset($storedData['rolloutId'])) {
@@ -153,7 +153,7 @@ class GetFlag
                 'featureKey' => $featureKey,
             ], $debugEventProps));
 
-            return new GetFlagResultUtil(false, [], $ruleStatus);
+            return new GetFlagResultUtil(false, [], $ruleStatus, $context->getSessionId(), $context->getUUID());
         }
 
         // Set session ID if not present
@@ -404,7 +404,7 @@ class GetFlag
             ImpressionUtil::SendImpressionForVariationShownInBatch($batchPayload, $serviceContainer);
         }
     
-        return new GetFlagResultUtil($isEnabled, $variablesForEvaluatedFlag, $ruleStatus, $context->getSessionId());
+        return new GetFlagResultUtil($isEnabled, $variablesForEvaluatedFlag, $ruleStatus, $context->getSessionId(), $context->getUUID());
     }
 
     private function updateIntegrationsDecisionObject(CampaignModel $campaign, VariationModel $variation, array &$passedRulesInformation, array &$decision)

@@ -90,7 +90,7 @@ class SegmentationManager {
                 $vwoData = GatewayServiceUtil::getFromGatewayService($serviceContainer, $params, UrlEnum::GET_USER_DATA, $context);
                 $context->setVwo((new ContextVWOModel())->modelFromDictionary($vwoData));
             } catch (\Exception $err) {
-                $loggerService->error('ERROR_SETTING_SEGMENTATION_CONTEXT', ['err' => $err->getMessage(), 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
+                $loggerService->error('ERROR_SETTING_SEGMENTATION_CONTEXT', ['err' => $err->getMessage(), 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getUUID(), 'sId' => $context->getSessionId()]);
             }
         }
     }

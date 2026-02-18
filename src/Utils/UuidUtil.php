@@ -90,4 +90,19 @@ class UuidUtil
     {
         return Uuid::uuid5(Uuid::NAMESPACE_URL, self::VWO_NAMESPACE_URL)->toString();
     }
+    /**
+     * Validates whether the given string is a web-generated UUID.
+     * Performs a basic check that an incoming context.id looks like a web-generated ID:
+     *   D or J + 32 hex chars = 33 chars total.
+     *
+     * @param string $id The context ID string to validate (e.g. from context.id).
+     * @return bool True if id matches the web-generated UUID format (D or J followed by 32 hex chars); false otherwise.
+     */
+    public static function isWebUuid($id)
+    {
+        if (!is_string($id)) {
+            return false;
+        }
+        return preg_match('/^[DJ][0-9A-Fa-f]{32}$/', $id) === 1;
+    }
 }

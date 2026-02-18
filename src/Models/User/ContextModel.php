@@ -20,6 +20,7 @@ namespace vwo\Models\User;
 
 use vwo\Services\SettingsService;
 use vwo\Utils\UuidUtil;
+use vwo\Utils\FunctionUtil;
 
 class ContextModel
 {
@@ -30,7 +31,7 @@ class ContextModel
     private $variationTargetingVariables = [];
     private $_vwo;
     private $postSegmentationVariables = [];
-    private $_vwo_uuid;
+    private $uuid;
     private $sessionId;
 
     public function modelFromDictionary($context)
@@ -54,10 +55,16 @@ class ContextModel
         if (isset($context['postSegmentationVariables'])) {
             $this->postSegmentationVariables = $context['postSegmentationVariables'];
         }
-        $this->_vwo_uuid = UuidUtil::getUUID($this->id, SettingsService::instance()->accountId);
 
         if (isset($context['sessionId'])) {
             $this->sessionId = $context['sessionId'];
+        }
+
+        // set uuid in context if available, otherwise generate a new one
+        if (isset($context['uuid'])) {
+            $this->uuid = $context['uuid'];
+        } else {
+            $this->uuid = UuidUtil::getUUID($this->id, SettingsService::instance()->accountId);
         }
 
         return $this;
@@ -128,9 +135,9 @@ class ContextModel
         $this->sessionId = $sessionId;
     }
 
-    public function getVwoUuid()
+    public function getUUID()
     {
-        return $this->_vwo_uuid;
+        return $this->uuid;
     }
 }
 

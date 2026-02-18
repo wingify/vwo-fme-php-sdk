@@ -73,22 +73,22 @@ class StorageDecorator implements IStorageDecorator
         $loggerService = $serviceContainer->getLoggerService();
 
         if (!$featureKey) {
-            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["featureKey" => $featureKey, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
+            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["featureKey" => $featureKey, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getUUID(), 'sId' => $context->getSessionId()]);
             return false;
         }
 
         if ($context->getId() == null) {
-            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["context" => $context, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
+            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["context" => $context, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getUUID(), 'sId' => $context->getSessionId()]);
             return false;
         }
 
         if ($rolloutKey && !$experimentKey && !$rolloutVariationId) {
-            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["rolloutKey" => $rolloutKey, "experimentKey" => $experimentKey, "rolloutVariationId" => $rolloutVariationId, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
+            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["rolloutKey" => $rolloutKey, "experimentKey" => $experimentKey, "rolloutVariationId" => $rolloutVariationId, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getUUID(), 'sId' => $context->getSessionId()]);
             return false;
         }
 
         if ($experimentKey && !$experimentVariationId) {
-            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["experimentKey" => $experimentKey, "experimentVariationId" => $experimentVariationId, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
+            $loggerService->error("ERROR_STORING_DATA_IN_STORAGE", ["experimentKey" => $experimentKey, "experimentVariationId" => $experimentVariationId, 'an' => ApiEnum::GET_FLAG, 'uuid' => $context->getUUID(), 'sId' => $context->getSessionId()]);
             return false;
         }
 

@@ -99,7 +99,7 @@ class SegmentOperandEvaluator {
     public function evaluateUserAgentDSL($dslOperandValue, $context) {
         $operand = $dslOperandValue;
         if (!$context->getUserAgent() || $context->getUserAgent() === null) {
-            $this->serviceContainer->getLoggerService()->error('INVALID_USER_AGENT_IN_CONTEXT_FOR_PRE_SEGMENTATION', ['an' => ApiEnum::GET_FLAG, 'uuid' => $context->getVwoUuid(), 'sId' => $context->getSessionId()]);
+            $this->serviceContainer->getLoggerService()->error('INVALID_USER_AGENT_IN_CONTEXT_FOR_PRE_SEGMENTATION', ['an' => ApiEnum::GET_FLAG, 'uuid' => $context->getUUID(), 'sId' => $context->getSessionId()]);
             return false;
         }
         $tagValue = urldecode($context->getUserAgent());
