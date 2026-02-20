@@ -95,14 +95,14 @@ class TrackEvent implements ITrack
         $networkUtil = new NetworkUtil($serviceContainer);
 
         // Get base properties for the event
-        $properties = $networkUtil->getEventsBaseProperties($eventName, $context->getUserAgent(), $context->getIpAddress(), $context->getSessionId());
+        $properties = $networkUtil->getEventsBaseProperties($eventName, $context->getUserAgent(), $context->getIpAddress());
 
         // Prepare the payload for the track goal
         $payload = $networkUtil->getTrackGoalPayloadData(
             $settings,
             $context,
             $eventName,
-            $eventProperties,
+            $eventProperties
         );
 
         // Send the prepared payload via POST API request

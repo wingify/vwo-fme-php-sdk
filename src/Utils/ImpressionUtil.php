@@ -61,9 +61,7 @@ class ImpressionUtil
         $properties = $networkUtil->getEventsBaseProperties(
             EventEnum::VWO_VARIATION_SHOWN,
             urlencode($context->getUserAgent()), // Encode user agent to ensure URL safety
-            $context->getIpAddress(),
-            $context->getIpAddress(),
-            $context->getSessionId()
+            $context->getIpAddress()
         );
 
         $campaignKeyWithFeatureName = CampaignUtil::getCampaignKeyFromCampaignId($settings, $payload['d']['event']['props']['id']);

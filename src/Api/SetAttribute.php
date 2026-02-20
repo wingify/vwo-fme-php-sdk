@@ -65,8 +65,7 @@ class SetAttribute implements ISetAttribute
         $properties = $networkUtil->getEventsBaseProperties(
             EventEnum::VWO_SYNC_VISITOR_PROP,
             $context->getUserAgent(),
-            $context->getIpAddress(),
-            $context->getSessionId()
+            $context->getIpAddress()
         );
 
         // Construct payload data for multiple attributes

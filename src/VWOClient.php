@@ -214,14 +214,7 @@ class VWOClient implements IVWOClient {
         try {
             $loggerService = $this->serviceContainer->getLoggerService();
             $loggerService->debug("API Called: $apiName");
-            // Ensure context is valid
-            if (!isset($context['id']) || empty($context['id'])) {
-                $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName], false);
-                throw new \Error('TypeError: Invalid context');
-            }
-            // set uuid in context 
-            $context['uuid'] = $this->getUUIDFromContext($context, $apiName);
-
+            
             if (DataTypeUtil::isString($attributesOrAttributeValue)) {
                 // Validate attributeKey is a string
                 if (!DataTypeUtil::isString($attributesOrAttributeValue)) {
@@ -236,6 +229,11 @@ class VWOClient implements IVWOClient {
                     $loggerService->error("INVALID_PARAM", ['key' => $attributeValueOrContext, 'an'=> ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName, 'type' => gettype($attributeValueOrContext), 'correctType' => 'string'], false);
                 throw new \TypeError('TypeError: attributeValue should be a valid string, number, or boolean');
                 }
+                 // Ensure context is valid
+                if (!isset($context['id']) || empty($context['id'])) {
+                    $loggerService->error('INVALID_CONTEXT_PASSED', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName], false);
+                    throw new \Error('TypeError: Invalid context');
+                }
     
                 //Get userId using UserIdUtil if aliasing is enabled and gateway service is provided
                 $userId = UserIdUtil::getUserId($context['id'], $this->isAliasingEnabled, $this->serviceContainer);
@@ -247,6 +245,8 @@ class VWOClient implements IVWOClient {
                     }
                 }
                 $context['id'] = $userId;
+                // set uuid in context 
+                $context['uuid'] = $this->getUUIDFromContext($context, $apiName);
 
                 $contextModel = new ContextModel();
                 $contextModel->modelFromDictionary($context);
@@ -300,6 +300,8 @@ class VWOClient implements IVWOClient {
                     }
                 }
                 $context['id'] = $userId;
+                // set uuid in context 
+                $context['uuid'] = $this->getUUIDFromContext($context, $apiName);
 
                 $contextModel = new ContextModel();
                 $contextModel->modelFromDictionary($context);
