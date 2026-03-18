@@ -24,6 +24,7 @@ use vwo\Models\CampaignModel;
 use vwo\Models\FeatureModel;
 use vwo\Models\VariationModel;
 use vwo\Models\SettingsModel;
+use vwo\Models\User\ContextModel;
 
 class CampaignUtil
 {
@@ -101,16 +102,44 @@ class CampaignUtil
     }
 
     /**
-     * Generates a bucketing seed based on user ID, campaign, and optional group ID.
-     * @param string $userId The user ID.
-     * @param CampaignModel $campaign The campaign object.
+     * Returns the resolved bucketing ID for the user.
+     * Uses bucketingSeed from context if valid (non-empty), otherwise falls back to userId.
+     * @param ContextModel $context The user context model.
+     * @return string The resolved bucketing ID.
+     */
+    public static function getBucketingId(ContextModel $context)
+    {
+        $seed = $context->getBucketingSeed();
+        return ($seed !== null && $seed !== '') ? $seed : $context->getId();
+    }
+
+    /**
+     * Returns the user ID formatted for logging purposes.
+     * Includes seed info when bucketingSeed differs from userId.
+     * @param ContextModel $context The user context model.
+     * @return string The formatted user ID for logging.
+     */
+    public static function getUserIdForLogging(ContextModel $context)
+    {
+        $userId = $context->getId();
+        $bucketingId = self::getBucketingId($context);
+        if ($bucketingId !== $userId) {
+            return "{$userId} (Seed: {$bucketingId})";
+        }
+        return $userId;
+    }
+
+    /**
+     * Generates a bucketing seed based on bucketing ID, campaign, and optional group ID.
+     * @param string $bucketingId The resolved bucketing identifier (custom seed or user ID).
+     * @param CampaignModel|null $campaign The campaign object.
      * @param int|null $groupId The optional group ID.
      * @return string The bucketing seed.
      */
-    public static function getBucketingSeed($userId, $campaign, $groupId = null)
+    public static function getBucketingSeed($bucketingId, $campaign, $groupId = null)
     {
         if ($groupId) {
-            return "{$groupId}_{$userId}";
+            return "{$groupId}_{$bucketingId}";
         }
         // Determine if the campaign is of type ROLLOUT or PERSONALIZE
         $isRolloutOrPersonalize = $campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE;
@@ -119,9 +148,9 @@ class CampaignUtil
         $salt = $isRolloutOrPersonalize ? $campaign->getVariations()[0]->getSalt() : $campaign->getSalt();
     
         if (!empty($salt)) {
-            return "{$salt}_{$userId}";
+            return "{$salt}_{$bucketingId}";
         } else {
-            return "{$campaign->getId()}_{$userId}";
+            return "{$campaign->getId()}_{$bucketingId}";
         }
     }
 

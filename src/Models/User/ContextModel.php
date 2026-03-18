@@ -33,12 +33,14 @@ class ContextModel
     private $postSegmentationVariables = [];
     private $uuid;
     private $sessionId;
+    private $bucketingSeed;
 
     public function modelFromDictionary($context)
     {
         $this->id = isset($context['id']) ? $context['id'] : null;
         $this->userAgent = isset($context['userAgent']) ? $context['userAgent'] : null;
         $this->ipAddress = isset($context['ipAddress']) ? $context['ipAddress'] : null;
+        $this->bucketingSeed = isset($context['bucketingSeed']) ? $context['bucketingSeed'] : null;
 
         if (isset($context['customVariables'])) {
             $this->customVariables = $context['customVariables'];
@@ -138,6 +140,11 @@ class ContextModel
     public function getUUID()
     {
         return $this->uuid;
+    }
+
+    public function getBucketingSeed()
+    {
+        return $this->bucketingSeed;
     }
 }
 

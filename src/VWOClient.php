@@ -142,6 +142,19 @@ class VWOClient implements IVWOClient {
             }
             $context['id'] = $userId;
 
+            // regenerate uuid with the resolved userId (handles case where aliasing changed the userId)
+            $uuid = $this->getUUIDFromContext($context, $apiName);
+            $context['uuid'] = $uuid;
+
+            //validate bucketing seed
+            if (isset($context['bucketingSeed'])) {
+                if (!DataTypeUtil::isString($context['bucketingSeed']) || $context['bucketingSeed'] == null || trim($context['bucketingSeed']) === '') {
+                    $loggerService->error('INVALID_BUCKETING_SEED', ['an' => $apiName, 'apiName' => $apiName, 'key' => 'bucketingSeed', 'type' => gettype($context['bucketingSeed']), 'correctType' => 'string'], false);
+                    unset($context['bucketingSeed']);
+                }
+            }
+
+
             $contextModel = new ContextModel();
             $contextModel->modelFromDictionary($context);
 
@@ -194,6 +207,10 @@ class VWOClient implements IVWOClient {
                 }
             }
             $context['id'] = $userId;
+
+            // regenerate uuid with the resolved userId (handles case where aliasing changed the userId)
+            $uuid = $this->getUUIDFromContext($context, $apiName);
+            $context['uuid'] = $uuid;
 
             $contextModel = new ContextModel();
             $contextModel->modelFromDictionary($context);

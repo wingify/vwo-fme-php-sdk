@@ -84,6 +84,7 @@ The following table explains all the parameters in the `context` array:
 | `customVariables` | Custom attributes for targeting.                                           | No           | array    | `['age' => 25, 'location' => 'US']` |
 | `userAgent`       | User agent string for identifying the user's browser and operating system. | No           | string   | `'Mozilla/5.0 ... Safari/537.36'` |
 | `ipAddress`       | IP address of the user.                                                    | No           | string   | `'1.1.1.1'`                       |
+| `bucketingSeed`   | Custom seed for bucketing logic instead of user ID.                        | No           | string   | `'custom_seed_value'`             |
 
 #### Example
 
@@ -93,6 +94,7 @@ $userContext = [
   'customVariables' => ['age' => 25, 'location' => 'US'],
   'userAgent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
   'ipAddress' => '1.1.1.1',
+  'bucketingSeed' => 'custom_seed_value', // Optional: overrides userId for bucketing
 ];
 ```
 
@@ -194,6 +196,25 @@ $uuid = VWO::getUUID($userId, $accountId);
 
 echo 'Generated UUID:', $uuid;
 // Output: Generated UUID: CC25A368ADA0542699EAD62489811105
+```
+
+### Custom Bucketing Seed
+
+By default, the SDK uses the user's `id` to determine which variation or feature a user is bucketed into. The `bucketingSeed` parameter lets you override this behavior by providing a custom string for bucketing calculations.
+
+This is useful when you want to:
+
+- Ensure consistent bucketing across different user identifiers or SDKs
+- Group different users into the same bucket by using a shared seed
+
+```php
+// Two different users bucketed the same way using a shared seed
+$context1 = ['id' => 'user_1', 'bucketingSeed' => 'shared_seed'];
+$context2 = ['id' => 'user_2', 'bucketingSeed' => 'shared_seed'];
+
+// Both will receive the same variation
+$flag1 = $vwoClient->getFlag('feature_key', $context1);
+$flag2 = $vwoClient->getFlag('feature_key', $context2);
 ```
 
 ### Polling Interval Adjustment

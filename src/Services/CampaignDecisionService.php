@@ -28,22 +28,25 @@ use vwo\Models\CampaignModel;
 use vwo\Models\User\ContextModel;
 use vwo\Models\VariationModel;
 use vwo\Utils\LogMessageUtil;
+use vwo\Utils\CampaignUtil;
 
 interface ICampaignDecisionService {
-    public function isUserPartOfCampaign($userId, $campaign, $serviceContainer);
+    public function isUserPartOfCampaign(ContextModel $context, $campaign, $serviceContainer);
     public function getVariation($variations, $bucketValue);
     public function checkInRange($variation, $bucketValue);
-    public function bucketUserToVariation($userId, $accountId, $campaign, $serviceContainer);
+    public function bucketUserToVariation(ContextModel $context, $accountId, $campaign, $serviceContainer);
     public function getPreSegmentationDecision($campaign, $context, $serviceContainer);
-    public function getVariationAlloted($userId, $accountId, $campaign, $serviceContainer);
+    public function getVariationAlloted(ContextModel $context, $accountId, $campaign, $serviceContainer);
 }
 
 class CampaignDecisionService implements ICampaignDecisionService {
-    public function isUserPartOfCampaign($userId, $campaign, $serviceContainer) {
-        if (!$campaign || !$userId) {
+    public function isUserPartOfCampaign(ContextModel $context, $campaign, $serviceContainer) {
+        if (!$campaign || !$context->getId()) {
             return false;
         }
 
+        $userId = $context->getId();
+        $bucketingId = CampaignUtil::getBucketingId($context);
         $logManager = $serviceContainer->getLogManager();
     
         // Check if the campaign is of type ROLLOUT or PERSONALIZE
@@ -57,16 +60,17 @@ class CampaignDecisionService implements ICampaignDecisionService {
             ? $campaign->getVariations()[0]->getWeight()
             : $campaign->getTraffic();
     
-        // Build the bucket key
-        $bucketKey = !empty($salt) ? "{$salt}_{$userId}" : "{$campaign->getId()}_{$userId}";
+        // Build the bucket key using resolved bucketingId
+        $bucketKey = !empty($salt) ? "{$salt}_{$bucketingId}" : "{$campaign->getId()}_{$bucketingId}";
         // Get the bucket value for the user
         $valueAssignedToUser = (new DecisionMaker())->getBucketValueForUser($bucketKey);
         // Check if the user is part of the campaign
         $isUserPart = $valueAssignedToUser !== 0 && $valueAssignedToUser <= $trafficAllocation; 
 
         $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
+        $userIdForLogging = CampaignUtil::getUserIdForLogging($context);
 
-        $logManager->debug("User:{$userId} part of campaign {$campaignKey} ? " . ($isUserPart ? 'true' : 'false'));
+        $logManager->debug("User:{$userIdForLogging} part of campaign {$campaignKey} ? " . ($isUserPart ? 'true' : 'false'));
 
         return $isUserPart;
     }
@@ -88,25 +92,29 @@ class CampaignDecisionService implements ICampaignDecisionService {
         return null;
     }
 
-    public function bucketUserToVariation($userId, $accountId, $campaign, $serviceContainer) {
-        if (!$campaign || !$userId) {
+    public function bucketUserToVariation(ContextModel $context, $accountId, $campaign, $serviceContainer) {
+        $userId = $context->getId();
+        $bucketingId = CampaignUtil::getBucketingId($context);
+
+        if (!$campaign || !$bucketingId) {
             return null;
         }
         $multiplier = $campaign->getTraffic() ? 1 : null;
         $percentTraffic = $campaign->getTraffic();
         // Get salt
         $salt = $campaign->getSalt();
-        // Get bucket key
-        $bucketKey = !empty($salt) ? "{$salt}_{$accountId}_{$userId}" : "{$campaign->getId()}_{$accountId}_{$userId}";
+        // Get bucket key using resolved bucketingId
+        $bucketKey = !empty($salt) ? "{$salt}_{$accountId}_{$bucketingId}" : "{$campaign->getId()}_{$accountId}_{$bucketingId}";
         // Generate hash value
         $hashValue = (new DecisionMaker())->generateHashValue($bucketKey);
         // Generate bucket value
         $bucketValue = (new DecisionMaker())->generateBucketValue($hashValue, Constants::MAX_TRAFFIC_VALUE, $multiplier);
         
         $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
+        $userIdForLogging = CampaignUtil::getUserIdForLogging($context);
 
         $logManager = $serviceContainer->getLogManager();
-        $logManager->debug("user:{$userId} for campaign:{$campaignKey} having percenttraffic:{$percentTraffic} got bucketValue as {$bucketValue} and hashvalue:{$hashValue}");
+        $logManager->debug("user:{$userIdForLogging} for campaign:{$campaignKey} having percenttraffic:{$percentTraffic} got bucketValue as {$bucketValue} and hashvalue:{$hashValue}");
         $variations = $campaign->getVariations();
         return $this->getVariation($variations, $bucketValue);
     }
@@ -142,13 +150,13 @@ class CampaignDecisionService implements ICampaignDecisionService {
         }
     }
 
-    public function getVariationAlloted($userId, $accountId, $campaign, $serviceContainer) {
-        $isUserPart = $this->isUserPartOfCampaign($userId, $campaign, $serviceContainer);
+    public function getVariationAlloted(ContextModel $context, $accountId, $campaign, $serviceContainer) {
+        $isUserPart = $this->isUserPartOfCampaign($context, $campaign, $serviceContainer);
         
         if ($campaign->getType() === CampaignTypeEnum::ROLLOUT || $campaign->getType() === CampaignTypeEnum::PERSONALIZE) {
             return $isUserPart ? $campaign->getVariations()[0] : null;
         } else {
-            return $isUserPart ? $this->bucketUserToVariation($userId, $accountId, $campaign, $serviceContainer) : null;
+            return $isUserPart ? $this->bucketUserToVariation($context, $accountId, $campaign, $serviceContainer) : null;
         }
     }    
 }

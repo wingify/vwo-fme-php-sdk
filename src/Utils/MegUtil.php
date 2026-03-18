@@ -171,7 +171,7 @@ class MegUtil
             }
             if ($ruleToTestForTraffic !== null) {
                 $campaign = (new CampaignModel())->modelFromDictionary($ruleToTestForTraffic);
-                $variation = DecisionUtil::evaluateTrafficAndGetVariation($serviceContainer, $campaign, $context->getId());
+                $variation = DecisionUtil::evaluateTrafficAndGetVariation($serviceContainer, $campaign, $context);
                 if (DataTypeUtil::isObject($variation) && count((array)$variation) > 0) {
                     $evaluatedFeatureMap[$feature->getKey()] = [
                         'rolloutId' => $ruleToTestForTraffic->getId(),
@@ -237,7 +237,7 @@ class MegUtil
                         $context,
                         $serviceContainer
                     ) &&
-                    (new CampaignDecisionService())->isUserPartOfCampaign($context->getId(), $campaign, $serviceContainer)
+                    (new CampaignDecisionService())->isUserPartOfCampaign($context, $campaign, $serviceContainer)
                 ) {
                     $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
                     $logManager = $serviceContainer->getLogManager();
@@ -290,7 +290,7 @@ class MegUtil
                     : $eligibleCampaignsWithStorage[0]->getName() . '_' . $eligibleCampaignsWithStorage[0]->getRuleKey()
                 ) . 
                 " is the winner for group " . $groupId . 
-                " for user ID: " . $context->getId()
+                " for user ID: " . CampaignUtil::getUserIdForLogging($context)
             );
         } elseif (count($eligibleCampaignsWithStorage) > 1 && $megAlgoNumber === Constants::RANDOM_ALGO) {
             // if eligibleCampaignsWithStorage has more than one campaign and algo is random, then find the winner using random algo
@@ -319,7 +319,7 @@ class MegUtil
                 $winnerCampaign = $eligibleCampaigns[0];
                 $campaignKey = $eligibleCampaigns[0]->getType() === CampaignTypeEnum::AB ? $eligibleCampaigns[0]->getKey() : $eligibleCampaigns[0]->getName() . '_' . $eligibleCampaigns[0]->getRuleKey();
                 $logManager = $serviceContainer->getLogManager();
-                $logManager->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:{$context->getId()}");
+                $logManager->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:" . CampaignUtil::getUserIdForLogging($context));
             } elseif (count($eligibleCampaigns) > 1 && $megAlgoNumber === Constants::RANDOM_ALGO) {
                 $winnerCampaign = self::normalizeWeightsAndFindWinningCampaign($serviceContainer, $eligibleCampaigns, $context, $campaignIds, $groupId, $storageService);
             } elseif (count($eligibleCampaigns) > 1) {
@@ -374,13 +374,13 @@ class MegUtil
         CampaignUtil::setCampaignAllocation($shortlistedCampaigns);
         $winnerCampaign = (new CampaignDecisionService())->getVariation(
             $shortlistedCampaigns,
-            (new DecisionMaker())->calculateBucketValue(CampaignUtil::getBucketingSeed($context->getId(), null, $groupId))
+            (new DecisionMaker())->calculateBucketValue(CampaignUtil::getBucketingSeed(CampaignUtil::getBucketingId($context), null, $groupId))
         );
 
         if ($winnerCampaign) {
             $campaignKey = $winnerCampaign->getType() === CampaignTypeEnum::AB ? $winnerCampaign->getKey() : $winnerCampaign->getKey() . '_' . $winnerCampaign->getRuleKey();
             $logManager = $serviceContainer->getLogManager();
-            $logManager->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:{$context->getId()} using random algorithm");
+            $logManager->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:" . CampaignUtil::getUserIdForLogging($context) . " using random algorithm");
             (new StorageDecorator())->setDataInStorage(
                 [
                     'featureKey' => "_vwo_meta_meg_{$groupId}",
@@ -483,7 +483,7 @@ class MegUtil
             CampaignUtil::setCampaignAllocation($participatingCampaignList);
             $winnerCampaign = (new CampaignDecisionService())->getVariation(
                 $participatingCampaignList,
-                (new DecisionMaker())->calculateBucketValue(CampaignUtil::getBucketingSeed($context->getId(), null, $groupId))
+                (new DecisionMaker())->calculateBucketValue(CampaignUtil::getBucketingSeed(CampaignUtil::getBucketingId($context), null, $groupId))
             );
         }        
         
@@ -493,7 +493,7 @@ class MegUtil
         if ($winnerCampaign) {
             $campaignKey = $winnerCampaign->getType() === CampaignTypeEnum::AB ? $winnerCampaign->getKey() : $winnerCampaign->getKey() . '_' . $winnerCampaign->getRuleKey();
             $logManager = $serviceContainer->getLogManager();
-            $logManager->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:{$context->getId()} using advanced algorithm");
+            $logManager->info("MEG: Campaign {$campaignKey} is the winner for group {$groupId} for user ID:" . CampaignUtil::getUserIdForLogging($context) . " using advanced algorithm");
         } else {
             $logManager = $serviceContainer->getLogManager();
             $logManager->info("No winner campaign found for MEG group: {$groupId}");

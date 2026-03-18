@@ -209,7 +209,7 @@ class GetFlag
             if (isset($evaluatedFeatureMap[$featureKey])) {
                 $passedRolloutCampaign = new CampaignModel();
                 $passedRolloutCampaign->modelFromDictionary($rule);
-                $variation = DecisionUtil::evaluateTrafficAndGetVariation($serviceContainer, $passedRolloutCampaign, $context->getId());
+                $variation = DecisionUtil::evaluateTrafficAndGetVariation($serviceContainer, $passedRolloutCampaign, $context);
 
                 if (DataTypeUtil::isObject($variation) && !empty($variation)) {
                     $isEnabled = true;
@@ -295,7 +295,7 @@ class GetFlag
             if (isset($experimentRulesToEvaluate[0])) {
                 $campaign = new CampaignModel();
                 $campaign->modelFromDictionary($experimentRulesToEvaluate[0]);
-                $variation = DecisionUtil::evaluateTrafficAndGetVariation($serviceContainer, $campaign, $context->getId());
+                $variation = DecisionUtil::evaluateTrafficAndGetVariation($serviceContainer, $campaign, $context);
 
                 if (DataTypeUtil::isObject($variation) && !empty($variation)) {
                     $isEnabled = true;

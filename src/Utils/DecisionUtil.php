@@ -169,22 +169,24 @@ class DecisionUtil
         return [$isPreSegmentationPassed, null];
     }
 
-    public static function evaluateTrafficAndGetVariation(ServiceContainer $serviceContainer, CampaignModel $campaign, $userId)
+    public static function evaluateTrafficAndGetVariation(ServiceContainer $serviceContainer, CampaignModel $campaign, ContextModel $context)
     {
         $settings = $serviceContainer->getSettings();
         $logManager = $serviceContainer->getLogManager();
-        
-        $variation = (new CampaignDecisionService())->getVariationAlloted($userId, $settings->getAccountId(), $campaign, $serviceContainer);
+
+        $variation = (new CampaignDecisionService())->getVariationAlloted($context, $settings->getAccountId(), $campaign, $serviceContainer);
         $campaignKey = $campaign->getType() === CampaignTypeEnum::AB ? $campaign->getKey() : $campaign->getName() . '_' . $campaign->getRuleKey();
+        $userIdForLogging = CampaignUtil::getUserIdForLogging($context);
+
         if (!$variation) {
             $logManager->info(
-                "USER_CAMPAIGN_BUCKET_INFO: Campaign:{$campaignKey} User:{$userId} did not get any variation"
+                "USER_CAMPAIGN_BUCKET_INFO: Campaign:{$campaignKey} User:{$userIdForLogging} did not get any variation"
             );
             return null;
         }
 
         $logManager->info(
-            "USER_CAMPAIGN_BUCKET_INFO: Campaign:{$campaignKey} User:{$userId} got variation:{$variation->getKey()}"
+            "USER_CAMPAIGN_BUCKET_INFO: Campaign:{$campaignKey} User:{$userIdForLogging} got variation:{$variation->getKey()}"
         );
 
         return $variation;
@@ -244,7 +246,7 @@ class DecisionUtil
             }
             $whitelistedVariation = (new CampaignDecisionService())->getVariation(
                 $targetedVariations,
-                (new DecisionMaker())->calculateBucketValue(CampaignUtil::getBucketingSeed($context->getId(), $campaign, null))
+                (new DecisionMaker())->calculateBucketValue(CampaignUtil::getBucketingSeed(CampaignUtil::getBucketingId($context), $campaign, null))
             );
         } else {
             $whitelistedVariation = $targetedVariations[0] ?? null;
