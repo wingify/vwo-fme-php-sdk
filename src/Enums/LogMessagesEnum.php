@@ -55,7 +55,7 @@ class LogMessagesEnum {
             $logMessages = LogMessages::get();
             self::$debugMessages = $logMessages['debugLogs'] ?? [];
             self::$infoMessages = $logMessages['infoLogs'] ?? [];
-            self::$errorMessages = $logMessages['errorLogs'] ?? [];
+            self::$errorMessages = $logMessages['errorLogsV2'] ?? [];
             self::$warningMessages = $logMessages['warnLogs'] ?? [];
             self::$traceMessages = $logMessages['traceLogs'] ?? [];
         }

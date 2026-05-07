@@ -70,27 +70,81 @@ class MegUtil
             if (in_array($featureKey, $featureToSkip)) {
                 continue;
             }
-            
-            // evaluate the feature rollout rules
-            $isRolloutRulePassed = self::isRolloutRuleForFeaturePassed(
-                $serviceContainer,
-                $tempFeature,
-                $evaluatedFeatureMap,
-                $featureToSkip,
+
+            $storedData = (new StorageDecorator())->getFeatureFromStorage(
+                $featureKey,
+                $context,
                 $storageService,
-                $context
-            );
-            if ($isRolloutRulePassed) {
-                foreach ($serviceContainer->getSettings()->getFeatures() as $tempFeature) {
-                    if ($tempFeature->getKey() === $featureKey) {
-                        foreach ($tempFeature->getRulesLinkedCampaign() as $rule) {                            
-                            if (in_array($rule->getId(), $groupCampaignIds) || in_array($rule->getId() . '_' . $rule->getVariations()[0]->getId(), $groupCampaignIds)) {
-                                if (!isset($campaignMap[$featureKey])) {
-                                    $campaignMap[$featureKey] = [];
-                                }
-                                // check if the campaign is already present in the campaignMap for the feature
-                                if (array_search($rule->getRuleKey(), array_column($campaignMap[$featureKey], 'ruleKey')) === false) {
-                                    $campaignMap[$featureKey][] = $rule;
+                $serviceContainer,
+              );
+          
+             //if storedData exists other wise return null
+             if ($storedData) {  
+                $storedIsInHoldoutId = $storedData['isInHoldoutId'];
+            } else {
+                $storedIsInHoldoutId = [];
+            }
+            if ($storedIsInHoldoutId && (is_array($storedIsInHoldoutId) ? count($storedIsInHoldoutId) > 0 : true)) {
+                $featureToSkip[] = $featureKey;
+
+                $serviceContainer->getLoggerService()->info('PART_OF_HOLDOUT_IN_MEG', [
+                    'featureKey' => $featureKey,
+                    'holdoutId' => $storedIsInHoldoutId,
+                    'userId' => $context->getId(),
+                ]);
+            
+                continue;
+            }
+            
+            $holdoutResult = HoldoutUtil::getMatchedHoldouts($serviceContainer, $tempFeature, $context, $storedData);
+            $matchedHoldouts = $holdoutResult['matchedHoldouts'] ?? [];
+            if (!empty($matchedHoldouts)) {
+                $featureToSkip[] = $featureKey;
+
+                $qualifiedHoldoutIds = implode(',', array_map(function ($holdout) {
+                    return $holdout->getId();
+                }, $matchedHoldouts));
+
+                (new StorageDecorator())->setDataInStorage(
+                    [
+                        'featureKey' => $featureKey,
+                        'context' => $context,
+                        'isInHoldoutId' => array_map(function ($holdout) {
+                            return $holdout->getId();
+                        }, $matchedHoldouts),
+                    ],
+                    $storageService,
+                    $serviceContainer,
+                );
+
+                $serviceContainer->getLoggerService()->info('PART_OF_HOLDOUT_IN_MEG', [
+                    'featureKey' => $featureKey,
+                    'holdoutId' => $qualifiedHoldoutIds,
+                    'userId' => $context->getId(),
+                ]);
+            } else {
+            
+                // evaluate the feature rollout rules
+                $isRolloutRulePassed = self::isRolloutRuleForFeaturePassed(
+                    $serviceContainer,
+                    $tempFeature,
+                    $evaluatedFeatureMap,
+                    $featureToSkip,
+                    $storageService,
+                    $context
+                );
+                if ($isRolloutRulePassed) {
+                    foreach ($serviceContainer->getSettings()->getFeatures() as $tempFeature) {
+                        if ($tempFeature->getKey() === $featureKey) {
+                            foreach ($tempFeature->getRulesLinkedCampaign() as $rule) {                            
+                                if (in_array($rule->getId(), $groupCampaignIds) || in_array($rule->getId() . '_' . $rule->getVariations()[0]->getId(), $groupCampaignIds)) {
+                                    if (!isset($campaignMap[$featureKey])) {
+                                        $campaignMap[$featureKey] = [];
+                                    }
+                                    // check if the campaign is already present in the campaignMap for the feature
+                                    if (array_search($rule->getRuleKey(), array_column($campaignMap[$featureKey], 'ruleKey')) === false) {
+                                        $campaignMap[$featureKey][] = $rule;
+                                    }
                                 }
                             }
                         }
@@ -209,7 +263,7 @@ class MegUtil
         // Iterate over the campaign map to determine eligible campaigns
         foreach ($campaignMapArray as $featureKey => $campaigns) {
             foreach ($campaigns as $campaign) {
-                $storedData = (new StorageDecorator())->getFeatureFromStorage($featureKey, $context, $storageService);
+                $storedData = (new StorageDecorator())->getFeatureFromStorage($featureKey, $context, $storageService, $serviceContainer);
 
                 // Check if campaign is stored in storage
                 if (isset($storedData['experimentVariationId'])) {

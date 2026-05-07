@@ -40,7 +40,7 @@ class Constants {
     const DEFAULT_EVENTS_PER_REQUEST = 100;
     const SDK_NAME = 'vwo-fme-php-sdk';
 
-    const SDK_VERSION = '1.22.0';
+    const SDK_VERSION = '1.23.0';
     const AP = 'server';
 
     const SETTINGS = 'settings';
@@ -83,6 +83,10 @@ class Constants {
     const HTTP_SUCCESS_MIN = 200;
     const HTTP_SUCCESS_MAX = 299;
     const HTTP_SUCCESS_UPPER_BOUND = 300;
+
+    // Holdout variation constants (variationId in holdout impression payload)
+    const VARIATION_IS_PART_OF_HOLDOUT = 1;
+    const VARIATION_NOT_PART_OF_HOLDOUT = 2;
 }
 
 ?>

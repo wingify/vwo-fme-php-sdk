@@ -49,12 +49,13 @@ interface IVWOClient {
 
 class VWOClient implements IVWOClient {
     public $settings;
+    public $originalSettings;
     private $storage;
     private $options;
     private $isAliasingEnabled;
     private $serviceContainer;
 
-    public function __construct(SettingsModel $settings, array $options, ServiceContainer $serviceContainer = null) {
+    public function __construct(SettingsModel $settings, array $options, ?ServiceContainer $serviceContainer = null) {
         $this->options = $options;
         $this->settings = $settings;
         $this->serviceContainer = $serviceContainer;
@@ -136,8 +137,6 @@ class VWOClient implements IVWOClient {
             if($this->isAliasingEnabled) {
                 if($userId != $context['id']) {
                     $loggerService->info('ALIAS_ENABLED', ['userId' => $userId]);
-                } else {
-                     $loggerService->error('GATEWAY_URL_ERROR', ['an' => $apiName, 'apiName' => $apiName, 'context' => $context]);
                 }
             }
             $context['id'] = $userId;
@@ -202,8 +201,6 @@ class VWOClient implements IVWOClient {
             if($this->isAliasingEnabled) {
                 if($userId != $context['id']) {
                     $loggerService->info('ALIAS_ENABLED', ['userId' => $userId]);
-                } else {
-                     $loggerService->error('GATEWAY_URL_ERROR', ['an' => ApiEnum::TRACK_EVENT, 'apiName' => $apiName]);
                 }
             }
             $context['id'] = $userId;
@@ -257,8 +254,6 @@ class VWOClient implements IVWOClient {
                 if($this->isAliasingEnabled) {
                     if($userId != $context['id']) {
                         $loggerService->info('ALIAS_ENABLED', ['userId' => $userId]);
-                    } else {
-                        $loggerService->error('GATEWAY_URL_ERROR', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName]);
                     }
                 }
                 $context['id'] = $userId;
@@ -312,8 +307,6 @@ class VWOClient implements IVWOClient {
                 if($this->isAliasingEnabled) {
                     if($userId != $context['id']) {
                         $loggerService->info('ALIAS_ENABLED', ['userId' => $userId]);
-                    } else {
-                        $loggerService->error('GATEWAY_URL_ERROR', ['an' => ApiEnum::SET_ATTRIBUTE, 'apiName' => $apiName]);
                     }
                 }
                 $context['id'] = $userId;

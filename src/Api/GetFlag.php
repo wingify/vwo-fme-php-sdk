@@ -45,6 +45,7 @@ use vwo\Enums\DebuggerCategoryEnum;
 use vwo\Services\LoggerService;
 use vwo\Packages\Logger\Enums\LogLevelEnum;
 use vwo\Constants\Constants;
+use vwo\Utils\HoldoutUtil;
 
 class GetFlag
 {
@@ -60,6 +61,7 @@ class GetFlag
         $experimentVariationToReturn = null;
         $shouldCheckForExperimentsRules = false;
         $batchPayload = [];
+        $notInHoldoutIds = [];
 
         $passedRulesInformation = [];
         $evaluatedFeatureMap = [];
@@ -79,6 +81,10 @@ class GetFlag
             'featureKey' => $feature ? $feature->getKey() : null,
             'userId' => $context ? $context->getId() : null,
             'api' => ApiEnum::GET_FLAG,
+            'holdoutIDs' => [],
+            'isPartOfHoldout' => false,
+            'isHoldoutPresent' => false,
+            'isUserPartOfCampaign' => false,
         ];
 
         // create debug event props
@@ -96,6 +102,72 @@ class GetFlag
             $storageService,
             $serviceContainer
         );
+    
+        // check if stored data has isInHoldoutId or holdoutGroupId
+        $storedIsInHoldoutId = null;
+        if (is_array($storedData)) {
+            $storedIsInHoldoutId = $storedData['isInHoldoutId'] ?? [];
+        }
+        $storedNotInHoldoutId = $storedData['notInHoldoutId'] ?? [];
+        // if storedData has isInHoldoutId, then check if the settings stil contain atleast 1 holdoutGroup that is present in the storedData
+        if ($storedIsInHoldoutId && (is_array($storedIsInHoldoutId) ? count($storedIsInHoldoutId) > 0 : true)) {
+            // get all appicable holdouts for the feature
+            $applicableHoldouts = HoldoutUtil::getApplicableHoldouts($serviceContainer->getSettings(), $feature->getId());
+            if (count($applicableHoldouts) > 0) {
+                foreach ($applicableHoldouts as $holdout) {
+                    // if the holdout id is present in the storedData, then return the disabled flag
+                    if (in_array($holdout->getId(), $storedIsInHoldoutId, true)) {
+                    $loggerService->info('STORED_HOLDOUT_DECISION_FOUND', [
+                        'userId' => $context->getId(),
+                        'holdoutId' => is_array($storedIsInHoldoutId) ? implode(',', $storedIsInHoldoutId) : (string)$storedIsInHoldoutId,
+                        'featureKey' => $feature->getKey(), 
+                    ]);
+                    // evaluate the new holdouts in settings file and send the impression for them
+                    $holdoutResult = HoldoutUtil::getMatchedHoldouts(
+                        $serviceContainer,
+                        $feature,
+                        $context,
+                        $storedData,
+                    );
+                    $matchedHoldouts = $holdoutResult['matchedHoldouts'];
+                    $notMatchedHoldouts = $holdoutResult['notMatchedHoldouts'];
+                    $holdoutPayloads = $holdoutResult['holdoutPayloads'];
+                    
+                    // updatedHoldoutIds is the array of holdout ids for which user became part of the holdouts
+                    $updatedHoldoutIds = [...$storedIsInHoldoutId, ...array_map(function ($holdout) {
+                        return $holdout->getId();
+                    }, $matchedHoldouts)];
+                    $updatedNotInHoldoutIds = [...$storedNotInHoldoutId, ...array_map(function ($holdout) {
+                        return $holdout->getId();
+                    }, $notMatchedHoldouts)];
+                    
+                    // store the updated holdout ids in storage and push the updated not in holdout ids to the notInHoldoutIds array
+                    (new StorageDecorator())->setDataInStorage(
+                        [
+                            'featureKey' => $feature->getKey(),
+                            'context' => $context,
+                            'isInHoldoutId' => $updatedHoldoutIds,
+                            'notInHoldoutId' => $updatedNotInHoldoutIds,
+                        ],
+                        $storageService,
+                        $serviceContainer,
+                    );
+
+                    // send the impression for the new holdouts
+                    if(!$isDebuggerUsed) {
+                        if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided)) {
+                            foreach($holdoutPayloads as $payload) {
+                                ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context, $featureKey);
+                            }
+                        } else {
+                            ImpressionUtil::SendImpressionForVariationShownInBatch($holdoutPayloads, $serviceContainer);
+                        }
+                    }
+                    return new GetFlagResultUtil(false, [], $ruleStatus, $context->getSessionId(), $context->getUUID());
+                    }
+                }
+            }
+        }
         
     // Check if stored data has featureId and if feature still exists in settings
     if (isset($storedData['featureId']) && FunctionUtil::isFeatureIdPresentInSettings($serviceContainer->getSettings(), $storedData['featureId'])) {
@@ -113,6 +185,9 @@ class GetFlag
                         $context->getId(),
                         $storedData['experimentKey']
                     ));
+                    $decision['isUserPartOfCampaign'] = true;
+                    // network calls for holdouts that are newly added in settings and are not present in storage
+                    $updatedNotInHoldoutIds = HoldoutUtil::sendNetworkCallsForNotInHoldouts($serviceContainer, $feature, $context, $decision, $storedData, $storageService);
                     return new GetFlagResultUtil(true, $variation->getVariables(), $ruleStatus, $context->getSessionId(), $context->getUUID());
                 }
             }
@@ -134,6 +209,20 @@ class GetFlag
                     "Rollout rule got passed for user %s. Hence, evaluating experiments",
                     $context->getId()
                 ));
+
+                // network calls for holdouts that are newly added in settings and are not present in storage
+                $updatedNotInHoldoutIds = HoldoutUtil::sendNetworkCallsForNotInHoldouts(
+                        $serviceContainer,
+                        $feature,
+                        $context,
+                        $decision,
+                        $storedData,
+                        $storageService,
+                    );
+                
+                // push the updated not in holdout ids to the notInHoldoutIds array
+                $notInHoldoutIds = [...$notInHoldoutIds, ...$updatedNotInHoldoutIds];
+
                 $isEnabled = true;
                 $shouldCheckForExperimentsRules = true;
                 $rolloutVariationToReturn = $variation;
@@ -142,6 +231,7 @@ class GetFlag
                     'rolloutKey' => $storedData['rolloutKey'],
                     'rolloutVariationId' => $storedData['rolloutVariationId']
                 ];
+                $decision['isUserPartOfCampaign'] = true;
                 $passedRulesInformation = array_merge($passedRulesInformation, $evaluatedFeatureMap[$featureKey]);
             }
         }
@@ -163,6 +253,92 @@ class GetFlag
 
         $segmentationManager = $serviceContainer->getSegmentationManager();
         $segmentationManager->setContextualData($serviceContainer, $feature, $context);
+
+        if(!$isEnabled) {
+            // Holdout group exclusion: if user falls into any holdout group for this feature, return disabled
+            $holdoutResult = HoldoutUtil::getMatchedHoldouts(
+                $serviceContainer,
+                $feature,
+                $context,
+                $storedData
+            );
+            $matchedHoldouts = $holdoutResult['matchedHoldouts'];
+            $notMatchedHoldouts = $holdoutResult['notMatchedHoldouts'];
+            $holdoutPayloads = $holdoutResult['holdoutPayloads'];
+
+
+            if ($matchedHoldouts !== null && count($matchedHoldouts) > 0) {
+                // get the qualified holdout names
+                $qualifiedHoldoutNames = implode(',', array_map(function ($holdout) {
+                    return $holdout->getName();
+                }, $matchedHoldouts));
+
+                $decision['holdoutIDs'] = array_map(function ($holdout) {
+                    return $holdout->getId();
+                }, $matchedHoldouts);
+
+
+                $loggerService->info('USER_IN_HOLDOUT_GROUP', [
+                    'userId' => $context->getId(),
+                    'holdoutGroupName' => $qualifiedHoldoutNames,
+                    'featureKey' => $feature->getKey(),
+                ]);
+
+
+                // Store holdout decision in storage
+                (new StorageDecorator())->setDataInStorage(
+                    [
+                    'featureKey' => $featureKey,
+                    'context' => $context,
+                    'isInHoldoutId' => array_map(function ($holdout) {
+                        return $holdout->getId();
+                    }, $matchedHoldouts),
+                    'notInHoldoutId' => array_map(function ($holdout) {
+                        return $holdout->getId();
+                        }, $notMatchedHoldouts),
+                    ],
+                    $storageService,
+                    $serviceContainer
+                );
+                $decision['isEnabled'] = false;
+
+                $hooksService->set($decision);
+                $hooksService->execute($hooksService->get());
+
+                // send impression for variation shown for holdouts
+                if(!$isDebuggerUsed) {
+                    if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided)) {
+                        foreach($holdoutPayloads as $payload) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context, $featureKey);
+                        }
+                    } else {
+                        ImpressionUtil::SendImpressionForVariationShownInBatch($holdoutPayloads, $serviceContainer);
+                    }
+                }
+                return new GetFlagResultUtil(false, [], $ruleStatus, $context->getSessionId(), $context->getUUID());
+            } else {
+                $loggerService->info('USER_NOT_EXCLUDED_DUE_TO_HOLDOUT',
+                    [
+                        'featureKey' => $featureKey,
+                        'userId' => $context->getId(),
+                    ]
+                );
+
+                // send impression for variation shown for holdouts for which user is not in holdout group and are present in settings
+                if(!$isDebuggerUsed) {
+                    if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided)) {
+                        foreach($holdoutPayloads as $payload) {
+                            ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context, $featureKey);
+                        }
+                    } else {
+                        // add payloads to batch payload
+                        foreach($holdoutPayloads as $payload) {
+                            $batchPayload[] = $payload;
+                        }
+                    }
+                }
+            }
+        }
 
         // Evaluate Rollout Rules
         $rollOutRules = FunctionUtil::getSpecificRulesBasedOnType($feature, CampaignTypeEnum::ROLLOUT);
@@ -213,6 +389,7 @@ class GetFlag
 
                 if (DataTypeUtil::isObject($variation) && !empty($variation)) {
                     $isEnabled = true;
+                    $decision['isUserPartOfCampaign'] = true;
                     $shouldCheckForExperimentsRules = true;
                     $rolloutVariationToReturn = $variation;
 
@@ -269,6 +446,7 @@ class GetFlag
                         $experimentRulesToEvaluate[] = $rule;
                     } else {
                         $isEnabled = true;
+                        $decision['isUserPartOfCampaign'] = true;
                         $payload = $evaluateRuleResult['payload'];
                         if(($serviceContainer->getSettingsService()->isGatewayServiceProvided || $serviceContainer->getSettingsService()->isProxyUrlProvided) && $payload !== null) {
                             ImpressionUtil::SendImpressionForVariationShown($serviceContainer, $payload, $context, $featureKey);
@@ -299,6 +477,7 @@ class GetFlag
 
                 if (DataTypeUtil::isObject($variation) && !empty($variation)) {
                     $isEnabled = true;
+                    $decision['isUserPartOfCampaign'] = true;
                     $experimentVariationToReturn = $variation;
 
                     $this->updateIntegrationsDecisionObject($campaign, $variation, $passedRulesInformation, $decision);
@@ -333,8 +512,24 @@ class GetFlag
                 array_merge([
                     'featureKey' => $featureKey,
                     'featureId' => $feature->getId(),
-                    'context' => $context
+                    'context' => $context,
+                    'notInHoldoutId' => array_map(function ($holdout) {
+                        return $holdout->getId();
+                    }, $notMatchedHoldouts),
                 ], $passedRulesInformation),
+                $storageService,
+                $serviceContainer
+            );
+        } else {
+            (new StorageDecorator())->setDataInStorage(
+                array_merge([
+                    'featureKey' => $featureKey,
+                    'featureId' => $feature->getId(),
+                    'context' => $context,
+                    'notInHoldoutId' => array_map(function ($holdout) {
+                        return $holdout->getId();
+                    }, $notMatchedHoldouts),
+                ]),
                 $storageService,
                 $serviceContainer
             );

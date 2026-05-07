@@ -46,7 +46,7 @@ use vwo\Enums\CampaignTypeEnum;
 class NetworkUtil {
   private $serviceContainer;
 
-  public function __construct(ServiceContainer $serviceContainer = null)
+  public function __construct(?ServiceContainer $serviceContainer = null)
   {
     $this->serviceContainer = $serviceContainer;
   }
@@ -832,6 +832,45 @@ class NetworkUtil {
             'sv' => Constants::SDK_VERSION,
             'eventId' => UuidUtil::getRandomUUID($sdkKey),
         ]);
+
+        return $properties;
+    }
+
+
+    /**
+     * Creates payload for holdout variation shown event.
+     * Similar to getTrackUserPayloadData but specifically for holdouts.
+     * @param ServiceContainer $serviceContainer The service container.
+     * @param string $eventName The event name.
+     * @param int $holdoutId The holdout ID (used as campaignId).
+     * @param int $variationId The variation ID (1 if IN holdout, 2 if NOT IN holdout).
+     * @param ContextModel $context The user context model containing user-specific data.
+     * @param int $featureId The feature ID.
+     * @return array The holdout payload data.
+     */
+    public function createHoldoutPayload(
+        ServiceContainer $serviceContainer,
+        $eventName,
+        $holdoutId,
+        $variationId,
+        $context,
+        $featureId,
+    ) {   
+
+        $userId = $context->getId();
+        $properties = $this->getEventBasePayload(
+            $serviceContainer->getSettingsService(),
+            $userId,
+            $context->getSessionId(),
+            $eventName,
+            $context->getUserAgent(),
+            $context->getIpAddress(),
+        );
+
+        $properties['d']['event']['props']['id'] = $holdoutId;
+        $properties['d']['event']['props']['variation'] = $variationId;
+        $properties['d']['event']['props']['isFirst'] = 1;
+        $properties['d']['event']['props']['fId'] = $featureId;
 
         return $properties;
     }

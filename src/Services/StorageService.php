@@ -35,22 +35,23 @@ class StorageService
      */
     public function getDataInStorage($featureKey, $context, $serviceContainer)
     {
-        $storageInstance = Storage::Instance()->getConnector();
+        $storageConnector = $serviceContainer->getStorageConnector();
 
-        // Check if the storage instance is available
-        if (is_null($storageInstance)) {
+        // Check if the storage connector is available
+        if (is_null($storageConnector)) {
             return StorageEnum::STORAGE_UNDEFINED;
         } else {
             try {
-                $data = $storageInstance->get($featureKey, $context->getId());
+                $data = $storageConnector->get($featureKey, $context->getId());
                 if ($data !== null) {
+                    $serviceContainer->getLogManager()->info("Data found in storage for feature key: " . $featureKey);
                     return $data;
                 } else {
                     $serviceContainer->getLogManager()->info("No data found in storage for feature key: " . $featureKey);
                     return StorageEnum::NO_DATA_FOUND;
                 }
             } catch (\Exception $e) {
-                $serviceContainer->getLoggerService()->error('ERROR_READING_STORED_DATA_IN_STORAGE', ['err' => $e->getMessage(), 'an' => ApiEnum::GET_FLAG]);
+                $serviceContainer->getLogManager()->error("Error occurred while retrieving data: " . $e->getMessage());
                 return StorageEnum::NO_DATA_FOUND;
             }
         }
@@ -63,15 +64,16 @@ class StorageService
      */
     public function setDataInStorage($data, $serviceContainer)
     {
-        $storageInstance = Storage::Instance()->getConnector();
+        $storageConnector = $serviceContainer->getStorageConnector();
 
-        // Check if the storage instance is available
-        if (is_null($storageInstance)) {
+        // Check if the storage connector is available
+        if (is_null($storageConnector)) {
             return false;
         } else {
             try {
-                return $storageInstance->set($data);
+                return $storageConnector->set($data);
             } catch (\Exception $e) {
+                $serviceContainer->getLogManager()->error("Error occurred while storing data: " . $e->getMessage());
                 return false;
             }
         }

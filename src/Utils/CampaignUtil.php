@@ -229,7 +229,7 @@ class CampaignUtil
         $campaign = array_values(array_filter($settings->getCampaigns(), function ($campaign) use ($campaignId) {
             return $campaign->getId() === $campaignId;
         }))[0] ?? null;
-        return $campaign->getType();
+        return $campaign !== null ? $campaign->getType() : null;
     }
 
     /**

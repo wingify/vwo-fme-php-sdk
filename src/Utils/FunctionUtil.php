@@ -223,4 +223,28 @@ class FunctionUtil
         }
         return false;
     }
+
+    /**
+     * Checks if an event exists within any holdout's metrics.
+     * @param string $eventName - The name of the event to check.
+     * @param SettingsModel $settings - The settings containing holdouts.
+     * @return bool True if the event exists, otherwise false.
+     */
+    public static function doesEventBelongToAnyHoldout($eventName, $settings) {
+        $holdouts = $settings->getHoldouts();
+
+        if (empty($holdouts)) {
+            return false;
+        }
+
+        foreach ($holdouts as $holdout) {
+            foreach ($holdout->getMetrics() as $metric) {
+                if ($metric->getIdentifier() === $eventName) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

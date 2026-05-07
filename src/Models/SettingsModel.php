@@ -21,6 +21,7 @@ namespace vwo\Models;
 use vwo\Models\FeatureModel;
 use vwo\Models\CampaignModel;
 use vwo\Utils\FunctionUtil;
+use vwo\Models\HoldoutModel;
 
 class SettingsModel {
   private $sdkKey;
@@ -32,6 +33,7 @@ class SettingsModel {
   private $version;
   private $collectionPrefix;
   private $isWebConnectivityEnabled;
+  private $holdouts = [];
 
   public function __construct($settings) {    
     $this->sdkKey = isset($settings->sK) ? $settings->sK : (isset($settings->sdkKey) ? $settings->sdkKey : null);
@@ -56,6 +58,14 @@ class SettingsModel {
     
     $this->campaignGroups = isset($settings->cG) ? $settings->cG : (isset($settings->campaignGroups) ? $settings->campaignGroups : []);
     $this->groups = isset($settings->g) ? $settings->g : (isset($settings->groups) ? $settings->groups : []);
+    
+    // add holdouts to settings model
+    if (isset($settings->holdouts)) {
+      $holdoutList = $settings->holdouts;
+      foreach ($holdoutList as $holdout) {
+        $this->holdouts[] = (new HoldoutModel())->modelFromDictionary($holdout);
+      }
+    }
   }
 
   public function getFeatures() {
@@ -88,6 +98,10 @@ class SettingsModel {
 
   public function getGroups() {
     return $this->groups;
+  }
+
+  public function getHoldouts() {
+    return $this->holdouts;
   }
 
   public function isWebConnectivityEnabled() {

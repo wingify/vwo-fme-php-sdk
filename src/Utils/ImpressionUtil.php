@@ -80,7 +80,7 @@ class ImpressionUtil
             }
             else
             {
-                $campaignKey = $campaignKeyWithFeatureName;
+                $campaignKey = $campaignKeyWithFeatureName ?? '';
             }
         }
 

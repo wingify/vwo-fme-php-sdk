@@ -30,6 +30,8 @@ class StorageDataModel
     private $experimentId;
     private $experimentKey;
     private $experimentVariationId;
+    private $isInHoldoutId;
+    private $notInHoldoutId;
 
     public function modelFromDictionary(StorageDataModel $storageData): self
     {
@@ -41,6 +43,8 @@ class StorageDataModel
         $this->experimentId = $storageData->getExperimentId();
         $this->experimentKey = $storageData->getExperimentKey();
         $this->experimentVariationId = $storageData->getExperimentVariationId();
+        $this->isInHoldoutId = $storageData->getIsInHoldoutId();
+        $this->notInHoldoutId = $storageData->getNotInHoldoutId();
         return $this;
     }
 
@@ -84,6 +88,16 @@ class StorageDataModel
         return $this->experimentVariationId;
     }
 
+    public function getIsInHoldoutId(): array
+    {
+        return $this->isInHoldoutId;
+    }
+
+    public function getNotInHoldoutId(): array
+    {
+        return $this->notInHoldoutId;
+    }
+
     public function setFeatureKey(string $featureKey)
     {
         $this->featureKey = $featureKey;
@@ -122,5 +136,15 @@ class StorageDataModel
     public function setExperimentVariationId(int $experimentVariationId)
     {
         $this->experimentVariationId = $experimentVariationId;
+    }
+
+    public function setIsInHoldoutId(array $isInHoldoutId)
+    {
+        $this->isInHoldoutId = $isInHoldoutId;
+    }
+
+    public function setNotInHoldoutId(array $notInHoldoutId)
+    {
+        $this->notInHoldoutId = $notInHoldoutId;
     }
 }

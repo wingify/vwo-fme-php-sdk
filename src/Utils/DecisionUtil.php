@@ -102,7 +102,8 @@ class DecisionUtil
                 $storedData = (new StorageDecorator())->getFeatureFromStorage(
                     "_vwo_meta_meg_{$groupDetails['groupId']}",
                     $context,
-                    $storageService
+                    $storageService,
+                    $serviceContainer
                 );
                 if ($storedData && isset($storedData['experimentKey']) && isset($storedData['experimentId'])) {
                     $serviceContainer->getLogManager()->info(

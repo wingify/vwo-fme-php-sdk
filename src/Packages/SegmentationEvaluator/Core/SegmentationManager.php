@@ -55,6 +55,7 @@ class SegmentationManager {
         
         $this->attachEvaluator(); // Ensure a fresh evaluator instance
         $this->evaluator->settings = $settings; // Set settings in evaluator
+        $this->evaluator->serviceContainer = $serviceContainer; // Set serviceContainer in evaluator
         $this->evaluator->context = $context; // Set context in evaluator
         $this->evaluator->feature = $feature; // Set feature in evaluator
 
@@ -66,12 +67,20 @@ class SegmentationManager {
         $baseUrl = $serviceContainer->getSettingsService()->hostname;
         $isDefaultHost = strpos($baseUrl, Constants::HOST_NAME) !== false;
 
+        // Check if any holdout requires gateway service
+        $holdouts = $settings->getHoldouts();
+        if (!is_array($holdouts)) {
+            $holdouts = [];
+        }
+        $isGatewayServiceRequiredForHoldouts = !empty(array_filter($holdouts, function ($holdout) {
+            return is_object($holdout) && $holdout->getIsGatewayServiceRequired();
+        }));
        
-        if (
+        if ((
             $feature->getIsGatewayServiceRequired() && 
             $serviceContainer->getSettingsService()->isGatewayServiceProvided && 
             $context->getVwo() === null
-        ) {
+        ) || $isGatewayServiceRequiredForHoldouts) {
             // if both user agent and ip address are not available, return
             if ($context->getUserAgent() === null && $context->getIpAddress() === null) {
                 return;

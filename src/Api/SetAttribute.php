@@ -43,7 +43,7 @@ class SetAttribute implements ISetAttribute
      * @param array $attributes Key-value map of attributes.
      * @param ContextModel $context Context containing user information.
      */
-    public function setAttribute(SettingsModel $settings, array $attributes, ContextModel $context, bool $isDebuggerUsed = false, ServiceContainer $serviceContainer = null)
+    public function setAttribute(SettingsModel $settings, array $attributes, ContextModel $context, bool $isDebuggerUsed = false, ?ServiceContainer $serviceContainer = null)
     {
         if (!$isDebuggerUsed) {
             $this->createImpressionForAttributes($settings, $attributes, $context, $serviceContainer);
@@ -57,7 +57,7 @@ class SetAttribute implements ISetAttribute
      * @param ContextModel $context Context containing user information.
      * @param ServiceContainer $serviceContainer The service container (optional).
      */
-    private function createImpressionForAttributes(SettingsModel $settings, array $attributes, ContextModel $context, ServiceContainer $serviceContainer = null)
+    private function createImpressionForAttributes(SettingsModel $settings, array $attributes, ContextModel $context, ?ServiceContainer $serviceContainer = null)
     {
         $networkUtil = new NetworkUtil($serviceContainer);
 

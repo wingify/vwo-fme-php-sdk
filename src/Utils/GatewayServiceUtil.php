@@ -102,33 +102,55 @@ class GatewayServiceUtil {
     public static function addIsGatewayServiceRequiredFlag($settings) {
     
         // Regular expression pattern to identify relevant segments (without lookbehind)
-        $pattern = '/\b(country|region|city|os|device_type|browser_string|ua|browser_version|os_version)\b|inlist\([^)]*\)/';
+        $keywordPattern = '/\b(country|region|city|os|device_type|browser_string|ua|browser_version|os_version)\b/';
+        $inlistPattern = '/"custom_variable"\s*:\s*{[^}]*inlist\([^)]*\)/';
     
         foreach ($settings->getFeatures() as $feature) {
             $rules = $feature->getRulesLinkedCampaign();
     
             foreach ($rules as $rule) {
+                $isRollout = $rule->getType() === CampaignTypeEnum::ROLLOUT;
+                $isPersonalize = $rule->getType() === CampaignTypeEnum::PERSONALIZE;
                 $segments = [];
-    
-                if ($rule->getType() === CampaignTypeEnum::PERSONALIZE || $rule->getType() === CampaignTypeEnum::ROLLOUT) {
-                    $segments = $rule->getVariations()[0]->getSegments();
+
+                if ($isRollout || $isPersonalize) {
+                    $variations = $rule->getVariations();
+                    if (!empty($variations)) {
+                      $segments = $variations[0]->getSegments();
+                    }
                 } else {
                     $segments = $rule->getSegments();
                 }
     
                 if ($segments) {
-                    // Convert segments to JSON
                     $jsonSegments = json_encode($segments);
     
-                    $matches = [];
-                    preg_match_all($pattern, $jsonSegments, $matches);
-
-                    if (!empty($matches[0])) {
+                    $keywordMatch = preg_match($keywordPattern, $jsonSegments);
+                    $inlistMatch = preg_match($inlistPattern, $jsonSegments);
+    
+                    if ($keywordMatch || $inlistMatch) {
                         $feature->setIsGatewayServiceRequired(true);
                         break;
                     }
                 }
             }
         }
-    }     
+
+        // for HOLDOUTS
+        foreach ($settings->getHoldouts() as $holdout) {
+            $segments = $holdout->getSegments();
+
+            if ($segments) {
+                $jsonSegments = json_encode($segments);
+
+                $keywordMatch = preg_match($keywordPattern, $jsonSegments);
+                $inlistMatch = preg_match($inlistPattern, $jsonSegments);
+
+                if ($keywordMatch || $inlistMatch) {
+                    $holdout->setIsGatewayServiceRequired(true);
+                    break;
+                }
+            }
+        }
+    }
 }

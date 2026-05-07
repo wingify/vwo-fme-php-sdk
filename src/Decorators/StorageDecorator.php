@@ -30,13 +30,13 @@ use vwo\Enums\ApiEnum;
 
 interface IStorageDecorator
 {
-    public function getFeatureFromStorage($featureKey, $context, $storageService, ServiceContainer $serviceContainer = null);
-    public function setDataInStorage($data, $storageService, ServiceContainer $serviceContainer = null);
+    public function getFeatureFromStorage($featureKey, $context, $storageService, ?ServiceContainer $serviceContainer = null);
+    public function setDataInStorage($data, $storageService, ?ServiceContainer $serviceContainer = null);
 }
 
 class StorageDecorator implements IStorageDecorator
 {
-    public function getFeatureFromStorage($featureKey, $context, $storageService, ServiceContainer $serviceContainer = null)
+    public function getFeatureFromStorage($featureKey, $context, $storageService, ?ServiceContainer $serviceContainer = null)
     {
         $campaignMap = $storageService->getDataInStorage($featureKey, $context, $serviceContainer);
 
@@ -58,7 +58,7 @@ class StorageDecorator implements IStorageDecorator
         }
     }
 
-    public function setDataInStorage($data, $storageService, ServiceContainer $serviceContainer = null)
+    public function setDataInStorage($data, $storageService, ?ServiceContainer $serviceContainer = null)
     {
         $featureKey = $data['featureKey'] ?? null;
         $featureId = $data['featureId'] ?? null;
@@ -69,6 +69,8 @@ class StorageDecorator implements IStorageDecorator
         $experimentId = $data['experimentId'] ?? null;
         $experimentKey = $data['experimentKey'] ?? null;
         $experimentVariationId = $data['experimentVariationId'] ?? null;
+        $isInHoldoutId = $data['isInHoldoutId'] ?? null;
+        $notInHoldoutId = $data['notInHoldoutId'] ?? null;
 
         $loggerService = $serviceContainer->getLoggerService();
 
@@ -101,6 +103,8 @@ class StorageDecorator implements IStorageDecorator
             'experimentId' => isset($experimentId) ? $experimentId : null,
             'experimentKey' => isset($experimentKey) ? $experimentKey : null,
             'experimentVariationId' => isset($experimentVariationId) ? $experimentVariationId : null,
+            'isInHoldoutId' => isset($isInHoldoutId) ? $isInHoldoutId : null,
+            'notInHoldoutId' => isset($notInHoldoutId) ? $notInHoldoutId : null,
         ];
 
         // Add featureId if provided

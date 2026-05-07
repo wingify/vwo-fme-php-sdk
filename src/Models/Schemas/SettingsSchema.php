@@ -26,6 +26,7 @@ class SettingsSchema {
     private $settingsSchema;
     private $featureSchema;
     private $ruleSchema;
+    private $holdoutSchema;
 
     public function __construct() {
         $this->initializeSchemas();
@@ -39,6 +40,16 @@ class SettingsSchema {
             'mca' => ['type' => ['number', 'string'], 'optional' => true],
             'hasProps' => ['type' => 'boolean', 'optional' => true],
             'revenueProp' => ['type' => 'string', 'optional' => true],
+        ];
+
+        $this->holdoutSchema = [
+            'id' => ['type' => ['number', 'string'], 'optional' => true],
+            'name' => ['type' => 'string', 'optional' => true],
+            'segments' => ['type' => ['array', 'object'], 'optional' => true],
+            'percentTraffic' => ['type' => 'number', 'optional' => true],
+            'isGlobal' => ['type' => 'boolean', 'optional' => true],
+            'featureIds' => ['type' => 'array', 'optional' => true],
+            'metrics' => ['type' => 'array', 'schema' => $this->campaignMetricSchema, 'optional' => true],
         ];
 
         $this->variableObjectSchema = [
@@ -97,6 +108,7 @@ class SettingsSchema {
             'features' => ['type' => 'array', 'schema' => $this->featureSchema, 'optional' => true],
             'campaigns' => ['type' => 'array', 'schema' => $this->campaignObjectSchema],
             'groups' => ['type' => 'array', 'optional' => true],
+            'holdouts' => ['type' => 'array', 'schema' => $this->holdoutSchema, 'optional' => true],
             'campaignGroups' => ['type' => 'array', 'optional' => true],
             'collectionPrefix' => ['type' => 'string', 'optional' => true],
             'wasInitializedEarlier' => ['type' => 'boolean', 'optional' => true],

@@ -30,6 +30,7 @@ use vwo\Enums\ApiEnum;
 
 class SegmentEvaluator implements Segmentation
 {
+    public $settings;
     public $context;
     public $serviceContainer;
     public $feature;
@@ -46,6 +47,9 @@ class SegmentEvaluator implements Segmentation
     public function isSegmentationValid($dsl, $properties)
     {
         $keyValue = $this->getKeyValue($dsl);
+        if ($keyValue === null || !is_array($keyValue) || !isset($keyValue['key']) || !isset($keyValue['value'])) {
+            return false;
+        }
         $operator = $keyValue['key'];
         $subDsl = $keyValue['value'];
 
@@ -113,7 +117,7 @@ class SegmentEvaluator implements Segmentation
                         }
                         if ($feature !== null) {
                             $featureKey = $feature->getKey();
-                            $result = $this->checkInUserStorage($this->settings, $featureKey, $this->context);
+                            $result = $this->checkInUserStorage($featureKey, $this->context);
                             if ($featureIdValue === 'off') {
                                 return !$result;
                             }
@@ -214,10 +218,10 @@ class SegmentEvaluator implements Segmentation
         return $this->checkValuePresent($uaParserMap, $this->context->getVwo()->getUaInfo());
     }
 
-    public function checkInUserStorage($settings, $featureKey, $user)
+    public function checkInUserStorage($featureKey, $context)
     {
         $storageService = new StorageService();
-        $storedData = (new StorageDecorator())->getFeatureFromStorage($featureKey, $user, $storageService);
+        $storedData = (new StorageDecorator())->getFeatureFromStorage($featureKey, $context, $storageService, $this->serviceContainer);
 
         return is_array($storedData) && count($storedData) > 0;
     }

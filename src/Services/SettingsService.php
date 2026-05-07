@@ -57,6 +57,8 @@ class SettingsService implements ISettingsService {
     public $isProxyUrlProvided = false;
     public $proxyUrl = "";
     public static $collectionPrefix;
+    public $loggerService;
+    public $settings;
     
     // Constructor
     public function __construct($options, $logManager, $loggerService) {
