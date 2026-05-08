@@ -30,13 +30,13 @@ use vwo\Enums\ApiEnum;
 
 interface IStorageDecorator
 {
-    public function getFeatureFromStorage($featureKey, $context, $storageService, ?ServiceContainer $serviceContainer = null);
-    public function setDataInStorage($data, $storageService, ?ServiceContainer $serviceContainer = null);
+    public function getFeatureFromStorage($featureKey, $context, $storageService, ServiceContainer $serviceContainer = null);
+    public function setDataInStorage($data, $storageService, ServiceContainer $serviceContainer = null);
 }
 
 class StorageDecorator implements IStorageDecorator
 {
-    public function getFeatureFromStorage($featureKey, $context, $storageService, ?ServiceContainer $serviceContainer = null)
+    public function getFeatureFromStorage($featureKey, $context, $storageService, ServiceContainer $serviceContainer = null)
     {
         $campaignMap = $storageService->getDataInStorage($featureKey, $context, $serviceContainer);
 
@@ -58,7 +58,7 @@ class StorageDecorator implements IStorageDecorator
         }
     }
 
-    public function setDataInStorage($data, $storageService, ?ServiceContainer $serviceContainer = null)
+    public function setDataInStorage($data, $storageService, ServiceContainer $serviceContainer = null)
     {
         $featureKey = $data['featureKey'] ?? null;
         $featureId = $data['featureId'] ?? null;

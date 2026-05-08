@@ -21,7 +21,7 @@ namespace vwo\Models;
 interface IGatewayService
 {
     public function getUrl(): string;
-    public function getPort(): ?int;
+    public function getPort();
     public function modelFromDictionary(GatewayServiceModel $gatewayServiceModel): self;
 }
 
@@ -43,7 +43,7 @@ class GatewayServiceModel implements IGatewayService
         return $this->url;
     }
 
-    public function getPort(): ?int
+    public function getPort()
     {
         return $this->port;
     }

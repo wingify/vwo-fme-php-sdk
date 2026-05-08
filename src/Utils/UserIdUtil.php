@@ -31,7 +31,7 @@ class UserIdUtil
    * @param ServiceContainer|null $serviceContainer
    * @return string
    */
-  public static function getUserId($userId, $isAliasingEnabled, ?ServiceContainer $serviceContainer = null)
+  public static function getUserId($userId, $isAliasingEnabled, ServiceContainer $serviceContainer = null)
   {
     if ($isAliasingEnabled) {
       $settingsService = $serviceContainer ? $serviceContainer->getSettingsService() : SettingsService::instance();

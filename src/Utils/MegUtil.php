@@ -75,7 +75,7 @@ class MegUtil
                 $featureKey,
                 $context,
                 $storageService,
-                $serviceContainer,
+                $serviceContainer
               );
           
              //if storedData exists other wise return null
@@ -114,7 +114,7 @@ class MegUtil
                         }, $matchedHoldouts),
                     ],
                     $storageService,
-                    $serviceContainer,
+                    $serviceContainer
                 );
 
                 $serviceContainer->getLoggerService()->info('PART_OF_HOLDOUT_IN_MEG', [

@@ -55,7 +55,7 @@ class VWOClient implements IVWOClient {
     private $isAliasingEnabled;
     private $serviceContainer;
 
-    public function __construct(SettingsModel $settings, array $options, ?ServiceContainer $serviceContainer = null) {
+    public function __construct(SettingsModel $settings, array $options, ServiceContainer $serviceContainer = null) {
         $this->options = $options;
         $this->settings = $settings;
         $this->serviceContainer = $serviceContainer;

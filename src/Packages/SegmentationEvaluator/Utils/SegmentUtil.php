@@ -25,14 +25,20 @@ use vwo\Utils\DataTypeUtil as DataTypeUtil;
  * @param array $obj - The object from which to extract the key-value pair.
  * @return array|null An array containing the first key and value, or null if the input is not an object.
  */
-function getKeyValue($obj): ?array {
+function getKeyValue($obj) {
     // Check if the input is a valid object using isObject utility function
     if (!DataTypeUtil::isObject($obj)) {
         return null;
     }
 
-    // Extract the first key from the object
-    $key = array_key_first($obj);
+    // Extract the first key from the array/object (PHP 7.0 compatible)
+    foreach ($obj as $k => $_v) {
+        $key = $k;
+        break;
+    }
+    if (!isset($key)) {
+        return null;
+    }
     // Retrieve the value associated with the first key
     $value = $obj[$key];
     // Return an array containing the key and value
@@ -48,7 +54,7 @@ function getKeyValue($obj): ?array {
  * @param string $regex - The regex pattern as a string.
  * @return array|null The results of the regex match, or null if an error occurs.
  */
-function matchWithRegex($string, $regex): ?array {
+function matchWithRegex($string, $regex) {
     try {
         // Attempt to match the string with the regex
         preg_match('/' . $regex . '/', $string, $matches);
