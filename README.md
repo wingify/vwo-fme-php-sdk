@@ -568,4 +568,4 @@ Please go through our [contributing guidelines](https://github.com/wingify/vwo-f
 
 [Apache License, Version 2.0](https://github.com/wingify/vwo-fme-php-sdk/blob/master/LICENSE)
 
-Copyright 2024-2025 Wingify Software Pvt. Ltd.
+Copyright 2024-2026 Wingify Software Pvt. Ltd.

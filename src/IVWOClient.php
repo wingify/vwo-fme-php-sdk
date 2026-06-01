@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Copyright 2024-2025 Wingify Software Pvt. Ltd.
+ * Copyright 2024-2026 Wingify Software Pvt. Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,6 @@
  * limitations under the License.
  */
 
-namespace vwo\Enums;
+namespace vwo;
 
-class CampaignTypeEnum {
-    const ROLLOUT = 'FLAG_ROLLOUT';
-    const AB = 'FLAG_TESTING';
-    const PERSONALIZE = 'FLAG_PERSONALIZE';
-}
-?>
+interface IVWOClient extends \wingify\IWingifyClient {}

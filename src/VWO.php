@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Copyright 2024-2025 Wingify Software Pvt. Ltd.
+ * Copyright 2024-2026 Wingify Software Pvt. Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,203 +18,32 @@
 
 namespace vwo;
 
-use vwo\Utils\DataTypeUtil;
-use vwo\Models\SettingsModel;
-use Exception;
-use vwo\Services\LoggerService;
-use vwo\Utils\SdkInitAndUsageStatsUtil;
-use vwo\Enums\LogMessagesEnum;
-use vwo\Utils\LogMessageUtil;
-use vwo\Enums\ApiEnum;
-use vwo\Utils\UuidUtil;
+use wingify\Enums\HostProfileEnum;
 
-class VWO
+class VWO extends \wingify\Wingify
 {
-    // Removed static properties to support multiple instances
-    // Each call to init() will create a new independent instance
-
-    /**
-     * Creates and returns a new VWO instance with the provided options.
-     * This method supports multiple instances by creating a new VWOBuilder each time.
-     *
-     * @param array $options Configuration options for setting up VWO.
-     * @return VWOClient|null The configured VWO client instance.
-     */
-    private static function createInstance($options)
+    protected static function createDefaultBuilder($options)
     {
-        $vwoBuilder = isset($options['vwoBuilder']) ? $options['vwoBuilder'] : new VWOBuilder($options);
-
-        $vwoBuilder
-            ->setLogger()
-            ->setSettingsService()
-            ->setStorage()
-            ->setNetworkManager()
-            ->setSegmentation()
-            ->initBatching()
-            ->initUsageStats();
-
-        // Get logManager from builder for logging
-        $logManager = $vwoBuilder->getLogger();
-        $loggerService = $vwoBuilder->getLoggerService();
-
-        if (isset($options['settings'])) {
-            $settingsObject = json_decode($options['settings']);
-            if($vwoBuilder->getSettingsService()->settingsSchemaValidator->isSettingsValid($settingsObject)) {
-                $vwoBuilder->getSettingsService()->isSettingsValidOnInit = true;
-                $vwoBuilder->getSettingsService()->settingsFetchTime = 0;
-                if ($logManager) {
-                    $logManager->info('SETTINGS_PASSED_IN_INIT_VALID');
-                }
-                $vwoBuilder->setSettings($settingsObject);
-                $settings = new SettingsModel($settingsObject);
-            } else {
-                $vwoBuilder->getSettingsService()->isSettingsValidOnInit = false;
-                $vwoBuilder->getSettingsService()->settingsFetchTime = 0;
-                if ($loggerService) {
-                    $loggerService->error('INVALID_SETTINGS_SCHEMA', ['an' => ApiEnum::INIT]);
-                }
-                $settingsObject = json_decode('{}');
-                $vwoBuilder->setSettings($settingsObject);
-                $settings = new SettingsModel($settingsObject);
-            }
-        } else {
-            // Fetch settings and build VWO instance
-            $settings = $vwoBuilder->getSettings();
+        if (!isset($options['hostProfile'])) {
+            $options['hostProfile'] = HostProfileEnum::VWO;
         }
-        
-        $instance = null;
-        if ($settings) {
-            $instance = $vwoBuilder->build($settings);
-        }
-
-        return ['instance' => $instance, 'vwoBuilder' => $vwoBuilder];
+        return new VWOBuilder($options);
     }
 
-    /**
-     * Initializes a new instance of VWO with the provided options.
-     * Each call creates a new independent instance, supporting multiple SDK instances.
-     *
-     * @param array $options Configuration options for the VWO instance.
-     * @return VWOClient|null The initialized VWO client instance.
-     */
     public static function init($options = [])
     {
-        # Start timer for total init time
-        $initStartTime = microtime(true) * 1000;
-        $apiName = 'init';
-        try {
-            if (!DataTypeUtil::isObject($options)) {
-                self::logErrorMessage(LogMessageUtil::buildMessage(LogMessagesEnum::getErrorMessages()['INVALID_OPTIONS']));
-                throw new Exception('Options should be of type object.');
-            }
-
-            if (!isset($options['sdkKey']) || !is_string($options['sdkKey'])) {
-                self::logErrorMessage(LogMessageUtil::buildMessage(LogMessagesEnum::getErrorMessages()['INVALID_SDK_KEY_IN_OPTIONS']));
-                throw new Exception('Please provide the sdkKey in the options and should be of type string');
-            }
-
-            if (!isset($options['accountId'])) {
-                self::logErrorMessage(LogMessageUtil::buildMessage(LogMessagesEnum::getErrorMessages()['INVALID_ACCOUNT_ID_IN_OPTIONS']));
-                throw new Exception('Please provide VWO account ID in the options and should be of type string|number');
-            }
-
-            if(isset($options['isAliasingEnabled']) && !isset($options['gatewayService']['url'])) {
-                throw new Exception('Please provide the gatewayService URL in the options if aliasing is enabled');
-            }
-
-            // Create a new instance (not singleton)
-            $result = self::createInstance($options);
-            $instance = $result['instance'];
-            $vwoBuilder = $result['vwoBuilder'];
-
-            if (!$instance) {
-                return null;
-            }
-
-            # Calculate total init time
-            $initTime = (int)((microtime(true) * 1000) - $initStartTime);
-            $wasInitializedEarlier = false;
-            
-            if (isset($vwoBuilder->originalSettings) && isset($vwoBuilder->originalSettings->sdkMetaInfo) && isset($vwoBuilder->originalSettings->sdkMetaInfo->wasInitializedEarlier)) {
-                $wasInitializedEarlier = $vwoBuilder->originalSettings->sdkMetaInfo->wasInitializedEarlier; 
-            } else {
-                $wasInitializedEarlier = false;
-            }
-        
-
-            if(!isset($options['isDebuggerUsed']) || !($options['isDebuggerUsed'])) {
-                if ($vwoBuilder->getSettingsService()->isSettingsValidOnInit && !$wasInitializedEarlier) {
-                    SdkInitAndUsageStatsUtil::sendSdkInitEvent($vwoBuilder->getSettingsService()->settingsFetchTime, $initTime, $vwoBuilder->serviceContainer);
-                }
-            }
-
-            //check if it exists or is not null
-            if(isset($vwoBuilder->originalSettings->usageStatsAccountId) && $vwoBuilder->originalSettings->usageStatsAccountId !== null) {
-                $usageStatsAccountId = $vwoBuilder->originalSettings->usageStatsAccountId;
-            } else {
-                $usageStatsAccountId = null;
-            }
-            if($usageStatsAccountId) {
-                SdkInitAndUsageStatsUtil::sendSDKUsageStatsEvent($usageStatsAccountId, $vwoBuilder->serviceContainer);
-            }
-
-            return $instance;
-        } catch (\Throwable $err) {
-            $msg = LogMessageUtil::buildMessage(LogMessagesEnum::getErrorMessages()['EXECUTION_FAILED'], [
-                'apiName' => $apiName,
-                'err' => $err,
-                'an' => ApiEnum::INIT,
-            ]);
-
-            self::logErrorMessage($msg);
-            return null;
+        if (!isset($options['hostProfile'])) {
+            $options['hostProfile'] = HostProfileEnum::VWO;
         }
+        if (isset($options['vwoBuilder']) && !isset($options['wingifyBuilder'])) {
+            $options['wingifyBuilder'] = $options['vwoBuilder'];
+        }
+        return parent::init($options);
     }
 
-    /**
-     * Generate a deterministic UUID for a given user and account combination.
-     *
-     * @param string $userId
-     * @param string $accountId
-     * @return string|null UUID without dashes in uppercase, or null on invalid input
-     */
     public static function getUUID($userId, $accountId)
     {
-        $apiName = 'getUUID';
-        
-        try {
-            $logMessage = sprintf('[DEBUG]: VWO-SDK %s API Called: %s', (new \DateTime())->format(DATE_ISO8601), $apiName);
-            file_put_contents("php://stdout", $logMessage . PHP_EOL);
-            
-            if (!is_string($userId) || $userId === '') {
-                $logMessage = sprintf('[ERROR]: VWO-SDK %s userId passed to %s API is not of valid type.', (new \DateTime())->format(DATE_ISO8601), $apiName);
-                file_put_contents("php://stdout", $logMessage . PHP_EOL);
-                return null;
-            }
-            
-            if (!is_string($accountId) || $accountId === '') {
-                $logMessage = sprintf('[ERROR]: VWO-SDK %s accountId passed to %s API is not of valid type.', (new \DateTime())->format(DATE_ISO8601), $apiName);
-                file_put_contents("php://stdout", $logMessage . PHP_EOL);
-                return null;
-            }
-
-            return UuidUtil::getUUID($userId, $accountId);
-        } catch (\Throwable $error) {
-            $msg = sprintf('API - %s failed to execute. Trace: %s. ', $apiName, $error->getMessage());
-            $logMessage = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $msg);
-            file_put_contents("php://stdout", $logMessage . PHP_EOL);
-            return null;
-        }
-    }
-
-    /**
-     * Common method to log error messages to stdout with a standard prefix and timestamp.
-     *
-     * @param string $message The error message to log.
-     */
-    private static function logErrorMessage($message)
-    {
-        $errorLog = sprintf('[ERROR]: VWO-SDK %s %s', (new \DateTime())->format(DATE_ISO8601), $message);
-        file_put_contents("php://stdout", $errorLog . PHP_EOL);
+        self::applyStaticLogPrefix(['hostProfile' => HostProfileEnum::VWO]);
+        return parent::getUUID($userId, $accountId);
     }
 }

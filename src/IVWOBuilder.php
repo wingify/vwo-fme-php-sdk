@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Copyright 2024-2025 Wingify Software Pvt. Ltd.
+ * Copyright 2024-2026 Wingify Software Pvt. Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,6 @@
  * limitations under the License.
  */
 
-namespace vwo\Enums;
+namespace vwo;
 
-class StorageEnum {
-    const STORAGE_UNDEFINED = 0;
-    const INCORRECT_DATA = 1;
-    const NO_DATA_FOUND = 2;
-    const CAMPAIGN_PAUSED = 3;
-    const VARIATION_NOT_FOUND = 4;
-    const WHITELISTED_VARIATION = 5;
-}
-?>
+interface IVWOBuilder extends \wingify\IWingifyBuilder {}
