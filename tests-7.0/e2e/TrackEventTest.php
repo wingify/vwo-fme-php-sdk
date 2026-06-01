@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Copyright 2024-2025 Wingify Software Pvt. Ltd.
+ * Copyright 2024-2026 Wingify Software Pvt. Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ class TrackEventTest extends TestCase
 {
     protected $options;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $vwoBuilder = new VWOBuilder([
             'accountId' => '123456',

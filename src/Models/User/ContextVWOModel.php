@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Copyright 2024-2025 Wingify Software Pvt. Ltd.
+ * Copyright 2024-2026 Wingify Software Pvt. Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,33 +18,4 @@
 
 namespace vwo\Models\User;
 
-class ContextVWOModel
-{
-    private $location = [];
-    private $userAgent = [];
-
-    public function modelFromDictionary($context)
-    {
-        if (isset($context->location)) {
-            $this->location = $context->location;
-        }
-
-        if (isset($context->userAgent)) {
-            $this->userAgent = $context->userAgent;
-        }
-
-        return $this;
-    }
-
-    public function getLocation()
-    {
-        return $this->location;
-    }
-
-    public function getUaInfo()
-    {
-        return $this->userAgent;
-    }
-}
-
-?>
+class ContextVWOModel extends \wingify\Models\User\ContextMetaModel {}

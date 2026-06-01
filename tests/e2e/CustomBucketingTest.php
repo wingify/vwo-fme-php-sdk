@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Copyright 2024-202 Wingify Software Pvt. Ltd.
+ * Copyright 2024-2026 Wingify Software Pvt. Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -409,13 +409,13 @@ class CustomBucketingTest extends TestCase
             'accountId' => 'account-id',
             'vwoBuilder' => $vwoBuilder,
         ]);
-        //mock service container
-        $reflection = new \ReflectionClass($vwoClient);
+        // Mock service container (defined on wingify\WingifyClient).
+        $reflection = new \ReflectionClass(\wingify\WingifyClient::class);
         $property = $reflection->getProperty('serviceContainer');
         $property->setAccessible(true);
         $serviceContainer = $property->getValue($vwoClient);
         //mock network manager
-        $mockNetworkManager = new class($resolvedUserIds) extends \vwo\Packages\NetworkLayer\Manager\NetworkManager {
+        $mockNetworkManager = new class($resolvedUserIds) extends \wingify\Packages\NetworkLayer\Manager\NetworkManager {
             private $userMap;
             public function __construct($userMap) {
                 $this->userMap = $userMap;
@@ -428,7 +428,7 @@ class CustomBucketingTest extends TestCase
                 //resolve alias
                 $resolvedId = $this->userMap[$originalUserId] ?? $originalUserId;
                 //mock response
-                $mockResponse = new \vwo\Packages\NetworkLayer\Models\ResponseModel();
+                $mockResponse = new \wingify\Packages\NetworkLayer\Models\ResponseModel();
                 $mockResponse->setData([(object)['userId' => $resolvedId]]);
                 return $mockResponse;
             }
