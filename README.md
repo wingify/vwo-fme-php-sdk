@@ -66,7 +66,7 @@ To customize the SDK further, additional parameters can be passed to the `init()
 | `proxy`                    | An object representing configuration for routing all SDK network requests through a custom proxy server.                                                                                   | No           | array     | See [Proxy](#proxy) section |
 | `storage`                    | Custom storage connector for persisting user decisions and campaign data.                                                                                   | No           | array     | See [Storage](#storage) section |
 | `logger`                     | Toggle log levels for more insights or for debugging purposes. You can also customize your own transport in order to have better control over log messages. | No           | array     | See [Logger](#logger) section   |
-| `Integrations`         | Callback function for integrating with third-party analytics services.                                              | No           | object      | See [Integrations](#integrations) section |
+| `integrations`         | Callback function for integrating with third-party analytics services.                                              | No           | object      | See [Integrations](#integrations) section |
 
 Refer to the [official VWO documentation](https://developers.vwo.com/v2/docs/fme-php-install) for additional parameter details.
 
