@@ -267,7 +267,7 @@ $vwoClient = VWO::init([
     'accountId' => 123456,
     'proxy' => [
         'url' => 'http://custom.proxy.com',
-        'isUrlNotSecure' => false // be default, it should be true
+        'isUrlNotSecure' => false // by default, it should be false
     ],
 ]);
 ```
